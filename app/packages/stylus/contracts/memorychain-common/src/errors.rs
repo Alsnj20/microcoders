@@ -32,6 +32,12 @@ pub enum CreditError {
     ZeroAmount,
     /// Only authorized contracts can consume credits.
     UnauthorizedConsumer { caller: Address },
+    /// Insufficient ETH payment for credit purchase.
+    InsufficientPayment { required: u64, provided: u64 },
+    /// Purchase amount is outside configured limits.
+    PurchaseOutOfRange { min: u64, max: u64, requested: u64 },
+    /// Contract is in testnet mode, no ETH required.
+    TestnetModeActive,
 }
 
 /// Errors specific to MemoryRegistry.
@@ -142,6 +148,24 @@ impl From<CreditError> for String {
             CreditError::ZeroAmount => String::from("CreditError: amount must be > 0"),
             CreditError::UnauthorizedConsumer { caller } => {
                 alloc::format!("CreditError: unauthorized consumer ({})", caller)
+            }
+            CreditError::InsufficientPayment { required, provided } => {
+                alloc::format!(
+                    "CreditError: insufficient payment (need {} wei, got {} wei)",
+                    required,
+                    provided
+                )
+            }
+            CreditError::PurchaseOutOfRange { min, max, requested } => {
+                alloc::format!(
+                    "CreditError: purchase out of range (min={}, max={}, requested={})",
+                    min,
+                    max,
+                    requested
+                )
+            }
+            CreditError::TestnetModeActive => {
+                String::from("CreditError: testnet mode active, no ETH required")
             }
         }
     }

@@ -318,6 +318,18 @@ impl AgentRegistry {
         self.total_agents.get()
     }
 
+    /// Returns the cost to create an agent (in MC credits).
+    /// Cross-contract call to CreditManager.get_fee(OP_CREATE_AGENT).
+    pub fn preview_create_cost(&self) -> u64 {
+        let credit_manager_addr = self.credit_manager.get();
+        let credit_manager = ICreditManager::new(credit_manager_addr);
+        let context = Call::new();
+        credit_manager
+            .get_fee(self.vm(), context, 3) // OP_CREATE_AGENT = 3
+            .unwrap_or(5)
+            .into()
+    }
+
     /// Returns the admin address.
     pub fn admin(&self) -> Address {
         self.admin.get()

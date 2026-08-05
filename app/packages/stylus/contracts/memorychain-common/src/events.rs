@@ -16,6 +16,13 @@ sol! {
     event CreditsRefunded(address indexed user, uint64 amount, uint64 new_balance);
     event FeesUpdated(uint16 create_memory, uint16 update_memory, uint16 create_agent, uint16 update_agent, uint16 execute_agent);
 
+    // ── CreditManager pricing events ──────────────────
+    event FeeUpdated(uint8 operation, uint16 old_fee, uint16 new_fee);
+    event PricePerCreditUpdated(uint256 old_price, uint256 new_price);
+    event TreasuryUpdated(address indexed old_treasury, address indexed new_treasury);
+    event TestnetModeUpdated(bool is_testnet);
+    event PurchaseLimitsUpdated(uint256 min, uint256 max);
+
     // ── MemoryRegistry events ─────────────────────────
     event MemoryCreated(bytes32 indexed memory_id, address indexed owner, string cid, bytes32 hash, uint8 memory_type, uint8 visibility);
     event MemoryUpdated(bytes32 indexed memory_id, address indexed owner, string new_cid, bytes32 new_hash, uint32 new_version);
