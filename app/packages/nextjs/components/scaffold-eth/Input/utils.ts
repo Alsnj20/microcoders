@@ -80,7 +80,7 @@ export const isValidInteger = (dataType: IntegerVariant, value: string) => {
   const isSigned = dataType.startsWith("i");
   const bitcount = Number(dataType.substring(isSigned ? 3 : 4));
 
-  let valueAsBigInt;
+  let valueAsBigInt: bigint | undefined;
   try {
     valueAsBigInt = BigInt(value);
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -90,7 +90,8 @@ export const isValidInteger = (dataType: IntegerVariant, value: string) => {
       return true;
     }
     return isSigned ? SIGNED_NUMBER_REGEX.test(value) || value === "-" : UNSIGNED_NUMBER_REGEX.test(value);
-  } else if (!isSigned && valueAsBigInt < 0) {
+  }
+  if (!isSigned && valueAsBigInt < 0) {
     return false;
   }
   const hexString = valueAsBigInt.toString(16);

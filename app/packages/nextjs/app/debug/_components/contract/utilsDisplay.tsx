@@ -8,6 +8,7 @@ type DisplayContent =
   | string
   | number
   | bigint
+  // biome-ignore lint/suspicious/noExplicitAny: dynamic ABI display content
   | Record<string, any>
   | TransactionBase
   | TransactionReceipt
@@ -59,14 +60,17 @@ const NumberDisplay = ({ value }: { value: bigint }) => {
 
   return (
     <div className="flex items-baseline">
-      {isEther ? "Ξ" + formatEther(value) : String(value)}
+      {isEther ? `Ξ${formatEther(value)}` : String(value)}
       <span
-        className="tooltip tooltip-secondary font-sans ml-2"
+        className="group relative font-sans ml-2"
         data-tip={isEther ? "Multiply by 1e18" : "Divide by 1e18"}
       >
-        <button className="btn btn-ghost btn-circle btn-xs" onClick={() => setIsEther(!isEther)}>
+        <button type="button" className="hover:bg-muted rounded-full h-6 px-2 text-xs cursor-pointer" onClick={() => setIsEther(!isEther)}>
           <ArrowsRightLeftIcon className="h-3 w-3 opacity-65" />
         </button>
+        <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs text-primary-foreground bg-primary rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+          {isEther ? "Multiply by 1e18" : "Divide by 1e18"}
+        </span>
       </span>
     </div>
   );
@@ -85,8 +89,8 @@ export const ObjectFieldDisplay = ({
 }) => {
   return (
     <div className={`flex flex-row items-baseline ${leftPad ? "ml-4" : ""}`}>
-      <span className="text-base-content/60 mr-2">{name}:</span>
-      <span className="text-base-content">{displayTxResult(value, size)}</span>
+      <span className="text-foreground/60 mr-2">{name}:</span>
+      <span className="text-foreground">{displayTxResult(value, size)}</span>
     </div>
   );
 };
@@ -96,12 +100,14 @@ const ArrayDisplay = ({ values, size }: { values: DisplayContent[]; size: Result
     <div className="flex flex-col gap-y-1">
       {values.length ? "array" : "[]"}
       {values.map((v, i) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: array index is stable for display-only list
         <ObjectFieldDisplay key={i} name={`[${i}]`} value={v} size={size} />
       ))}
     </div>
   );
 };
 
+// biome-ignore lint/suspicious/noExplicitAny: dynamic ABI struct fields
 const StructDisplay = ({ struct, size }: { struct: Record<string, any>; size: ResultFontSize }) => {
   return (
     <div className="flex flex-col gap-y-1">

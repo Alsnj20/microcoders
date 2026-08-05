@@ -22,6 +22,8 @@ export const RainbowKitCustomConnectButton = () => {
   const networkColor = useNetworkColor();
   const { targetNetwork } = useTargetNetwork();
   const [isBurnerModalOpen, setIsBurnerModalOpen] = useState(false);
+  const [isQRModalOpen, setIsQRModalOpen] = useState(false);
+  const [isRevealPKModalOpen, setIsRevealPKModalOpen] = useState(false);
 
   const handleBurnerWalletSelect = async (privateKey: string) => {
     saveBurnerPK({ privateKey: privateKey as `0x${string}` });
@@ -48,7 +50,7 @@ export const RainbowKitCustomConnectButton = () => {
                 if (!connected) {
                   return (
                     <button
-                      className="btn bg-secondary btn-sm"
+                      className="bg-secondary text-secondary-foreground inline-flex items-center justify-center rounded-lg font-medium transition-colors h-8 px-3 text-xs"
                       onClick={handleConnect}
                       type="button"
                       data-testid="connect-wallet"
@@ -75,9 +77,18 @@ export const RainbowKitCustomConnectButton = () => {
                       displayName={account.displayName}
                       ensAvatar={account.ensAvatar}
                       onSwitchAccount={() => setIsBurnerModalOpen(true)}
+                      onShowQRCode={() => setIsQRModalOpen(true)}
+                      onRevealPK={() => setIsRevealPKModalOpen(true)}
                     />
-                    <AddressQRCodeModal address={account.address as Address} modalId="qrcode-modal" />
-                    <RevealBurnerPKModal />
+                    <AddressQRCodeModal
+                      address={account.address as Address}
+                      isOpen={isQRModalOpen}
+                      onClose={() => setIsQRModalOpen(false)}
+                    />
+                    <RevealBurnerPKModal
+                      isOpen={isRevealPKModalOpen}
+                      onClose={() => setIsRevealPKModalOpen(false)}
+                    />
                   </>
                 );
               })()}

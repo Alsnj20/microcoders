@@ -2,7 +2,7 @@ import type { Block, Transaction, TransactionReceipt } from "viem";
 
 export type TransactionWithFunction = Transaction & {
   functionName?: string;
-  functionArgs?: any[];
+  functionArgs?: unknown[];
   functionArgNames?: string[];
   functionArgTypes?: string[];
 };

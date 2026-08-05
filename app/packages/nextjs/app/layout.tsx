@@ -1,4 +1,4 @@
-import { Inter, Orbitron } from "next/font/google";
+import { Hanken_Grotesk, Inter, Orbitron, Source_Serif_4 } from "next/font/google";
 import "@rainbow-me/rainbowkit/styles.css";
 import type { Metadata } from "next";
 import { ScaffoldEthAppWithProviders } from "~~/components/ScaffoldEthAppWithProviders";
@@ -16,14 +16,26 @@ const orbitron = Orbitron({
   weight: ["400", "700", "900"],
 });
 
+const hankenGrotesk = Hanken_Grotesk({
+  subsets: ["latin"],
+  variable: "--font-hanken-grotesk",
+  weight: ["400", "500", "600", "700"],
+});
+
+const sourceSerif4 = Source_Serif_4({
+  subsets: ["latin"],
+  variable: "--font-source-serif",
+  weight: ["400", "500", "600", "700"],
+});
+
 const baseUrl = process.env.VERCEL_URL
   ? `https://${process.env.VERCEL_URL}`
   : `http://localhost:${process.env.PORT || 3000}`;
 const imageUrl = `${baseUrl}/thumbnail.jpg`;
 
-const title = "Create Stylus Dapp";
-const titleTemplate = "%s | Create Stylus Dapp";
-const description = "Built with 🏗 Scaffold-Stylus";
+const title = "AgentOS | Natural AI Interface";
+const titleTemplate = "%s | AgentOS";
+const description = "Autonomous AI Agent Ecosystem for Web3";
 
 export const metadata: Metadata = {
   metadataBase: new URL(baseUrl),
@@ -60,8 +72,11 @@ export const metadata: Metadata = {
 
 const ScaffoldEthApp = ({ children }: { children: React.ReactNode }) => {
   return (
-    <html suppressHydrationWarning>
-      <body className={`${inter.variable} ${orbitron.variable} font-sans`} suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning>
+      <body
+        className={`${inter.variable} ${orbitron.variable} ${hankenGrotesk.variable} ${sourceSerif4.variable} font-sans`}
+        suppressHydrationWarning
+      >
         <ThemeProvider>
           <ScaffoldEthAppWithProviders>{children}</ScaffoldEthAppWithProviders>
         </ThemeProvider>

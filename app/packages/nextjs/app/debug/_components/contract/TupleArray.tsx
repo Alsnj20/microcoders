@@ -6,12 +6,15 @@ import { getFunctionInputKey, getInitialTupleArrayFormState } from "./utilsContr
 
 type TupleArrayProps = {
   abiTupleParameter: AbiParameterTuple & { isVirtual?: true };
+  // biome-ignore lint/suspicious/noExplicitAny: dynamic ABI form state
   setParentForm: Dispatch<SetStateAction<Record<string, any>>>;
   parentStateObjectKey: string;
+  // biome-ignore lint/suspicious/noExplicitAny: dynamic ABI form state
   parentForm: Record<string, any> | undefined;
 };
 
 export const TupleArray = ({ abiTupleParameter, setParentForm, parentStateObjectKey }: TupleArrayProps) => {
+  // biome-ignore lint/suspicious/noExplicitAny: dynamic ABI form state
   const [form, setForm] = useState<Record<string, any>>(() => getInitialTupleArrayFormState(abiTupleParameter));
   const [additionalInputs, setAdditionalInputs] = useState<Array<typeof abiTupleParameter.components>>([
     abiTupleParameter.components,
@@ -19,6 +22,7 @@ export const TupleArray = ({ abiTupleParameter, setParentForm, parentStateObject
 
   const depth = (abiTupleParameter.type.match(/\[\]/g) || []).length;
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: custom tuple array form serialization trigger
   useEffect(() => {
     // Extract and group fields based on index prefix
     const groupedFields = Object.keys(form).reduce(
@@ -31,21 +35,24 @@ export const TupleArray = ({ abiTupleParameter, setParentForm, parentStateObject
         acc[indexPrefix][componentName] = form[key];
         return acc;
       },
+      // biome-ignore lint/suspicious/noExplicitAny: dynamic ABI form state
       {} as Record<string, Record<string, any>>,
     );
 
+    // biome-ignore lint/suspicious/noExplicitAny: dynamic ABI form state
     let argsArray: Array<Record<string, any>> = [];
 
-    Object.keys(groupedFields).forEach(key => {
+    for (const key of Object.keys(groupedFields)) {
       const currentKeyValues = Object.values(groupedFields[key]);
 
+      // biome-ignore lint/suspicious/noExplicitAny: dynamic ABI form state
       const argsStruct: Record<string, any> = {};
       abiTupleParameter.components.forEach((component, componentIndex) => {
         argsStruct[component.name || `input_${componentIndex}_`] = currentKeyValues[componentIndex];
       });
 
       argsArray.push(argsStruct);
-    });
+    }
 
     if (depth > 1) {
       argsArray = argsArray.map(args => {
@@ -100,15 +107,18 @@ export const TupleArray = ({ abiTupleParameter, setParentForm, parentStateObject
 
   return (
     <div>
-      <div className="collapse collapse-arrow bg-base-200 pl-4 py-1.5 border-2 border-secondary">
-        <input type="checkbox" className="min-h-fit! peer" />
-        <div className="collapse-title after:top-3.5! p-0 min-h-fit! peer-checked:mb-1 text-primary-content/50">
+      <details className="bg-muted pl-4 py-1.5 border-2 border-secondary rounded-lg">
+        <summary className="p-0 min-h-fit cursor-pointer text-primary-foreground/50 list-none flex items-center">
+          <svg className="w-4 h-4 mr-2 transition-transform details-open:rotate-90" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+          </svg>
           <p className="m-0 text-[1rem]">{abiTupleParameter.internalType}</p>
-        </div>
-        <div className="ml-3 flex-col space-y-2 border-secondary/70 border-l-2 pl-4 collapse-content">
+        </summary>
+        <div className="ml-3 flex-col space-y-2 border-secondary/70 border-l-2 pl-4 pt-2 pb-2">
           {additionalInputs.map((additionalInput, additionalIndex) => (
-            <div key={additionalIndex} className="space-y-1">
-              <span className="badge bg-base-300 badge-sm">
+            // biome-ignore lint/suspicious/noArrayIndexKey: tuple input index
+            <div key={`tuple-${additionalIndex}`} className="space-y-1">
+              <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-input">
                 {depth > 1 ? `${additionalIndex}` : `tuple[${additionalIndex}]`}
               </span>
               <div className="space-y-4">
@@ -126,17 +136,17 @@ export const TupleArray = ({ abiTupleParameter, setParentForm, parentStateObject
             </div>
           ))}
           <div className="flex space-x-2">
-            <button className="btn btn-sm btn-secondary" onClick={addInput}>
+            <button type="button" className="inline-flex items-center justify-center rounded-lg font-medium transition-colors h-8 px-3 text-xs bg-secondary text-secondary-foreground" onClick={addInput}>
               +
             </button>
             {additionalInputs.length > 0 && (
-              <button className="btn btn-sm btn-secondary" onClick={removeInput}>
+              <button type="button" className="inline-flex items-center justify-center rounded-lg font-medium transition-colors h-8 px-3 text-xs bg-secondary text-secondary-foreground" onClick={removeInput}>
                 -
               </button>
             )}
           </div>
         </div>
-      </div>
+      </details>
     </div>
   );
 };

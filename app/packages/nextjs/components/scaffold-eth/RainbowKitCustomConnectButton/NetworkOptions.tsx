@@ -23,7 +23,7 @@ export const NetworkOptions = ({ hidden = false }: NetworkOptionsProps) => {
         .map(allowedNetwork => (
           <li key={allowedNetwork.id} className={hidden ? "hidden" : ""}>
             <button
-              className="menu-item btn-sm rounded-xl! flex gap-3 py-3 whitespace-nowrap"
+              className="px-4 py-2 hover:bg-muted cursor-pointer h-8 px-3 text-xs rounded-xl! flex gap-3 py-3 whitespace-nowrap"
               type="button"
               onClick={() => {
                 switchChain?.({ chainId: allowedNetwork.id });

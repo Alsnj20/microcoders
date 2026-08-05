@@ -5,6 +5,7 @@ import { BaseError as BaseViemError, ContractFunctionRevertedError } from "viem"
  * @param e - error object
  * @returns parsed error string
  */
+// biome-ignore lint/suspicious/noExplicitAny: error object walk type
 export const getParsedError = (error: any): string => {
   const parsedError = error?.walk ? error.walk() : error;
 

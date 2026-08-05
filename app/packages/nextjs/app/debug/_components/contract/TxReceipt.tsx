@@ -24,7 +24,7 @@ export const TxReceipt = ({ txResult }: { txResult: TransactionReceipt }) => {
         <div className="flex items-center">
           {isTxResultCopiedToClipboard ? (
             <CheckCircleIcon
-              className="text-xl font-normal text-base-content h-5 w-5 cursor-pointer"
+              className="text-xl font-normal text-foreground h-5 w-5 cursor-pointer"
               aria-hidden="true"
             />
           ) : (
@@ -38,9 +38,13 @@ export const TxReceipt = ({ txResult }: { txResult: TransactionReceipt }) => {
         <div className="flex-1 flex items-center pl-2">
           <strong>Transaction Receipt</strong>
         </div>
-        <div className="cursor-pointer" onClick={() => setIsExpanded(!isExpanded)}>
+        <button
+          type="button"
+          className="cursor-pointer bg-transparent border-none p-0"
+          onClick={() => setIsExpanded(!isExpanded)}
+        >
           {isExpanded ? <ChevronUpIcon className="h-5 w-5" /> : <ChevronDownIcon className="h-5 w-5" />}
-        </div>
+        </button>
       </div>
 
       {/* Collapsible Content */}

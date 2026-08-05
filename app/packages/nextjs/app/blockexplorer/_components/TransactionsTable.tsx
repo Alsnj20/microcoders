@@ -11,11 +11,11 @@ export const TransactionsTable = ({ blocks, transactionReceipts }: TransactionsT
 
   return (
     <div className="flex justify-center px-4 md:px-0">
-      <div className="overflow-x-auto w-full p-4 shadow-2xl rounded-3xl border border-color">
+      <div className="overflow-x-auto w-full p-4 shadow-2xl rounded-3xl border border-border">
         {!hasTransactions ? (
-          <div className="p-8 text-center text-base-content/70">No transactions found on this page.</div>
+          <div className="p-8 text-center text-foreground/70">No transactions found on this page.</div>
         ) : (
-          <table className="table w-full md:table-md table-sm" data-testid="blockexplorer-table">
+          <table className="w-full text-sm" data-testid="blockexplorer-table">
             <thead>
               <tr className="rounded-xl bg-[#1B1B1B] text-white">
                 <th className="rounded-l-xl">Transaction Hash</th>
@@ -35,7 +35,7 @@ export const TransactionsTable = ({ blocks, transactionReceipts }: TransactionsT
                   const functionCalled = tx.input.substring(0, 10);
 
                   return (
-                    <tr key={tx.hash} className="hover" data-testid="blockexplorer-row">
+                    <tr key={tx.hash} className="hover:bg-muted" data-testid="blockexplorer-row">
                       <td className="w-1/12 md:py-4">
                         <TransactionHash hash={tx.hash} />
                       </td>

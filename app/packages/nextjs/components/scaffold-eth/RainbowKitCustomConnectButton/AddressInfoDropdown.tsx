@@ -28,9 +28,11 @@ type AddressInfoDropdownProps = {
   displayName: string;
   ensAvatar?: string;
   onSwitchAccount: () => void;
+  onShowQRCode: () => void;
+  onRevealPK: () => void;
 };
 
-export const AddressInfoDropdown = ({ address, ensAvatar, displayName, onSwitchAccount }: AddressInfoDropdownProps) => {
+export const AddressInfoDropdown = ({ address, ensAvatar, displayName, onSwitchAccount, onShowQRCode, onRevealPK }: AddressInfoDropdownProps) => {
   const { disconnect } = useDisconnect();
   const { connector } = useAccount();
   const checkSumAddress = getAddress(address);
@@ -52,9 +54,10 @@ export const AddressInfoDropdown = ({ address, ensAvatar, displayName, onSwitchA
 
   return (
     <>
-      <div ref={dropdownRef} className={`dropdown dropdown-end leading-3 ${isOpen ? "dropdown-open" : ""}`}>
-        <label
-          className="dropdown-toggle gap-0 !h-auto"
+      <div ref={dropdownRef} className="relative inline-block leading-3">
+        {/* biome-ignore lint/a11y/useKeyWithClickEvents: dropdown trigger */}
+        <div
+          className="gap-0 !h-auto cursor-pointer"
           onClick={() => setIsOpen(prev => !prev)}
           style={{
             position: "relative",
@@ -81,6 +84,7 @@ export const AddressInfoDropdown = ({ address, ensAvatar, displayName, onSwitchA
               pointerEvents: "none",
             }}
           >
+            <title>Angular border</title>
             <path
               d="M196.132 0.5L219.5 23.2109V45.5H24.0811L0.5 22.7871V0.5H196.132Z"
               stroke="#30B4ED"
@@ -116,7 +120,7 @@ export const AddressInfoDropdown = ({ address, ensAvatar, displayName, onSwitchA
                 minWidth: 0,
               }}
             >
-              {isENS(displayName) ? displayName : checkSumAddress?.slice(0, 6) + "..." + checkSumAddress?.slice(-4)}
+              {isENS(displayName) ? displayName : `${checkSumAddress?.slice(0, 6)}...${checkSumAddress?.slice(-4)}`}
             </span>
             <ChevronDownIcon
               className="h-4 w-4"
@@ -127,109 +131,113 @@ export const AddressInfoDropdown = ({ address, ensAvatar, displayName, onSwitchA
               }}
             />
           </div>
-        </label>
-        <ul
-          tabIndex={0}
-          className="dropdown-content menu z-[2] p-2 mt-4 gap-1"
-          style={{
-            borderRadius: "8px",
-            border: isDarkMode ? "1px solid rgba(255, 255, 255, 0.20)" : "1px solid rgba(0, 0, 0, 0.1)",
-            background: isDarkMode ? "rgba(2, 2, 2, 0.20)" : "rgba(255, 255, 255, 0.20)",
-            backdropFilter: "blur(25px)",
-          }}
-        >
-          <NetworkOptions hidden={!selectingNetwork} />
-          <li className={selectingNetwork ? "hidden" : ""}>
-            <div
-              className="flex gap-3 py-3 px-3 cursor-pointer rounded-lg transition-all duration-200 hover:bg-gradient-to-r hover:from-[rgba(48,180,237,0.16)] hover:to-[rgba(227,6,110,0.16)]"
-              onClick={() => copyAddressToClipboard(checkSumAddress)}
-            >
-              {isAddressCopiedToClipboard ? (
-                <>
-                  <CheckCircleIcon
-                    className="h-5 w-5"
-                    style={{ color: isDarkMode ? "white" : "black" }}
-                    aria-hidden="true"
-                  />
-                  <span className="whitespace-nowrap" style={{ color: isDarkMode ? "white" : "black" }}>
-                    Copied!
-                  </span>
-                </>
-              ) : (
-                <>
-                  <DocumentDuplicateIcon
-                    className="h-5 w-5"
-                    style={{ color: isDarkMode ? "white" : "black" }}
-                    aria-hidden="true"
-                  />
-                  <span className="whitespace-nowrap" style={{ color: isDarkMode ? "white" : "black" }}>
-                    Copy address
-                  </span>
-                </>
-              )}
-            </div>
-          </li>
-          <li className={selectingNetwork ? "hidden" : ""}>
-            <label
-              htmlFor="qrcode-modal"
-              className="flex gap-3 py-3 px-3 cursor-pointer rounded-lg transition-all duration-200 hover:bg-gradient-to-r hover:from-[rgba(48,180,237,0.16)] hover:to-[rgba(227,6,110,0.16)]"
-            >
-              <QrCodeIcon className="h-5 w-5" style={{ color: isDarkMode ? "white" : "black" }} />
-              <span className="whitespace-nowrap" style={{ color: isDarkMode ? "white" : "black" }}>
-                View QR Code
-              </span>
-            </label>
-          </li>
-          {allowedNetworks.some(network => network.id === arbitrumNitro.id) && (
+        </div>
+        {isOpen && (
+          <ul
+            className="absolute right-0 mt-2 bg-card rounded-lg shadow-lg border border-border z-50 min-w-[200px] py-2 p-2 gap-1"
+            style={{
+              borderRadius: "8px",
+              border: isDarkMode ? "1px solid rgba(255, 255, 255, 0.20)" : "1px solid rgba(0, 0, 0, 0.1)",
+              background: isDarkMode ? "rgba(2, 2, 2, 0.20)" : "rgba(255, 255, 255, 0.20)",
+              backdropFilter: "blur(25px)",
+            }}
+          >
+            <NetworkOptions hidden={!selectingNetwork} />
             <li className={selectingNetwork ? "hidden" : ""}>
               <button
-                className="flex gap-3 py-3 px-3 cursor-pointer rounded-lg transition-all duration-200 hover:bg-gradient-to-r hover:from-[rgba(48,180,237,0.16)] hover:to-[rgba(227,6,110,0.16)] w-full text-left"
                 type="button"
-                onClick={onSwitchAccount}
+                className="flex w-full gap-3 py-3 px-3 cursor-pointer rounded-lg transition-all duration-200 hover:bg-gradient-to-r hover:from-[rgba(48,180,237,0.16)] hover:to-[rgba(227,6,110,0.16)]"
+                onClick={() => copyAddressToClipboard(checkSumAddress)}
               >
-                <UserCircleIcon className="h-5 w-5" style={{ color: isDarkMode ? "white" : "black" }} />
+                {isAddressCopiedToClipboard ? (
+                  <>
+                    <CheckCircleIcon
+                      className="h-5 w-5"
+                      style={{ color: isDarkMode ? "white" : "black" }}
+                      aria-hidden="true"
+                    />
+                    <span className="whitespace-nowrap" style={{ color: isDarkMode ? "white" : "black" }}>
+                      Copied!
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <DocumentDuplicateIcon
+                      className="h-5 w-5"
+                      style={{ color: isDarkMode ? "white" : "black" }}
+                      aria-hidden="true"
+                    />
+                    <span className="whitespace-nowrap" style={{ color: isDarkMode ? "white" : "black" }}>
+                      Copy address
+                    </span>
+                  </>
+                )}
+              </button>
+            </li>
+            <li className={selectingNetwork ? "hidden" : ""}>
+              <button
+                type="button"
+                className="flex gap-3 py-3 px-3 cursor-pointer rounded-lg transition-all duration-200 hover:bg-gradient-to-r hover:from-[rgba(48,180,237,0.16)] hover:to-[rgba(227,6,110,0.16)]"
+                onClick={() => { onShowQRCode(); closeDropdown(); }}
+              >
+                <QrCodeIcon className="h-5 w-5" style={{ color: isDarkMode ? "white" : "black" }} />
                 <span className="whitespace-nowrap" style={{ color: isDarkMode ? "white" : "black" }}>
-                  Switch account
+                  View QR Code
                 </span>
               </button>
             </li>
-          )}
-          {allowedNetworks.length > 1 ? (
+            {allowedNetworks.some(network => network.id === arbitrumNitro.id) && (
+              <li className={selectingNetwork ? "hidden" : ""}>
+                <button
+                  className="flex gap-3 py-3 px-3 cursor-pointer rounded-lg transition-all duration-200 hover:bg-gradient-to-r hover:from-[rgba(48,180,237,0.16)] hover:to-[rgba(227,6,110,0.16)] w-full text-left"
+                  type="button"
+                  onClick={onSwitchAccount}
+                >
+                  <UserCircleIcon className="h-5 w-5" style={{ color: isDarkMode ? "white" : "black" }} />
+                  <span className="whitespace-nowrap" style={{ color: isDarkMode ? "white" : "black" }}>
+                    Switch account
+                  </span>
+                </button>
+              </li>
+            )}
+            {allowedNetworks.length > 1 ? (
+              <li className={selectingNetwork ? "hidden" : ""}>
+                <button
+                  className="flex gap-3 py-3 px-3 cursor-pointer rounded-lg transition-all duration-200 hover:bg-gradient-to-r hover:from-[rgba(48,180,237,0.16)] hover:to-[rgba(227,6,110,0.16)] w-full text-left"
+                  type="button"
+                  onClick={() => {
+                    setSelectingNetwork(true);
+                  }}
+                >
+                  <ArrowsRightLeftIcon className="h-5 w-5" style={{ color: isDarkMode ? "white" : "black" }} />
+                  <span style={{ color: isDarkMode ? "white" : "black" }}>Switch Network</span>
+                </button>
+              </li>
+            ) : null}
+            {connector?.id === BURNER_WALLET_ID ? (
+              <li>
+                <button
+                  className="flex gap-3 py-3 px-3 cursor-pointer rounded-lg transition-all duration-200 hover:bg-gradient-to-r hover:from-[rgba(48,180,237,0.16)] hover:to-[rgba(227,6,110,0.16)]"
+                  type="button"
+                  onClick={() => { onRevealPK(); closeDropdown(); }}
+                >
+                  <EyeIcon className="h-5 w-5" style={{ color: isDarkMode ? "white" : "black" }} />
+                  <span style={{ color: isDarkMode ? "white" : "black" }}>Reveal Private Key</span>
+                </button>
+              </li>
+            ) : null}
             <li className={selectingNetwork ? "hidden" : ""}>
               <button
                 className="flex gap-3 py-3 px-3 cursor-pointer rounded-lg transition-all duration-200 hover:bg-gradient-to-r hover:from-[rgba(48,180,237,0.16)] hover:to-[rgba(227,6,110,0.16)] w-full text-left"
                 type="button"
-                onClick={() => {
-                  setSelectingNetwork(true);
-                }}
+                onClick={() => disconnect()}
               >
-                <ArrowsRightLeftIcon className="h-5 w-5" style={{ color: isDarkMode ? "white" : "black" }} />
-                <span style={{ color: isDarkMode ? "white" : "black" }}>Switch Network</span>
+                <ArrowLeftEndOnRectangleIcon className="h-5 w-5" style={{ color: "#FB3748" }} />
+                <span style={{ color: "#FB3748" }}>Disconnect</span>
               </button>
             </li>
-          ) : null}
-          {connector?.id === BURNER_WALLET_ID ? (
-            <li>
-              <label
-                htmlFor="reveal-burner-pk-modal"
-                className="flex gap-3 py-3 px-3 cursor-pointer rounded-lg transition-all duration-200 hover:bg-gradient-to-r hover:from-[rgba(48,180,237,0.16)] hover:to-[rgba(227,6,110,0.16)]"
-              >
-                <EyeIcon className="h-5 w-5" style={{ color: isDarkMode ? "white" : "black" }} />
-                <span style={{ color: isDarkMode ? "white" : "black" }}>Reveal Private Key</span>
-              </label>
-            </li>
-          ) : null}
-          <li className={selectingNetwork ? "hidden" : ""}>
-            <button
-              className="flex gap-3 py-3 px-3 cursor-pointer rounded-lg transition-all duration-200 hover:bg-gradient-to-r hover:from-[rgba(48,180,237,0.16)] hover:to-[rgba(227,6,110,0.16)] w-full text-left"
-              type="button"
-              onClick={() => disconnect()}
-            >
-              <ArrowLeftEndOnRectangleIcon className="h-5 w-5" style={{ color: "#FB3748" }} />
-              <span style={{ color: "#FB3748" }}>Disconnect</span>
-            </button>
-          </li>
-        </ul>
+          </ul>
+        )}
       </div>
     </>
   );

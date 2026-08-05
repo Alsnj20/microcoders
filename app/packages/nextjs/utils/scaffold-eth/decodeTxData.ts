@@ -26,14 +26,17 @@ export const decodeTransactionData = (tx: TransactionWithFunction) => {
           data: tx.input,
         });
         tx.functionName = functionName;
+        // biome-ignore lint/suspicious/noExplicitAny: dynamic ABI decoding parameter
         tx.functionArgs = args as any[];
         tx.functionArgNames = getAbiItem<AbiFunction[], string>({
           abi: contractAbi as AbiFunction[],
           name: functionName,
+          // biome-ignore lint/suspicious/noExplicitAny: dynamic ABI decoding parameter
         })?.inputs?.map((input: any) => input.name);
         tx.functionArgTypes = getAbiItem<AbiFunction[], string>({
           abi: contractAbi as AbiFunction[],
           name: functionName,
+          // biome-ignore lint/suspicious/noExplicitAny: dynamic ABI decoding parameter
         })?.inputs.map((input: any) => input.type);
         foundInterface = true;
         break;
@@ -50,8 +53,7 @@ export const decodeTransactionData = (tx: TransactionWithFunction) => {
 
 export const getFunctionDetails = (transaction: TransactionType) => {
   if (
-    transaction &&
-    transaction.functionName &&
+    transaction?.functionName &&
     transaction.functionArgNames &&
     transaction.functionArgTypes &&
     transaction.functionArgs

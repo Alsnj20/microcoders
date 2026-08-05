@@ -108,6 +108,7 @@ export const useScaffoldEventHistory = <
   const publicClient = usePublicClient({
     chainId: selectedNetwork.id,
   });
+  // biome-ignore lint/suspicious/noExplicitAny: dynamic event type from ABI
   const [liveEvents, setLiveEvents] = useState<any[]>([]);
   const [lastFetchedBlock, setLastFetchedBlock] = useState<bigint | null>(null);
   const [isPollingActive, setIsPollingActive] = useState(false);
@@ -130,7 +131,8 @@ export const useScaffoldEventHistory = <
       ? fromBlock
       : BigInt(
           deployedContractData && "deployedOnBlock" in deployedContractData
-            ? (deployedContractData.deployedOnBlock as any) || 0
+            ? // biome-ignore lint/suspicious/noExplicitAny: deployed contract block type
+              (deployedContractData.deployedOnBlock as any) || 0
             : 0,
         );
 

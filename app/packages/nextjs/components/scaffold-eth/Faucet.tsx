@@ -29,6 +29,7 @@ export const Faucet = () => {
   const [inputAddress, setInputAddress] = useState<AddressType>();
   const [faucetAddress, setFaucetAddress] = useState<AddressType>(arbitrumNitro.accounts[0].address);
   const [sendValue, setSendValue] = useState("");
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const { chain: ConnectedChain } = useAccount();
   const { resolvedTheme } = useTheme();
@@ -49,11 +50,11 @@ export const Faucet = () => {
           <>
             <p className="font-bold mt-0 mb-1">Cannot connect to local provider</p>
             <p className="m-0">
-              - Did you forget to run <code className="italic bg-base-300 text-base font-bold">pnpm chain</code> ?
+              - Did you forget to run <code className="italic bg-input text-base font-bold">pnpm chain</code> ?
             </p>
             <p className="mt-1 break-normal">
-              - Or you can change <code className="italic bg-base-300 text-base font-bold">targetNetwork</code> in{" "}
-              <code className="italic bg-base-300 text-base font-bold">scaffold.config.ts</code>
+              - Or you can change <code className="italic bg-input text-base font-bold">targetNetwork</code> in{" "}
+              <code className="italic bg-input text-base font-bold">scaffold.config.ts</code>
             </p>
           </>,
         );
@@ -76,6 +77,7 @@ export const Faucet = () => {
       setLoading(false);
       setInputAddress(undefined);
       setSendValue("");
+      setIsModalOpen(false);
     } catch (error) {
       console.error("⚡️ ~ file: Faucet.tsx:sendETH ~ error", error);
       setLoading(false);
@@ -91,9 +93,9 @@ export const Faucet = () => {
     <div>
       <div className="relative">
         <AngularBorder width={130} height={40} color="rgba(227, 6, 110, 1)" />
-        <label
-          htmlFor="faucet-modal"
+        <button
           className="flex items-center gap-2 px-4 py-2 cursor-pointer rounded-lg"
+          type="button"
           style={{
             width: "130px",
             height: "40px",
@@ -103,6 +105,7 @@ export const Faucet = () => {
             position: "relative",
             zIndex: 1,
           }}
+          onClick={() => setIsModalOpen(true)}
         >
           <BanknotesIcon className="h-4 w-4" style={{ color: "rgba(227, 6, 110, 1)" }} />
           <span
@@ -119,47 +122,55 @@ export const Faucet = () => {
           >
             Faucet
           </span>
-        </label>
+        </button>
       </div>
-      <input type="checkbox" id="faucet-modal" className="modal-toggle" />
-      <label htmlFor="faucet-modal" className="modal cursor-pointer">
-        <label className="modal-box relative">
-          {/* dummy input to capture event onclick on modal box */}
-          <input className="h-0 w-0 absolute top-0 left-0" />
-          <h3 className="text-xl font-bold mb-3">Local Faucet</h3>
-          <label htmlFor="faucet-modal" className="btn btn-ghost btn-sm btn-circle absolute right-3 top-3">
-            ✕
-          </label>
-          <div className="space-y-3">
-            <div className="flex space-x-4">
-              <div>
-                <span className="text-sm font-bold">From:</span>
-                <Address address={faucetAddress} onlyEnsOrAddress />
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setIsModalOpen(false)}>
+          <div className="bg-card rounded-xl p-6 shadow-xl max-w-md w-full" onClick={e => e.stopPropagation()}>
+            <h3 className="text-xl font-bold mb-3">Local Faucet</h3>
+            <button
+              type="button"
+              className="inline-flex items-center justify-center rounded-lg font-medium transition-colors h-8 px-3 text-xs hover:bg-muted absolute right-3 top-3"
+              onClick={() => setIsModalOpen(false)}
+            >
+              ✕
+            </button>
+            <div className="space-y-3">
+              <div className="flex space-x-4">
+                <div>
+                  <span className="text-sm font-bold">From:</span>
+                  <Address address={faucetAddress} onlyEnsOrAddress />
+                </div>
+                <div>
+                  <span className="text-sm font-bold pl-3">Available:</span>
+                  <Balance address={faucetAddress} />
+                </div>
               </div>
-              <div>
-                <span className="text-sm font-bold pl-3">Available:</span>
-                <Balance address={faucetAddress} />
+              <div className="flex flex-col space-y-3">
+                <AddressInput
+                  placeholder="Destination Address"
+                  value={inputAddress ?? ""}
+                  onChange={value => setInputAddress(value as AddressType)}
+                />
+                <EtherInput placeholder="Amount to send" value={sendValue} onChange={value => setSendValue(value)} />
+                <button
+                  type="button"
+                  className="h-10 bg-primary text-primary-foreground inline-flex items-center justify-center rounded-lg font-medium transition-colors px-2"
+                  onClick={sendETH}
+                  disabled={loading}
+                >
+                  {!loading ? (
+                    <BanknotesIcon className="h-6 w-6" />
+                  ) : (
+                    <span className="animate-spin border-2 border-current border-t-transparent rounded-full h-4 w-4" />
+                  )}
+                  <span>Send</span>
+                </button>
               </div>
-            </div>
-            <div className="flex flex-col space-y-3">
-              <AddressInput
-                placeholder="Destination Address"
-                value={inputAddress ?? ""}
-                onChange={value => setInputAddress(value as AddressType)}
-              />
-              <EtherInput placeholder="Amount to send" value={sendValue} onChange={value => setSendValue(value)} />
-              <button className="h-10 btn btn-primary btn-sm px-2 rounded-full" onClick={sendETH} disabled={loading}>
-                {!loading ? (
-                  <BanknotesIcon className="h-6 w-6" />
-                ) : (
-                  <span className="loading loading-spinner loading-sm"></span>
-                )}
-                <span>Send</span>
-              </button>
             </div>
           </div>
-        </label>
-      </label>
+        </div>
+      )}
     </div>
   );
 };

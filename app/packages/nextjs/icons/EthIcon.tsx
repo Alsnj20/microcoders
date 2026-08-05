@@ -9,6 +9,8 @@ const EthIcon = ({ width = 32, height = 32, className = "" }) => {
       viewBox="0 0 32 32"
       fill="none"
       className={className}
+      role="img"
+      aria-label="Ethereum icon"
     >
       <g fill="none" fillRule="evenodd">
         <circle cx="16" cy="16" r="16" fill="#627EEA" />

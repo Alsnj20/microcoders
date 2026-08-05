@@ -35,7 +35,7 @@ export const ContractUI = ({ contractName, className = "" }: ContractUIProps) =>
   if (deployedContractLoading) {
     return (
       <div className="mt-14">
-        <span className="loading loading-spinner loading-lg"></span>
+        <span className="animate-spin border-2 border-current border-t-transparent rounded-full h-8 w-8" />
       </div>
     );
   }
@@ -138,6 +138,7 @@ export const ContractUI = ({ contractName, className = "" }: ContractUIProps) =>
           >
             {tabs.map(tab => (
               <button
+                type="button"
                 key={tab.id}
                 className={`tab-button ${activeTab === tab.id ? "active" : ""}`}
                 onClick={() => setActiveTab(tab.id)}

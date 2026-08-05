@@ -39,6 +39,7 @@ export const BurnerWalletModal = ({ isOpen, onClose, onSelectAccount }: BurnerWa
         <div className="space-y-2">
           {arbitrumNitro.accounts.map(account => (
             <button
+              type="button"
               key={account.address}
               onClick={() => handleAccountSelect(account.privateKey, account.address)}
               data-testid="burner-account-option"
@@ -53,7 +54,7 @@ export const BurnerWalletModal = ({ isOpen, onClose, onSelectAccount }: BurnerWa
                     {account.address.slice(0, 6)}...{account.address.slice(-4)}
                   </div>
                 </div>
-                <div className="text-xs text-base-content/50">{account.address === selectedAccount ? "✓" : ""}</div>
+                <div className="text-xs text-foreground/50">{account.address === selectedAccount ? "✓" : ""}</div>
               </div>
             </button>
           ))}

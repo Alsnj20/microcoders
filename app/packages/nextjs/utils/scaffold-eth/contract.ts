@@ -51,10 +51,12 @@ type AddExternalFlag<T> = {
   };
 };
 
+// biome-ignore lint/suspicious/noExplicitAny: generic contract ABI type utilities
 const deepMergeContracts = <L extends Record<PropertyKey, any>, E extends Record<PropertyKey, any>>(
   local: L,
   external: E,
 ) => {
+  // biome-ignore lint/suspicious/noExplicitAny: generic contract ABI type utilities
   const result: Record<PropertyKey, any> = {};
   const allKeys = Array.from(new Set([...Object.keys(external), ...Object.keys(local)]));
   for (const key of allKeys) {
@@ -95,6 +97,7 @@ export const contracts = contractsData as GenericContractsDeclaration | null;
 
 type ConfiguredChainId = (typeof scaffoldConfig)["targetNetworks"][0]["id"];
 
+// biome-ignore lint/suspicious/noExplicitAny: generic contract ABI type utilities
 type IsContractDeclarationMissing<TYes, TNo> = typeof contractsData extends { [key in ConfiguredChainId]: any }
   ? TNo
   : TYes;
@@ -126,7 +129,9 @@ export type AbiFunctionOutputs<TAbi extends Abi, TFunctionName extends string> =
 >["outputs"];
 
 export type AbiFunctionReturnType<TAbi extends Abi, TFunctionName extends string> = IsContractDeclarationMissing<
+  // biome-ignore lint/suspicious/noExplicitAny: generic contract ABI type utilities
   any,
+  // biome-ignore lint/suspicious/noExplicitAny: generic contract ABI type utilities
   AbiParametersToPrimitiveTypes<AbiFunctionOutputs<TAbi, TFunctionName>> extends readonly [any]
     ? AbiParametersToPrimitiveTypes<AbiFunctionOutputs<TAbi, TFunctionName>>[0]
     : AbiParametersToPrimitiveTypes<AbiFunctionOutputs<TAbi, TFunctionName>>
@@ -165,6 +170,7 @@ export type FunctionNamesWithInputs<
 
 type Expand<T> = T extends object ? (T extends infer O ? { [K in keyof O]: O[K] } : never) : T;
 
+// biome-ignore lint/suspicious/noExplicitAny: generic contract ABI type utilities
 type UnionToIntersection<U> = Expand<(U extends any ? (k: U) => void : never) extends (k: infer I) => void ? I : never>;
 
 type OptionalTuple<T> = T extends readonly [infer H, ...infer R] ? readonly [H | undefined, ...OptionalTuple<R>] : T;
@@ -221,6 +227,7 @@ export type ScaffoldWriteContractVariables<
     Omit<WriteContractParameters, "chainId" | "abi" | "address" | "functionName" | "args">
 >;
 
+// biome-ignore lint/suspicious/noExplicitAny: generic contract ABI type utilities
 type WriteVariables = WriteContractVariables<Abi, string, any[], Config, number>;
 
 export type TransactorFuncOptions = {
@@ -251,6 +258,7 @@ export type UseScaffoldEventConfig<
   Omit<UseWatchContractEventParameters, "onLogs" | "address" | "abi" | "eventName"> & {
     onLogs: (
       logs: Simplify<
+        // biome-ignore lint/suspicious/noExplicitAny: generic contract ABI type utilities
         Omit<Log<bigint, number, any>, "args" | "eventName"> & {
           args: Record<string, unknown>;
           eventName: string;
@@ -285,11 +293,13 @@ export type EventFilters<
   TContractName extends ContractName,
   TEventName extends ExtractAbiEventNames<ContractAbi<TContractName>>,
 > = IsContractDeclarationMissing<
+  // biome-ignore lint/suspicious/noExplicitAny: generic contract ABI type utilities
   any,
   IndexedEventInputs<TContractName, TEventName> extends never
     ? never
     : {
         [Key in IsContractDeclarationMissing<
+          // biome-ignore lint/suspicious/noExplicitAny: generic contract ABI type utilities
           any,
           IndexedEventInputs<TContractName, TEventName>["name"]
         >]?: AbiParameterToPrimitiveType<Extract<IndexedEventInputs<TContractName, TEventName>, { name: Key }>>;
@@ -329,6 +339,7 @@ export type UseScaffoldEventHistoryData<
   >,
 > =
   | IsContractDeclarationMissing<
+      // biome-ignore lint/suspicious/noExplicitAny: generic contract ABI type utilities
       any[],
       {
         args: AbiParametersToPrimitiveTypes<TEvent["inputs"]> &
@@ -352,6 +363,7 @@ export type AbiParameterTuple = Extract<AbiParameter, { type: "tuple" | `tuple[$
  * Enhanced error parsing that creates a lookup table from all deployed contracts
  * to decode error signatures from any contract in the system
  */
+// biome-ignore lint/suspicious/noExplicitAny: dynamic error parameter
 export const getParsedErrorWithAllAbis = (error: any, chainId: AllowedChainIds): string => {
   const originalParsedError = getParsedError(error);
 
@@ -375,13 +387,16 @@ export const getParsedErrorWithAllAbis = (error: any, chainId: AllowedChainIds):
       // Build a lookup table of error signatures to error names
       const errorLookup: Record<string, { name: string; contract: string; signature: string }> = {};
 
-      Object.entries(chainContracts).forEach(([contractName, contract]: [string, any]) => {
-        if (contract.abi) {
-          contract.abi.forEach((item: any) => {
+      for (const [contractName, contract] of Object.entries(chainContracts)) {
+        // biome-ignore lint/suspicious/noExplicitAny: dynamic contract ABI
+        const typedContract = contract as any;
+        if (typedContract.abi) {
+          for (const item of typedContract.abi) {
             if (item.type === "error") {
               // Create the proper error signature like Solidity does
               const errorName = item.name;
               const inputs = item.inputs || [];
+              // biome-ignore lint/suspicious/noExplicitAny: dynamic ABI input
               const inputTypes = inputs.map((input: any) => input.type).join(",");
               const errorSignature = `${errorName}(${inputTypes})`;
 
@@ -395,9 +410,9 @@ export const getParsedErrorWithAllAbis = (error: any, chainId: AllowedChainIds):
                 signature: errorSignature,
               };
             }
-          });
+          }
         }
-      });
+      }
 
       // Check if we can find the error in our lookup
       const errorInfo = errorLookup[signature];
@@ -421,6 +436,7 @@ export const simulateContractWriteAndNotifyError = async ({
   chainId,
 }: {
   wagmiConfig: Config;
+  // biome-ignore lint/suspicious/noExplicitAny: generic contract ABI parameters
   writeContractParams: WriteContractVariables<Abi, string, any[], Config, number>;
   chainId: AllowedChainIds;
 }) => {
@@ -433,8 +449,12 @@ export const simulateContractWriteAndNotifyError = async ({
     // functions revert when estimated from an unset/zero account.
     const account =
       params.account ??
+      // biome-ignore lint/suspicious/noExplicitAny: connector client chain type
       (await getConnectorClient(wagmiConfig, { assertChainId: false, chainId: chainId as any })).account;
+    // biome-ignore lint/suspicious/noExplicitAny: client chain type
+    // biome-ignore lint/style/noNonNullAssertion: wagmi client may be null during initialization
     const client = getClient(wagmiConfig, { chainId: chainId as any })!;
+    // biome-ignore lint/suspicious/noExplicitAny: gas estimation params type
     const gas = await estimateContractGas(client, { ...params, account } as any);
     await simulateContract(wagmiConfig, { ...params, gas });
   } catch (error) {

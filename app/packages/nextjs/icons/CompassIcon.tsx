@@ -9,6 +9,8 @@ const CompassIcon = ({ width = 28, height = 28, className = "" }) => {
       viewBox="0 0 24 24"
       fill="none"
       className={className}
+      role="img"
+      aria-label="Compass icon"
     >
       <g clipPath="url(#clip0_2148_341)">
         <path

@@ -23,9 +23,9 @@ export const InputBase = <T extends { toString: () => string } | undefined = str
 
   let modifier = "";
   if (error) {
-    modifier = "border-error";
+    modifier = "border-destructive";
   } else if (disabled) {
-    modifier = "border-disabled bg-base-300";
+    modifier = "border-disabled bg-input";
   }
 
   const handleChange = useCallback(
@@ -50,7 +50,7 @@ export const InputBase = <T extends { toString: () => string } | undefined = str
     <div className={`flex text-accent ${modifier}`}>
       {prefix}
       <input
-        className="input input-ghost focus-within:border-transparent focus:outline-hidden focus:bg-transparent h-[2.2rem] min-h-[2.2rem] px-4 border w-full font-medium placeholder:text-accent/70 text-base-content/70 focus:text-base-content/70"
+        className="bg-transparent border-none outline-none focus-within:border-transparent focus:outline-hidden focus:bg-transparent h-[2.2rem] min-h-[2.2rem] px-4 border w-full font-medium placeholder:text-accent/70 text-foreground/70 focus:text-foreground/70"
         placeholder={placeholder}
         name={name}
         value={value?.toString()}
