@@ -35,6 +35,7 @@ export function useDeployedContractInfo<TContractName extends ContractName>(
   const isMounted = useIsMounted();
 
   const finalConfig: UseDeployedContractConfig<TContractName> =
+    // biome-ignore lint/suspicious/noExplicitAny: config overload cast
     typeof configOrName === "string" ? { contractName: configOrName } : (configOrName as any);
 
   useEffect(() => {
@@ -77,7 +78,7 @@ export function useDeployedContractInfo<TContractName extends ContractName>(
     };
 
     checkContractDeployment();
-  }, [isMounted, contractName, deployedContract, publicClient]);
+  }, [isMounted, deployedContract, publicClient]);
 
   return {
     data: status === ContractCodeStatus.DEPLOYED ? deployedContract : undefined,

@@ -35,6 +35,7 @@ export const WriteOnlyFunctionForm = ({
   contractAddress,
   inheritedFrom,
 }: WriteOnlyFunctionFormProps) => {
+  // biome-ignore lint/suspicious/noExplicitAny: dynamic ABI form state
   const [form, setForm] = useState<Record<string, any>>(() => getInitialFormState(abiFunction));
   const [txValue, setTxValue] = useState<string>("");
   const { chain } = useAccount();
@@ -57,6 +58,7 @@ export const WriteOnlyFunctionForm = ({
           value: BigInt(txValue),
         };
         const bufferedWriteContractObj = await applyGasFeeMultiplier(
+          // biome-ignore lint/suspicious/noExplicitAny: dynamic ABI contract object
           writeContractObj as any,
           targetNetwork.id as AllowedChainIds,
         );
@@ -69,7 +71,7 @@ export const WriteOnlyFunctionForm = ({
         const makeWriteWithParams = () => writeContractAsync(bufferedWriteContractObj as typeof writeContractObj);
         await writeTxn(makeWriteWithParams);
         onChange();
-      } catch (e: any) {
+      } catch (e: unknown) {
         console.error("⚡️ ~ file: WriteOnlyFunctionForm.tsx:handleWrite ~ error", e);
       }
     }
@@ -134,19 +136,22 @@ export const WriteOnlyFunctionForm = ({
           )}
           <div className="flex justify-end">
             <div
-              className={`flex ${
-                writeDisabled &&
-                "tooltip tooltip-bottom tooltip-secondary before:content-[attr(data-tip)] before:-translate-x-1/3 before:left-auto before:transform-none"
-              }`}
+              className={`flex group relative ${writeDisabled ? "" : ""}`}
               data-tip={`${writeDisabled && "Wallet not connected or in the wrong network"}`}
             >
+              {writeDisabled && (
+                <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs text-primary-foreground bg-primary rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50">
+                  Wallet not connected or in the wrong network
+                </span>
+              )}
               <button
+                type="button"
                 className="send-button"
                 disabled={writeDisabled || isPending}
                 onClick={handleWrite}
                 data-testid="write-function-submit"
               >
-                {isPending && <span className="loading loading-spinner loading-xs"></span>}
+                {isPending && <span className="animate-spin border-2 border-current border-t-transparent rounded-full h-3 w-3" />}
                 Send
               </button>
             </div>

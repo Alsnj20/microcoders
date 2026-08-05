@@ -18,7 +18,7 @@ type TransactionFunc = (
  */
 const TxnNotification = ({ message, blockExplorerLink }: { message: string; blockExplorerLink?: string }) => {
   return (
-    <div className={`flex flex-col ml-1 cursor-default`}>
+    <div className={"flex flex-col ml-1 cursor-default"}>
       <p className="my-0">{message}</p>
       {blockExplorerLink && blockExplorerLink.length > 0 ? (
         <a href={blockExplorerLink} target="_blank" rel="noreferrer" className="block link">
@@ -92,6 +92,7 @@ export const useTransactor = (_walletClient?: WalletClient): TransactionFunc => 
       );
 
       if (options?.onBlockConfirmation) options.onBlockConfirmation(transactionReceipt);
+      // biome-ignore lint/suspicious/noExplicitAny: error type from wagmi
     } catch (error: any) {
       if (notificationId) {
         notification.remove(notificationId);

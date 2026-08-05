@@ -105,7 +105,7 @@ export const Address = ({
     },
   });
 
-  const shortAddress = checkSumAddress?.slice(0, 6) + "..." + checkSumAddress?.slice(-4);
+  const shortAddress = `${checkSumAddress?.slice(0, 6)}...${checkSumAddress?.slice(-4)}`;
   const displayAddress = format === "long" ? checkSumAddress : shortAddress;
   const displayEnsOrAddress = ens || displayAddress;
 
@@ -119,19 +119,19 @@ export const Address = ({
     return (
       <div className="flex items-center">
         <div
-          className="shrink-0 skeleton rounded-full"
+          className="shrink-0 animate-pulse rounded-full"
           style={{
-            width: (blockieSizeMap[blockieSize] * 24) / blockieSizeMap["base"],
-            height: (blockieSizeMap[blockieSize] * 24) / blockieSizeMap["base"],
+            width: (blockieSizeMap[blockieSize] * 24) / blockieSizeMap.base,
+            height: (blockieSizeMap[blockieSize] * 24) / blockieSizeMap.base,
           }}
-        ></div>
+        />
         <div className="flex flex-col space-y-1">
           {!onlyEnsOrAddress && (
-            <div className={`ml-1.5 skeleton rounded-lg font-bold ${textSizeMap[ensSize]}`}>
+            <div className={`ml-1.5 animate-pulse rounded-lg font-bold ${textSizeMap[ensSize]}`}>
               <span className="invisible">0x1234...56789</span>
             </div>
           )}
-          <div className={`ml-1.5 skeleton rounded-lg ${textSizeMap[addressSize]}`}>
+          <div className={`ml-1.5 animate-pulse rounded-lg ${textSizeMap[addressSize]}`}>
             <span className="invisible">0x1234...56789</span>
           </div>
         </div>
@@ -140,7 +140,7 @@ export const Address = ({
   }
 
   if (!isAddress(checkSumAddress)) {
-    return <span className="text-error">Wrong address</span>;
+    return <span className="text-destructive">Wrong address</span>;
   }
 
   const blockExplorerAddressLink = getBlockExplorerAddressLink(targetNetwork, checkSumAddress);
@@ -151,13 +151,13 @@ export const Address = ({
         <BlockieAvatar
           address={checkSumAddress}
           ensImage={ensAvatar}
-          size={(blockieSizeMap[blockieSize] * 24) / blockieSizeMap["base"]}
+          size={(blockieSizeMap[blockieSize] * 24) / blockieSizeMap.base}
         />
       </div>
       <div className="flex flex-col">
         {showSkeleton &&
           (isEnsNameLoading ? (
-            <div className={`ml-1.5 skeleton rounded-lg font-bold ${textSizeMap[ensSize]}`}>
+            <div className={`ml-1.5 animate-pulse rounded-lg font-bold ${textSizeMap[ensSize]}`}>
               <span className="invisible">{shortAddress}</span>
             </div>
           ) : (

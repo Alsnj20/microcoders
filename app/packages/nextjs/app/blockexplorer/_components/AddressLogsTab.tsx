@@ -10,7 +10,7 @@ export const AddressLogsTab = ({ address }: { address: Address }) => {
       <div className="mockup-code overflow-auto max-h-[500px]">
         <pre className="px-5 whitespace-pre-wrap break-words">
           {contractLogs.map((log, i) => (
-            <div key={i}>
+            <div key={`${log.transactionHash || "log"}-${log.logIndex ?? i}`}>
               <strong>Log:</strong> {JSON.stringify(log, replacer, 2)}
             </div>
           ))}

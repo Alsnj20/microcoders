@@ -24,8 +24,8 @@ type NotificationOptions = {
 
 const ENUM_STATUSES = {
   success: <CheckCircleIcon className="w-7 text-success" />,
-  loading: <span className="w-6 loading loading-spinner"></span>,
-  error: <ExclamationCircleIcon className="w-7 text-error" />,
+  loading: <span className="w-6 animate-spin border-2 border-current border-t-transparent rounded-full" />,
+  error: <ExclamationCircleIcon className="w-7 text-destructive" />,
   info: <InformationCircleIcon className="w-7 text-info" />,
   warning: <ExclamationTriangleIcon className="w-7 text-warning" />,
 };
@@ -46,9 +46,9 @@ const Notification = ({
   return toast.custom(
     (t: Toast) => (
       <div
-        className={`flex flex-row items-start justify-between max-w-sm rounded-xl shadow-center shadow-accent bg-base-200 p-4 transform-gpu relative transition-all duration-500 ease-in-out space-x-2
+        className={`flex flex-row items-start justify-between max-w-sm rounded-xl shadow-[0_0_12px_-2px_rgb(0_0_0/0.05),0_0_12px_-2px_var(--color-accent)] bg-muted p-4 transform-gpu relative transition-all duration-500 ease-in-out space-x-2
         ${
-          position.substring(0, 3) == "top"
+          position.substring(0, 3) === "top"
             ? `hover:translate-y-1 ${t.visible ? "top-0" : "-top-96"}`
             : `hover:-translate-y-1 ${t.visible ? "bottom-0" : "-bottom-96"}`
         }`}
@@ -56,9 +56,14 @@ const Notification = ({
         <div className="leading-[0] self-center">{icon ? icon : ENUM_STATUSES[status]}</div>
         <div className={`overflow-x-hidden break-words whitespace-pre-line ${icon ? "mt-1" : ""}`}>{content}</div>
 
-        <div className={`cursor-pointer text-lg ${icon ? "mt-1" : ""}`} onClick={() => toast.dismiss(t.id)}>
+        <button
+          type="button"
+          aria-label="Close notification"
+          className={`cursor-pointer text-lg ${icon ? "mt-1" : ""}`}
+          onClick={() => toast.dismiss(t.id)}
+        >
           <XMarkIcon className="w-6 cursor-pointer" onClick={() => toast.remove(t.id)} />
-        </div>
+        </button>
       </div>
     ),
     {

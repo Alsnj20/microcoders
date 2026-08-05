@@ -45,18 +45,21 @@ type ScaffoldWriteContractReturnType<TContractName extends ContractName> = Omit<
  * this hook) can apply the same protection instead of bypassing it.
  */
 export async function applyGasFeeMultiplier(
+  // biome-ignore lint/suspicious/noExplicitAny: wagmi contract write type parameters
   args: WriteContractVariables<Abi, string, any[], Config, number>,
   chainId: number,
-): Promise<WriteContractVariables<Abi, string, any[], Config, number>> {
+) {
   const multiplier = scaffoldConfig.gasFeeMultiplier;
   if (!multiplier || multiplier <= 1) return args;
   try {
+    // biome-ignore lint/suspicious/noExplicitAny: chain id type
     const fees = await estimateFeesPerGas(wagmiConfig, { chainId: chainId as any });
     const scaledMultiplier = BigInt(Math.round(multiplier * 100));
     return {
       ...args,
       maxFeePerGas: (fees.maxFeePerGas * scaledMultiplier) / 100n,
       maxPriorityFeePerGas: fees.maxPriorityFeePerGas,
+      // biome-ignore lint/suspicious/noExplicitAny: write contract variables type
     } as WriteContractVariables<Abi, string, any[], Config, number>;
   } catch (e) {
     console.warn("⚡️ ~ useScaffoldWriteContract ~ estimateFeesPerGas failed:", e);
@@ -144,6 +147,7 @@ export function useScaffoldWriteContract<TContractName extends ContractName>(
         abi: deployedContractData.abi as Abi,
         address: deployedContractData.address,
         ...variables,
+        // biome-ignore lint/suspicious/noExplicitAny: write contract variables type
       } as WriteContractVariables<Abi, string, any[], Config, number>;
 
       writeContractObject = await applyGasFeeMultiplier(writeContractObject, selectedNetwork.id as AllowedChainIds);
@@ -163,6 +167,7 @@ export function useScaffoldWriteContract<TContractName extends ContractName>(
             | MutateOptions<
                 WriteContractReturnType,
                 WriteContractErrorType,
+                // biome-ignore lint/suspicious/noExplicitAny: write contract variables type
                 WriteContractVariables<Abi, string, any[], Config, number>,
                 unknown
               >
@@ -171,8 +176,6 @@ export function useScaffoldWriteContract<TContractName extends ContractName>(
       const writeTxResult = await writeTx(makeWriteWithParams, { blockConfirmations, onBlockConfirmation });
 
       return writeTxResult;
-    } catch (e: any) {
-      throw e;
     } finally {
       setIsMining(false);
     }
@@ -203,6 +206,7 @@ export function useScaffoldWriteContract<TContractName extends ContractName>(
       abi: deployedContractData.abi as Abi,
       address: deployedContractData.address,
       ...variables,
+      // biome-ignore lint/suspicious/noExplicitAny: write contract variables type
     } as WriteContractVariables<Abi, string, any[], Config, number>;
     applyGasFeeMultiplier(writeContractObject, selectedNetwork.id as AllowedChainIds).then(buffered => {
       wagmiContractWrite.writeContract(
@@ -211,6 +215,7 @@ export function useScaffoldWriteContract<TContractName extends ContractName>(
           | MutateOptions<
               WriteContractReturnType,
               WriteContractErrorType,
+              // biome-ignore lint/suspicious/noExplicitAny: write contract variables type
               WriteContractVariables<Abi, string, any[], Config, number>,
               unknown
             >

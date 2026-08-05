@@ -24,7 +24,7 @@ export const AddressStorageTab = ({ address }: { address: Address }) => {
             slot: toHex(idx),
           });
 
-          if (storageAtPosition === "0x" + "0".repeat(64)) break;
+          if (storageAtPosition === `0x${"0".repeat(64)}`) break;
 
           if (storageAtPosition) {
             storageData.push(storageAtPosition);
@@ -47,7 +47,8 @@ export const AddressStorageTab = ({ address }: { address: Address }) => {
         <div className="mockup-code overflow-auto max-h-[500px]">
           <pre className="px-5 whitespace-pre-wrap break-words">
             {storage.map((data, i) => (
-              <div key={i}>
+              // biome-ignore lint/suspicious/noArrayIndexKey: storage slot index is stable and unique per render
+              <div key={`${data}-${i}`}>
                 <strong>Storage Slot {i}:</strong> {data}
               </div>
             ))}

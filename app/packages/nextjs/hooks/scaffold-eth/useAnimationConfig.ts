@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 
 const ANIMATION_TIME = 2000;
 
-export function useAnimationConfig(data: any) {
+export function useAnimationConfig(data: unknown) {
   const [showAnimation, setShowAnimation] = useState(false);
   const [prevData, setPrevData] = useState();
 

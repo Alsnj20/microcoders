@@ -48,6 +48,7 @@ export const useScaffoldReadContract = <
     address: deployedContract?.address,
     abi: deployedContract?.abi,
     args,
+    // biome-ignore lint/suspicious/noExplicitAny: wagmi config type mismatch
     ...(readContractConfig as any),
     query: {
       enabled: !Array.isArray(args) || !args.some(arg => arg === undefined),
@@ -69,6 +70,10 @@ export const useScaffoldReadContract = <
     },
   });
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies(defaultWatch): invalidate on block number change only
+  // biome-ignore lint/correctness/useExhaustiveDependencies(readContractHookRes.queryKey): invalidate on block number change only
+  // biome-ignore lint/correctness/useExhaustiveDependencies(queryClient.invalidateQueries): invalidate on block number change only
+  // biome-ignore lint/correctness/useExhaustiveDependencies(blockNumber): intentional dependency for block-based invalidation
   useEffect(() => {
     if (defaultWatch) {
       queryClient.invalidateQueries({ queryKey: readContractHookRes.queryKey });

@@ -21,6 +21,7 @@ export const Card: React.FC<CardProps> = ({ icon, description, linkHref, linkTex
     >
       <div className="absolute top-0 left-1/2 -translate-x-1/2">
         <svg xmlns="http://www.w3.org/2000/svg" width="84" height="6" viewBox="0 0 84 6" fill="none">
+          <title>Decorative Border</title>
           <path d="M41.3071 6L15.6728 6L0 0L84 0L69.02 6L41.3071 6Z" fill="#E3066E" />
         </svg>
       </div>

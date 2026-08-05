@@ -54,6 +54,7 @@ export const useScaffoldContract = <
       client: {
         public: publicClient,
         wallet: walletClient ? walletClient : undefined,
+        // biome-ignore lint/suspicious/noExplicitAny: viem client union cast
       } as any,
     });
   }

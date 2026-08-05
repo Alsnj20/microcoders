@@ -48,6 +48,7 @@ export const DisplayVariable = ({
 
   const { showAnimation } = useAnimationConfig(result);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies(refreshDisplayVariables): trigger refetch when parent signals refresh
   useEffect(() => {
     refetch();
   }, [refetch, refreshDisplayVariables]);
@@ -70,9 +71,9 @@ export const DisplayVariable = ({
         >
           {abiFunction.name}
         </h3>
-        <button className="btn btn-ghost btn-xs" onClick={async () => await refetch()}>
+        <button type="button" className="hover:bg-muted h-6 px-2 text-xs cursor-pointer" onClick={async () => await refetch()}>
           {isFetching ? (
-            <span className="loading loading-spinner loading-xs"></span>
+            <span className="animate-spin border-2 border-current border-t-transparent rounded-full h-3 w-3" />
           ) : (
             <ArrowPathIcon className="h-3 w-3 cursor-pointer" aria-hidden="true" />
           )}

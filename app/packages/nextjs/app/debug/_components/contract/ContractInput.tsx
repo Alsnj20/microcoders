@@ -15,7 +15,9 @@ import { Tuple } from "./Tuple";
 import { TupleArray } from "./TupleArray";
 
 type ContractInputProps = {
+  // biome-ignore lint/suspicious/noExplicitAny: dynamic ABI form state
   setForm: Dispatch<SetStateAction<Record<string, any>>>;
+  // biome-ignore lint/suspicious/noExplicitAny: dynamic ABI form state
   form: Record<string, any> | undefined;
   stateObjectKey: string;
   paramType: AbiParameter;
@@ -29,6 +31,7 @@ export const ContractInput = ({ setForm, form, stateObjectKey, paramType }: Cont
     name: stateObjectKey,
     value: form?.[stateObjectKey],
     placeholder: paramType.name ? `${paramType.type} ${paramType.name}` : paramType.type,
+    // biome-ignore lint/suspicious/noExplicitAny: dynamic ABI input value
     onChange: (value: any) => {
       setForm(form => ({ ...form, [stateObjectKey]: value }));
     },
@@ -57,7 +60,8 @@ export const ContractInput = ({ setForm, form, stateObjectKey, paramType }: Cont
         // Handling 'int' types and 'tuple[]' types
         if (paramType.type.includes("int") && !paramType.type.includes("[")) {
           return <IntegerInput {...inputProps} variant={paramType.type as IntegerVariant} />;
-        } else if (paramType.type.startsWith("tuple[")) {
+        }
+        if (paramType.type.startsWith("tuple[")) {
           return (
             <TupleArray
               setParentForm={setForm}
@@ -66,9 +70,8 @@ export const ContractInput = ({ setForm, form, stateObjectKey, paramType }: Cont
               parentStateObjectKey={stateObjectKey}
             />
           );
-        } else {
-          return <InputBase {...inputProps} />;
         }
+        return <InputBase {...inputProps} />;
     }
   };
 

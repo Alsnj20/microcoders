@@ -23,6 +23,8 @@ export const AngularBorder: React.FC<AngularBorderProps> = ({
       viewBox={`0 0 ${width} ${height}`}
       fill="none"
       className={className}
+      role="img"
+      aria-label="Angular border decoration"
       style={{
         position: "absolute",
         top: "-3px",

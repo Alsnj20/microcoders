@@ -39,13 +39,13 @@ const TransactionComp = ({ txHash }: { txHash: Hash }) => {
 
   return (
     <div className="container mx-auto mt-10 mb-20 px-10 md:px-0">
-      <button className="btn btn-sm btn-primary" onClick={() => router.back()}>
+      <button type="button" className="inline-flex items-center justify-center rounded-lg font-medium transition-colors h-8 px-3 text-xs bg-primary text-primary-foreground" onClick={() => router.back()}>
         Back
       </button>
       {transaction ? (
         <div className="overflow-x-auto">
-          <h2 className="text-3xl font-bold mb-4 text-center text-primary-content">Transaction Details</h2>{" "}
-          <table className="table rounded-lg bg-base-100 w-full shadow-lg md:table-lg table-md">
+          <h2 className="text-3xl font-bold mb-4 text-center text-primary-foreground">Transaction Details</h2>{" "}
+          <table className="w-full text-sm rounded-lg bg-background shadow-lg">
             <tbody>
               <tr>
                 <td>
@@ -101,7 +101,7 @@ const TransactionComp = ({ txHash }: { txHash: Hash }) => {
                     ) : (
                       <>
                         <span className="mr-2">{getFunctionDetails(transaction)}</span>
-                        <span className="badge badge-primary font-bold">{functionCalled}</span>
+                        <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-primary text-primary-foreground font-bold">{functionCalled}</span>
                       </>
                     )}
                   </div>
@@ -121,7 +121,7 @@ const TransactionComp = ({ txHash }: { txHash: Hash }) => {
                   <textarea
                     readOnly
                     value={transaction.input}
-                    className="p-0 w-full textarea-primary bg-inherit h-[150px]"
+                    className="p-0 w-full border border-border bg-inherit h-[150px]"
                   />
                 </td>
               </tr>
@@ -132,7 +132,7 @@ const TransactionComp = ({ txHash }: { txHash: Hash }) => {
                 <td>
                   <ul>
                     {receipt?.logs?.map((log, i) => (
-                      <li key={i}>
+                      <li key={`${log.transactionHash || "log"}-${log.logIndex ?? i}`}>
                         <strong>Log {i} topics:</strong> {JSON.stringify(log.topics, replacer, 2)}
                       </li>
                     ))}
@@ -143,7 +143,7 @@ const TransactionComp = ({ txHash }: { txHash: Hash }) => {
           </table>
         </div>
       ) : (
-        <p className="text-2xl text-base-content">Loading...</p>
+        <p className="text-2xl text-foreground">Loading...</p>
       )}
     </div>
   );

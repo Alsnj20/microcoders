@@ -29,6 +29,7 @@ export const ReadOnlyFunctionForm = ({
   inheritedFrom,
   abi,
 }: ReadOnlyFunctionFormProps) => {
+  // biome-ignore lint/suspicious/noExplicitAny: dynamic ABI form state
   const [form, setForm] = useState<Record<string, any>>(() => getInitialFormState(abiFunction));
   const [result, setResult] = useState<unknown>();
   const { targetNetwork } = useTargetNetwork();
@@ -93,6 +94,7 @@ export const ReadOnlyFunctionForm = ({
           )}
         </div>
         <button
+          type="button"
           className="read-button"
           onClick={async () => {
             const { data } = await refetch();
@@ -100,7 +102,7 @@ export const ReadOnlyFunctionForm = ({
           }}
           disabled={isFetching}
         >
-          {isFetching && <span className="loading loading-spinner loading-xs"></span>}
+          {isFetching && <span className="animate-spin border-2 border-current border-t-transparent rounded-full h-3 w-3" />}
           Read
         </button>
       </div>

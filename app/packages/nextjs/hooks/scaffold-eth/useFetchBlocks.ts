@@ -28,20 +28,21 @@ const groupTransactionsByBlock = (items: { block: Block; tx: Transaction }[]): B
   const blockMap = new Map<string, Block>();
 
   for (const { block, tx } of items) {
-    const key = block.number!.toString();
+    const key = block.number?.toString() ?? block.hash ?? "0";
     if (!blockMap.has(key)) {
       blockMap.set(key, { ...block, transactions: [] });
     }
-    (blockMap.get(key)!.transactions as Transaction[]).push(tx);
+    (blockMap.get(key)?.transactions as Transaction[]).push(tx);
   }
 
   const seenBlocks = new Set<string>();
   const groupedBlocks: Block[] = [];
 
   for (const { block } of items) {
-    const key = block.number!.toString();
+    const key = block.number?.toString() ?? block.hash ?? "0";
     if (!seenBlocks.has(key)) {
       seenBlocks.add(key);
+      // biome-ignore lint/style/noNonNullAssertion: block exists in map by construction
       groupedBlocks.push(blockMap.get(key)!);
     }
   }
@@ -143,7 +144,9 @@ export const useFetchBlocks = (addressFilter?: Address) => {
       const fetchedItems = await fetchPageItems(latestBlock, currentPage, matchesAddressFilter);
       const items = fetchedItems.slice(0, TRANSACTIONS_PER_PAGE);
 
-      items.forEach(({ tx }) => decodeTransactionData(tx));
+      for (const { tx } of items) {
+        decodeTransactionData(tx);
+      }
 
       const txReceipts = await Promise.all(
         items.map(async ({ tx }) => {
@@ -188,7 +191,9 @@ export const useFetchBlocks = (addressFilter?: Address) => {
           }
           blockWithTxDetails = { ...blockWithTxDetails, transactions: matchingTransactions };
 
-          (blockWithTxDetails.transactions as Transaction[]).forEach(tx => decodeTransactionData(tx));
+          for (const tx of blockWithTxDetails.transactions as Transaction[]) {
+            decodeTransactionData(tx);
+          }
 
           const receipts = await Promise.all(
             (blockWithTxDetails.transactions as Transaction[]).map(async tx => {
@@ -203,6 +208,7 @@ export const useFetchBlocks = (addressFilter?: Address) => {
           );
 
           setBlocks(prevBlocks => {
+            // biome-ignore lint/style/noNonNullAssertion: block number is guaranteed for fetched blocks
             const latestBlockNumber = blockWithTxDetails.number!;
             const existingBlockIndex = prevBlocks.findIndex(block => block.number === latestBlockNumber);
 

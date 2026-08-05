@@ -6,7 +6,7 @@ import type { AbiParameterTuple } from "~~/utils/scaffold-eth/contract";
  */
 const getFunctionInputKey = (functionName: string, input: AbiParameter, inputIndex: number): string => {
   const name = input?.name || `input_${inputIndex}_`;
-  return functionName + "_" + name + "_" + input.internalType + "_" + input.type;
+  return `${functionName}_${name}_${input.internalType}_${input.type}`;
 };
 
 const isJsonString = (str: string) => {
@@ -31,6 +31,7 @@ const isBigInt = (str: string) => {
 };
 
 // Recursive function to deeply parse JSON strings, correctly handling nested arrays and encoded JSON strings
+// biome-ignore lint/suspicious/noExplicitAny: dynamic ABI parser type
 const deepParseValues = (value: any): any => {
   if (typeof value === "string") {
     // first try with bigInt because we losse precision with JSON.parse
@@ -45,11 +46,14 @@ const deepParseValues = (value: any): any => {
 
     // It's a string but not a JSON string, return as is
     return value;
-  } else if (Array.isArray(value)) {
+  }
+  if (Array.isArray(value)) {
     // If it's an array, recursively parse each element
     return value.map(element => deepParseValues(element));
-  } else if (typeof value === "object" && value !== null) {
+  }
+  if (typeof value === "object" && value !== null) {
     // If it's an object, recursively parse each value
+    // biome-ignore lint/suspicious/noExplicitAny: dynamic ABI object accumulator
     return Object.entries(value).reduce((acc: any, [key, val]) => {
       acc[key] = deepParseValues(val);
       return acc;
@@ -59,7 +63,8 @@ const deepParseValues = (value: any): any => {
   // Handle boolean values represented as strings
   if (value === "true" || value === "1" || value === "0x1" || value === "0x01" || value === "0x0001") {
     return true;
-  } else if (value === "false" || value === "0" || value === "0x0" || value === "0x00" || value === "0x0000") {
+  }
+  if (value === "false" || value === "0" || value === "0x0" || value === "0x00" || value === "0x0000") {
     return false;
   }
 
@@ -69,6 +74,7 @@ const deepParseValues = (value: any): any => {
 /**
  * parses form input with array support
  */
+// biome-ignore lint/suspicious/noExplicitAny: dynamic ABI form state
 const getParsedContractFunctionArgs = (form: Record<string, any>) => {
   return Object.keys(form).map(key => {
     const valueOfArg = form[key];
@@ -79,6 +85,7 @@ const getParsedContractFunctionArgs = (form: Record<string, any>) => {
 };
 
 const getInitialFormState = (abiFunction: AbiFunction) => {
+  // biome-ignore lint/suspicious/noExplicitAny: dynamic ABI initial form state
   const initialForm: Record<string, any> = {};
   if (!abiFunction.inputs) return initialForm;
   abiFunction.inputs.forEach((input, inputIndex) => {
@@ -89,6 +96,7 @@ const getInitialFormState = (abiFunction: AbiFunction) => {
 };
 
 const getInitialTupleFormState = (abiTupleParameter: AbiParameterTuple) => {
+  // biome-ignore lint/suspicious/noExplicitAny: dynamic ABI tuple form state
   const initialForm: Record<string, any> = {};
   if (abiTupleParameter.components.length === 0) return initialForm;
 
@@ -100,10 +108,11 @@ const getInitialTupleFormState = (abiTupleParameter: AbiParameterTuple) => {
 };
 
 const getInitialTupleArrayFormState = (abiTupleParameter: AbiParameterTuple) => {
+  // biome-ignore lint/suspicious/noExplicitAny: dynamic ABI tuple array form state
   const initialForm: Record<string, any> = {};
   if (abiTupleParameter.components.length === 0) return initialForm;
   abiTupleParameter.components.forEach((component, componentIndex) => {
-    const key = getFunctionInputKey("0_" + abiTupleParameter.name || "tuple", component, componentIndex);
+    const key = getFunctionInputKey(`0_${abiTupleParameter.name}` || "tuple", component, componentIndex);
     initialForm[key] = "";
   });
   return initialForm;
@@ -119,7 +128,8 @@ const adjustInput = (input: AbiParameterTuple): AbiParameter => {
         name: input.name,
       }),
     };
-  } else if (input.components) {
+  }
+  if (input.components) {
     return {
       ...input,
       components: input.components.map(value => adjustInput(value as AbiParameterTuple)),

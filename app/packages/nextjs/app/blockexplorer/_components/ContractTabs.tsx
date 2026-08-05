@@ -42,31 +42,51 @@ export const ContractTabs = ({ address, contractData }: PageProps) => {
   return (
     <>
       {isContract && (
-        <div role="tablist" className="tabs tabs-lift">
+        <div role="tablist" className="flex border-b border-border">
           <button
+            type="button"
             role="tab"
-            className={`tab ${activeTab === "transactions" ? "tab-active" : ""}`}
+            className={`px-4 py-2 font-medium cursor-pointer ${
+              activeTab === "transactions"
+                ? "text-primary border-b-2 border-primary"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
             onClick={() => setActiveTab("transactions")}
           >
             Transactions
           </button>
           <button
+            type="button"
             role="tab"
-            className={`tab ${activeTab === "code" ? "tab-active" : ""}`}
+            className={`px-4 py-2 font-medium cursor-pointer ${
+              activeTab === "code"
+                ? "text-primary border-b-2 border-primary"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
             onClick={() => setActiveTab("code")}
           >
             Code
           </button>
           <button
+            type="button"
             role="tab"
-            className={`tab  ${activeTab === "storage" ? "tab-active" : ""}`}
+            className={`px-4 py-2 font-medium cursor-pointer ${
+              activeTab === "storage"
+                ? "text-primary border-b-2 border-primary"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
             onClick={() => setActiveTab("storage")}
           >
             Storage
           </button>
           <button
+            type="button"
             role="tab"
-            className={`tab  ${activeTab === "logs" ? "tab-active" : ""}`}
+            className={`px-4 py-2 font-medium cursor-pointer ${
+              activeTab === "logs"
+                ? "text-primary border-b-2 border-primary"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
             onClick={() => setActiveTab("logs")}
           >
             Logs

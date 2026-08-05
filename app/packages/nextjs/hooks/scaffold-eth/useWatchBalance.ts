@@ -12,6 +12,7 @@ export const useWatchBalance = (useBalanceParameters: UseBalanceParameters) => {
   const { data: blockNumber } = useBlockNumber({ watch: true, chainId: targetNetwork.id });
   const { queryKey, ...restUseBalanceReturn } = useBalance(useBalanceParameters);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: invalidate on block number change only
   useEffect(() => {
     queryClient.invalidateQueries({ queryKey });
     // eslint-disable-next-line react-hooks/exhaustive-deps
