@@ -1,0 +1,325 @@
+//! AgentRegistry Contract
+//!
+//! Manages personal AI agents created by users.
+
+#![cfg_attr(not(any(test, feature = "export-abi")), no_main)]
+extern crate alloc;
+
+use alloc::string::String;
+use alloy_primitives::{Address, FixedBytes, Uint, U256};
+use memorychain_common::{
+    events::*,
+    helpers::generate_id,
+    interfaces::ICreditManager,
+    types::ResourceStatus,
+};
+use stylus_core::calls::Call;
+use stylus_sdk::prelude::*;
+
+sol_storage! {
+    #[entrypoint]
+    pub struct AgentRegistry {
+        mapping(bytes32 => Agent) agents;
+        mapping(bytes32 => mapping(uint32 => AgentVersion)) versions;
+        uint256 total_agents;
+        address credit_manager;
+        mapping(address => uint256) nonces;
+        address admin;
+    }
+
+    pub struct Agent {
+        bytes32 agent_id;
+        address owner;
+        string name;
+        string description;
+        uint32 latest_version;
+        string current_cid;
+        bytes32 current_hash;
+        uint8 status;
+        uint64 created_at;
+        uint64 updated_at;
+    }
+
+    pub struct AgentVersion {
+        bytes32 agent_id;
+        uint32 version;
+        string cid;
+        bytes32 hash;
+        uint64 created_at;
+    }
+}
+
+#[public]
+impl AgentRegistry {
+    /// Initializes the contract with CreditManager and UserRegistry addresses.
+    /// Initializes the contract with CreditManager address.
+    pub fn initialize(&mut self, credit_manager: Address) {
+        if self.admin.get() == Address::ZERO {
+            self.admin.set(self.vm().msg_sender());
+            self.credit_manager.set(credit_manager);
+        }
+    }
+
+    /// Creates a new agent AFTER backend processing is complete.
+    pub fn create_agent(
+        &mut self,
+        name: String,
+        description: String,
+        cid: String,
+        hash: FixedBytes<32>,
+    ) -> Result<FixedBytes<32>, String> {
+        let caller = self.vm().msg_sender();
+
+        if name.is_empty() {
+            return Err(String::from("AgentRegistry: empty name"));
+        }
+        if cid.is_empty() {
+            return Err(String::from("AgentRegistry: empty CID"));
+        }
+        if hash == FixedBytes::ZERO {
+            return Err(String::from("AgentRegistry: zero hash"));
+        }
+
+        let nonce = self.nonces.get(caller);
+        let agent_id = generate_id(self.vm(), caller, nonce);
+
+        if self.agents.getter(agent_id).owner.get() != Address::ZERO {
+            return Err(String::from("AgentRegistry: ID collision"));
+        }
+
+        // CROSS-CONTRACT CALL: Consume credits (5 MC for create_agent)
+        let credit_manager_addr = self.credit_manager.get();
+        let credit_manager = ICreditManager::new(credit_manager_addr);
+        let context = Call::new_mutating(self);
+        let success = credit_manager
+            .consume_credits(self.vm(), context, caller, 5)
+            .map_err(|_| String::from("AgentRegistry: credit consumption failed"))?;
+
+        if !success {
+            return Err(String::from("AgentRegistry: insufficient credits"));
+        }
+
+        let timestamp = Uint::from(self.vm().block_timestamp());
+
+        let mut agent = self.agents.setter(agent_id);
+        agent.agent_id.set(agent_id);
+        agent.owner.set(caller);
+        agent.name.set_str(&name);
+        agent.description.set_str(&description);
+        agent.latest_version.set(Uint::from(1u32));
+        agent.current_cid.set_str(&cid);
+        agent.current_hash.set(hash);
+        agent.status.set(Uint::from(ResourceStatus::Active as u8));
+        agent.created_at.set(timestamp);
+        agent.updated_at.set(timestamp);
+
+        let mut version_map = self.versions.setter(agent_id);
+        let mut version = version_map.setter(Uint::from(1u32));
+        version.agent_id.set(agent_id);
+        version.version.set(Uint::from(1u32));
+        version.cid.set_str(&cid);
+        version.hash.set(hash);
+        version.created_at.set(timestamp);
+
+        self.nonces.setter(caller).set(nonce + U256::from(1));
+        self.total_agents.set(self.total_agents.get() + U256::from(1));
+
+        self.vm().log(AgentCreated {
+            agent_id,
+            owner: caller,
+            name,
+            cid,
+            hash,
+        });
+
+        Ok(agent_id)
+    }
+
+    /// Updates an agent with a new blueprint.
+    pub fn update_agent(
+        &mut self,
+        agent_id: FixedBytes<32>,
+        new_cid: String,
+        new_hash: FixedBytes<32>,
+    ) -> Result<(), String> {
+        let caller = self.vm().msg_sender();
+
+        let owner = self.agents.getter(agent_id).owner.get();
+        if owner == Address::ZERO {
+            return Err(String::from("AgentRegistry: agent not found"));
+        }
+
+        if caller != owner {
+            return Err(String::from("AgentRegistry: not owner"));
+        }
+
+        let status: Uint<8, 1> = self.agents.getter(agent_id).status.get();
+        if status == Uint::from(ResourceStatus::Archived as u8) {
+            return Err(String::from("AgentRegistry: agent is archived"));
+        }
+
+        if new_cid.is_empty() {
+            return Err(String::from("AgentRegistry: empty CID"));
+        }
+        if new_hash == FixedBytes::ZERO {
+            return Err(String::from("AgentRegistry: zero hash"));
+        }
+
+        // CROSS-CONTRACT CALL: Consume credits (2 MC for update_agent)
+        let credit_manager_addr = self.credit_manager.get();
+        let credit_manager = ICreditManager::new(credit_manager_addr);
+        let context = Call::new_mutating(self);
+        let success = credit_manager
+            .consume_credits(self.vm(), context, caller, 2)
+            .map_err(|_| String::from("AgentRegistry: credit consumption failed"))?;
+
+        if !success {
+            return Err(String::from("AgentRegistry: insufficient credits"));
+        }
+
+        let current_version: Uint<32, 1> = self.agents.getter(agent_id).latest_version.get();
+        let new_version = current_version + Uint::from(1u32);
+        let timestamp = Uint::from(self.vm().block_timestamp());
+
+        let mut agent = self.agents.setter(agent_id);
+        agent.latest_version.set(new_version);
+        agent.current_cid.set_str(&new_cid);
+        agent.current_hash.set(new_hash);
+        agent.updated_at.set(timestamp);
+
+        let mut version_map = self.versions.setter(agent_id);
+        let mut version = version_map.setter(new_version);
+        version.agent_id.set(agent_id);
+        version.version.set(new_version);
+        version.cid.set_str(&new_cid);
+        version.hash.set(new_hash);
+        version.created_at.set(timestamp);
+
+        self.vm().log(AgentUpdated {
+            agent_id,
+            owner: caller,
+            new_cid,
+            new_hash,
+            new_version: u32::try_from(new_version).unwrap_or(0),
+        });
+
+        Ok(())
+    }
+
+    /// Archives an agent (soft delete).
+    pub fn archive_agent(&mut self, agent_id: FixedBytes<32>) -> Result<(), String> {
+        let caller = self.vm().msg_sender();
+
+        let owner = self.agents.getter(agent_id).owner.get();
+        if owner == Address::ZERO {
+            return Err(String::from("AgentRegistry: agent not found"));
+        }
+
+        if caller != owner {
+            return Err(String::from("AgentRegistry: not owner"));
+        }
+
+        let status: Uint<8, 1> = self.agents.getter(agent_id).status.get();
+        if status == Uint::from(ResourceStatus::Archived as u8) {
+            return Err(String::from("AgentRegistry: already archived"));
+        }
+
+        let timestamp = Uint::from(self.vm().block_timestamp());
+        let mut agent = self.agents.setter(agent_id);
+        agent.status.set(Uint::from(ResourceStatus::Archived as u8));
+        agent.updated_at.set(timestamp);
+
+        self.vm().log(AgentArchived {
+            agent_id,
+            owner: caller,
+        });
+
+        Ok(())
+    }
+
+    /// Restores an archived agent.
+    pub fn restore_agent(&mut self, agent_id: FixedBytes<32>) -> Result<(), String> {
+        let caller = self.vm().msg_sender();
+
+        let owner = self.agents.getter(agent_id).owner.get();
+        if owner == Address::ZERO {
+            return Err(String::from("AgentRegistry: agent not found"));
+        }
+
+        if caller != owner {
+            return Err(String::from("AgentRegistry: not owner"));
+        }
+
+        let status: Uint<8, 1> = self.agents.getter(agent_id).status.get();
+        if status != Uint::from(ResourceStatus::Archived as u8) {
+            return Err(String::from("AgentRegistry: not archived"));
+        }
+
+        let timestamp = Uint::from(self.vm().block_timestamp());
+        let mut agent = self.agents.setter(agent_id);
+        agent.status.set(Uint::from(ResourceStatus::Active as u8));
+        agent.updated_at.set(timestamp);
+
+        self.vm().log(AgentRestored {
+            agent_id,
+            owner: caller,
+        });
+
+        Ok(())
+    }
+
+    /// Returns agent data.
+    pub fn get_agent(
+        &self,
+        agent_id: FixedBytes<32>,
+    ) -> Result<(Address, String, String, u32, String, FixedBytes<32>, u8, u64, u64), String> {
+        let agent = self.agents.getter(agent_id);
+        let owner = agent.owner.get();
+
+        if owner == Address::ZERO {
+            return Err(String::from("AgentRegistry: not found"));
+        }
+
+        Ok((
+            owner,
+            agent.name.get_string(),
+            agent.description.get_string(),
+            u32::try_from(agent.latest_version.get()).unwrap_or(0),
+            agent.current_cid.get_string(),
+            agent.current_hash.get(),
+            u8::try_from(agent.status.get()).unwrap_or(0),
+            u64::try_from(agent.created_at.get()).unwrap_or(0),
+            u64::try_from(agent.updated_at.get()).unwrap_or(0),
+        ))
+    }
+
+    /// Returns a specific version of an agent's blueprint.
+    pub fn get_agent_version(
+        &self,
+        agent_id: FixedBytes<32>,
+        version: u32,
+    ) -> Result<(String, FixedBytes<32>, u64), String> {
+        let versions_map = self.versions.getter(agent_id);
+        let v = versions_map.getter(Uint::from(version));
+
+        if v.version.get() == Uint::ZERO {
+            return Err(String::from("AgentRegistry: version not found"));
+        }
+
+        Ok((
+            v.cid.get_string(),
+            v.hash.get(),
+            u64::try_from(v.created_at.get()).unwrap_or(0),
+        ))
+    }
+
+    /// Returns the total number of agents created.
+    pub fn total_agents(&self) -> U256 {
+        self.total_agents.get()
+    }
+
+    /// Returns the admin address.
+    pub fn admin(&self) -> Address {
+        self.admin.get()
+    }
+}

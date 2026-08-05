@@ -1,0 +1,21 @@
+[package]
+name = "agent-registry"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+alloy-primitives = { workspace = true }
+alloy-sol-types = { workspace = true }
+stylus-sdk = { workspace = true }
+stylus-core = { workspace = true }
+memorychain-common = { workspace = true }
+
+[lib]
+crate-type = ["lib", "cdylib"]
+
+[features]
+default = ["mini-alloc"]
+export-abi = ["stylus-sdk/export-abi"]
+mini-alloc = ["stylus-sdk/mini-alloc"]
+stylus-test = ["stylus-sdk/stylus-test"]
+contract-client-gen = []
