@@ -1,0 +1,19 @@
+[package]
+name = "memorychain-common"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+alloy-primitives = { workspace = true }
+alloy-sol-types = { workspace = true }
+stylus-sdk = { workspace = true }
+tiny-keccak = { workspace = true }
+
+[lib]
+crate-type = ["lib"]
+
+[features]
+default = ["mini-alloc"]
+export-abi = ["stylus-sdk/export-abi"]
+mini-alloc = ["stylus-sdk/mini-alloc"]
+stylus-test = ["stylus-sdk/stylus-test"]
