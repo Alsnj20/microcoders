@@ -1,0 +1,17 @@
+{
+  "network": "arbitrum-one",
+  "chain_id": 42161,
+  "rpc_url": "https://arb1.arbitrum.io/rpc",
+  "explorer": "https://arbiscan.io",
+  "treasury": "",
+  "contracts": {
+    "credit_manager": "",
+    "user_registry": "",
+    "memory_registry": "",
+    "agent_registry": "",
+    "context_registry": "",
+    "audit_registry": ""
+  },
+  "deployer": "",
+  "deployed_at": ""
+}

@@ -13,7 +13,7 @@ memorychain-common = { workspace = true }
 crate-type = ["lib", "cdylib"]
 
 [features]
-default = ["mini-alloc", "stylus-test"]
+default = ["mini-alloc"]
 export-abi = ["stylus-sdk/export-abi"]
 mini-alloc = ["stylus-sdk/mini-alloc"]
 stylus-test = ["stylus-sdk/stylus-test"]
