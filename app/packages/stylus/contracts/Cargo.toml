@@ -1,7 +1,7 @@
 [workspace]
 resolver = "2"
 members = ["*"]
-exclude = ["target", "deploy", "scripts"]
+exclude = ["target", "deploy", "scripts", ".agents", ".cargo"]
 
 [workspace.dependencies]
 alloy-primitives = "1.5.7"

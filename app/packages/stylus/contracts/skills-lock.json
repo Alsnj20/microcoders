@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "skills": {
+    "develop-secure-contracts": {
+      "source": "openzeppelin/openzeppelin-skills",
+      "sourceType": "github",
+      "skillPath": "skills/develop-secure-contracts/SKILL.md",
+      "computedHash": "92aa3881d7c5db98ce41670852668cfbe691576284d05d78a72587cdb2760fe8"
+    },
+    "rust-best-practices": {
+      "source": "apollographql/skills",
+      "sourceType": "github",
+      "skillPath": "skills/rust-best-practices/SKILL.md",
+      "computedHash": "0ac6606adb27e64a31bdc8c1ed34e446ae0c14bff1c7648867c46e106adc048f"
+    },
+    "setup-stylus-contracts": {
+      "source": "openzeppelin/openzeppelin-skills",
+      "sourceType": "github",
+      "skillPath": "skills/setup-stylus-contracts/SKILL.md",
+      "computedHash": "c625fb2aa2a714f7246b6fa4d9a51538ba3640e3034eec3419b8224a01564634"
+    },
+    "upgrade-stylus-contracts": {
+      "source": "openzeppelin/openzeppelin-skills",
+      "sourceType": "github",
+      "skillPath": "skills/upgrade-stylus-contracts/SKILL.md",
+      "computedHash": "f59350e4bf6f6c44ad14bf7ed69fdd59209238b2ab9ee4f9872affb8400c16e2"
+    }
+  }
+}
