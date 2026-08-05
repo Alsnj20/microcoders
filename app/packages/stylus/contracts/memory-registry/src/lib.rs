@@ -314,6 +314,18 @@ impl MemoryRegistry {
         self.total_memories.get()
     }
 
+    /// Returns the cost to create a memory (in MC credits).
+    /// Cross-contract call to CreditManager.get_fee(OP_CREATE_MEMORY).
+    pub fn preview_create_cost(&self) -> u64 {
+        let credit_manager_addr = self.credit_manager.get();
+        let credit_manager = ICreditManager::new(credit_manager_addr);
+        let context = Call::new();
+        credit_manager
+            .get_fee(self.vm(), context, 1) // OP_CREATE_MEMORY = 1
+            .unwrap_or(1)
+            .into()
+    }
+
     /// Returns the CreditManager address.
     pub fn credit_manager(&self) -> Address {
         self.credit_manager.get()
