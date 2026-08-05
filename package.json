@@ -1,0 +1,42 @@
+{
+  "name": "ss",
+  "version": "1.2.1",
+  "private": true,
+  "scripts": {
+    "account": "pnpm --filter @ss/stylus account",
+    "chain": "./nitro-devnode/start-chain-with-cors.sh",
+    "clean-contracts": "pnpm --filter @ss/stylus clean-contracts",
+    "compile": "pnpm --filter @ss/stylus compile",
+    "deploy": "pnpm --filter @ss/stylus deploy",
+    "export-abi": "pnpm --filter @ss/stylus export-abi",
+    "flatten": "pnpm --filter @ss/stylus flatten",
+    "fork": "pnpm --filter @ss/stylus fork",
+    "format": "biome format --write .",
+    "generate": "pnpm --filter @ss/stylus generate",
+    "info:networks": "pnpm --filter @ss/stylus info:networks",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "postinstall": "husky install",
+    "new-module": "pnpm --filter @ss/stylus new-module",
+    "next:build": "pnpm --filter @ss/nextjs build",
+    "next:check-types": "pnpm --filter @ss/nextjs check-types",
+    "next:format": "pnpm --filter @ss/nextjs format",
+    "next:lint": "pnpm --filter @ss/nextjs lint",
+    "precommit": "lint-staged",
+    "start": "pnpm --filter @ss/nextjs dev",
+    "stylus-verify": "pnpm --filter @ss/stylus stylus-verify",
+    "stylus:format": "pnpm --filter @ss/stylus format",
+    "stylus:lint": "pnpm --filter @ss/stylus lint",
+    "stylus:test": "pnpm --filter @ss/stylus test",
+    "test": "pnpm stylus:test",
+    "vercel": "pnpm --filter @ss/nextjs vercel",
+    "vercel:yolo": "pnpm --filter @ss/nextjs vercel:yolo",
+    "verify": "pnpm --filter @ss/stylus verify"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "husky": "^8.0.1",
+    "lint-staged": "^13.0.3"
+  },
+  "packageManager": "pnpm@9.15.4"
+}
