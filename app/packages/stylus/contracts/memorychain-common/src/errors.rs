@@ -21,6 +21,10 @@ pub enum CommonError {
     AlreadyExists,
     /// Input validation failed.
     InvalidInput { reason: &'static str },
+    /// Contract is paused.
+    Paused,
+    /// Contract is not paused (when trying to unpause).
+    NotPaused,
 }
 
 /// Errors specific to CreditManager.
@@ -36,8 +40,6 @@ pub enum CreditError {
     InsufficientPayment { required: u64, provided: u64 },
     /// Purchase amount is outside configured limits.
     PurchaseOutOfRange { min: u64, max: u64, requested: u64 },
-    /// Contract is in testnet mode, no ETH required.
-    TestnetModeActive,
 }
 
 /// Errors specific to MemoryRegistry.
@@ -105,6 +107,13 @@ pub enum ContextError {
     CrossContractCallFailed,
 }
 
+/// Errors specific to UserRegistry.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum UserError {
+    /// Username is already taken.
+    UsernameTaken { username: alloc::string::String },
+}
+
 /// Errors specific to AuditRegistry.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum AuditError {
@@ -131,6 +140,8 @@ impl From<CommonError> for String {
             CommonError::InvalidInput { reason } => {
                 alloc::format!("CommonError: invalid input ({})", reason)
             }
+            CommonError::Paused => String::from("CommonError: contract is paused"),
+            CommonError::NotPaused => String::from("CommonError: contract is not paused"),
         }
     }
 }
@@ -163,9 +174,6 @@ impl From<CreditError> for String {
                     max,
                     requested
                 )
-            }
-            CreditError::TestnetModeActive => {
-                String::from("CreditError: testnet mode active, no ETH required")
             }
         }
     }
@@ -228,6 +236,16 @@ impl From<AuditError> for String {
         match err {
             AuditError::UnauthorizedRecorder { caller } => {
                 alloc::format!("AuditError: unauthorized recorder ({})", caller)
+            }
+        }
+    }
+}
+
+impl From<UserError> for String {
+    fn from(err: UserError) -> Self {
+        match err {
+            UserError::UsernameTaken { username } => {
+                alloc::format!("UserError: username already taken ({})", username)
             }
         }
     }
