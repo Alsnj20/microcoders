@@ -128,6 +128,7 @@ if [ "$NO_CAST" -eq 0 ]; then
     echo "Deployer  : $DEPLOYER"
     echo "Balance   : $BALANCE"
 else
+    DEPLOYER="unknown"
     echo -e "${YELLOW}Skipping deployer info (install foundry for cast)${NC}"
 fi
 echo
@@ -198,9 +199,10 @@ deploy_contract() {
         --no-verify \
         --max-fee-per-gas-gwei 0.1 2>&1)
 
-    ADDRESS=$(echo "$RESULT" | grep -oE '0x[a-fA-F0-9]{40}' | tail -1)
+    ADDRESS=$(echo "$RESULT" | grep -oP 'deployed code at address: \K0x[a-fA-F0-9]{40}' | head -1)
 
     if [ -z "$ADDRESS" ]; then
+        echo -e "${RED}Failed to extract deployed address from:${NC}"
         echo "$RESULT"
         exit 1
     fi
@@ -250,49 +252,107 @@ if [ "$NO_CAST" -eq 0 ]; then
     # Initialize CreditManager
     if [ "$CREDIT_MANAGER" != "null" ] && [ -n "$CREDIT_MANAGER" ]; then
         echo "Initializing CreditManager..."
-        cast send "$CREDIT_MANAGER" "initialize()" --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY" 2>&1 | grep -q "success" && \
-        cast send "$CREDIT_MANAGER" "initializeNetwork(bool,address,uint256)" "$IS_TESTNET" "$TREASURY" "$PRICE_PER_CREDIT" --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY" 2>&1 | grep -q "success" && \
-        echo -e "${GREEN}CreditManager initialized${NC}" || echo -e "${YELLOW}CreditManager init skipped (already initialized?)${NC}"
+        if cast send "$CREDIT_MANAGER" "initialize()" --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY" >/dev/null 2>&1; then
+            cast send "$CREDIT_MANAGER" "initializeNetwork(bool,address,uint256)" "$IS_TESTNET" "$TREASURY" "$PRICE_PER_CREDIT" --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY" >/dev/null 2>&1 && \
+            echo -e "${GREEN}CreditManager initialized${NC}" || echo -e "${YELLOW}CreditManager network init failed${NC}"
+        else
+            echo -e "${YELLOW}CreditManager init skipped (already initialized?)${NC}"
+        fi
     fi
 
     # Initialize UserRegistry
     if [ "$USER_REGISTRY" != "null" ] && [ -n "$USER_REGISTRY" ]; then
         echo "Initializing UserRegistry..."
-        cast send "$USER_REGISTRY" "initialize()" --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY" 2>&1 | grep -q "success" && \
-        echo -e "${GREEN}UserRegistry initialized${NC}" || echo -e "${YELLOW}UserRegistry init skipped${NC}"
+        if cast send "$USER_REGISTRY" "initialize()" --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY" >/dev/null 2>&1; then
+            echo -e "${GREEN}UserRegistry initialized${NC}"
+        else
+            echo -e "${YELLOW}UserRegistry init skipped${NC}"
+        fi
     fi
 
-    # Initialize MemoryRegistry (needs CreditManager address)
-    if [ "$MEMORY_REGISTRY" != "null" ] && [ -n "$MEMORY_REGISTRY" ] && [ "$CREDIT_MANAGER" != "null" ]; then
+    # Initialize MemoryRegistry (needs CreditManager + UserRegistry addresses)
+    if [ "$MEMORY_REGISTRY" != "null" ] && [ -n "$MEMORY_REGISTRY" ] && [ "$CREDIT_MANAGER" != "null" ] && [ "$USER_REGISTRY" != "null" ]; then
         echo "Initializing MemoryRegistry..."
-        cast send "$MEMORY_REGISTRY" "initialize(address)" "$CREDIT_MANAGER" --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY" 2>&1 | grep -q "success" && \
-        echo -e "${GREEN}MemoryRegistry initialized${NC}" || echo -e "${YELLOW}MemoryRegistry init skipped${NC}"
+        if cast send "$MEMORY_REGISTRY" "initialize(address,address)" "$CREDIT_MANAGER" "$USER_REGISTRY" --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY" >/dev/null 2>&1; then
+            echo -e "${GREEN}MemoryRegistry initialized${NC}"
+        else
+            echo -e "${YELLOW}MemoryRegistry init skipped${NC}"
+        fi
     fi
 
-    # Initialize AgentRegistry (needs CreditManager address)
-    if [ "$AGENT_REGISTRY" != "null" ] && [ -n "$AGENT_REGISTRY" ] && [ "$CREDIT_MANAGER" != "null" ]; then
+    # Initialize AgentRegistry (needs CreditManager + UserRegistry addresses)
+    if [ "$AGENT_REGISTRY" != "null" ] && [ -n "$AGENT_REGISTRY" ] && [ "$CREDIT_MANAGER" != "null" ] && [ "$USER_REGISTRY" != "null" ]; then
         echo "Initializing AgentRegistry..."
-        cast send "$AGENT_REGISTRY" "initialize(address)" "$CREDIT_MANAGER" --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY" 2>&1 | grep -q "success" && \
-        echo -e "${GREEN}AgentRegistry initialized${NC}" || echo -e "${YELLOW}AgentRegistry init skipped${NC}"
+        if cast send "$AGENT_REGISTRY" "initialize(address,address)" "$CREDIT_MANAGER" "$USER_REGISTRY" --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY" >/dev/null 2>&1; then
+            echo -e "${GREEN}AgentRegistry initialized${NC}"
+        else
+            echo -e "${YELLOW}AgentRegistry init skipped${NC}"
+        fi
     fi
 
-    # Initialize ContextRegistry (needs MemoryRegistry and AgentRegistry)
-    if [ "$CONTEXT_REGISTRY" != "null" ] && [ -n "$CONTEXT_REGISTRY" ] && [ "$MEMORY_REGISTRY" != "null" ] && [ "$AGENT_REGISTRY" != "null" ]; then
+    # Initialize ContextRegistry (needs MemoryRegistry, AgentRegistry, and CreditManager)
+    if [ "$CONTEXT_REGISTRY" != "null" ] && [ -n "$CONTEXT_REGISTRY" ] && [ "$MEMORY_REGISTRY" != "null" ] && [ "$AGENT_REGISTRY" != "null" ] && [ "$CREDIT_MANAGER" != "null" ]; then
         echo "Initializing ContextRegistry..."
-        cast send "$CONTEXT_REGISTRY" "initialize(address,address)" "$MEMORY_REGISTRY" "$AGENT_REGISTRY" --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY" 2>&1 | grep -q "success" && \
-        echo -e "${GREEN}ContextRegistry initialized${NC}" || echo -e "${YELLOW}ContextRegistry init skipped${NC}"
+        if cast send "$CONTEXT_REGISTRY" "initialize(address,address,address)" "$MEMORY_REGISTRY" "$AGENT_REGISTRY" "$CREDIT_MANAGER" --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY" >/dev/null 2>&1; then
+            echo -e "${GREEN}ContextRegistry initialized${NC}"
+        else
+            echo -e "${YELLOW}ContextRegistry init skipped${NC}"
+        fi
     fi
 
-    # Authorize MemoryRegistry and AgentRegistry as credit consumers
+    # Initialize AuditRegistry
+    AUDIT_REGISTRY=$(jq -r '.contracts.audit_registry' "$CONFIG_FILE")
+    if [ "$AUDIT_REGISTRY" != "null" ] && [ -n "$AUDIT_REGISTRY" ]; then
+        echo "Initializing AuditRegistry..."
+        if cast send "$AUDIT_REGISTRY" "initialize()" --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY" >/dev/null 2>&1; then
+            echo -e "${GREEN}AuditRegistry initialized${NC}"
+        else
+            echo -e "${YELLOW}AuditRegistry init skipped${NC}"
+        fi
+    fi
+
+    # Authorize MemoryRegistry, AgentRegistry, and ContextRegistry as credit consumers
     if [ "$CREDIT_MANAGER" != "null" ] && [ -n "$CREDIT_MANAGER" ]; then
         echo "Authorizing credit consumers..."
         if [ "$MEMORY_REGISTRY" != "null" ] && [ -n "$MEMORY_REGISTRY" ]; then
-            cast send "$CREDIT_MANAGER" "authorizeConsumer(address)" "$MEMORY_REGISTRY" --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY" 2>&1 | grep -q "success" && \
-            echo -e "${GREEN}MemoryRegistry authorized${NC}" || echo -e "${YELLOW}MemoryRegistry auth skipped${NC}"
+            if cast send "$CREDIT_MANAGER" "authorizeConsumer(address)" "$MEMORY_REGISTRY" --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY" >/dev/null 2>&1; then
+                echo -e "${GREEN}MemoryRegistry authorized as consumer${NC}"
+            else
+                echo -e "${YELLOW}MemoryRegistry auth skipped${NC}"
+            fi
         fi
         if [ "$AGENT_REGISTRY" != "null" ] && [ -n "$AGENT_REGISTRY" ]; then
-            cast send "$CREDIT_MANAGER" "authorizeConsumer(address)" "$AGENT_REGISTRY" --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY" 2>&1 | grep -q "success" && \
-            echo -e "${GREEN}AgentRegistry authorized${NC}" || echo -e "${YELLOW}AgentRegistry auth skipped${NC}"
+            if cast send "$CREDIT_MANAGER" "authorizeConsumer(address)" "$AGENT_REGISTRY" --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY" >/dev/null 2>&1; then
+                echo -e "${GREEN}AgentRegistry authorized as consumer${NC}"
+            else
+                echo -e "${YELLOW}AgentRegistry auth skipped${NC}"
+            fi
+        fi
+        if [ "$CONTEXT_REGISTRY" != "null" ] && [ -n "$CONTEXT_REGISTRY" ]; then
+            if cast send "$CREDIT_MANAGER" "authorizeConsumer(address)" "$CONTEXT_REGISTRY" --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY" >/dev/null 2>&1; then
+                echo -e "${GREEN}ContextRegistry authorized as consumer${NC}"
+            else
+                echo -e "${YELLOW}ContextRegistry auth skipped${NC}"
+            fi
+        fi
+    fi
+
+    # Authorize MemoryRegistry and AgentRegistry as stat updaters in UserRegistry
+    if [ "$USER_REGISTRY" != "null" ] && [ -n "$USER_REGISTRY" ]; then
+        echo "Authorizing stat updaters..."
+        if [ "$MEMORY_REGISTRY" != "null" ] && [ -n "$MEMORY_REGISTRY" ]; then
+            if cast send "$USER_REGISTRY" "authorizeUpdater(address)" "$MEMORY_REGISTRY" --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY" >/dev/null 2>&1; then
+                echo -e "${GREEN}MemoryRegistry authorized as updater${NC}"
+            else
+                echo -e "${YELLOW}MemoryRegistry updater auth skipped${NC}"
+            fi
+        fi
+        if [ "$AGENT_REGISTRY" != "null" ] && [ -n "$AGENT_REGISTRY" ]; then
+            if cast send "$USER_REGISTRY" "authorizeUpdater(address)" "$AGENT_REGISTRY" --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY" >/dev/null 2>&1; then
+                echo -e "${GREEN}AgentRegistry authorized as updater${NC}"
+            else
+                echo -e "${YELLOW}AgentRegistry updater auth skipped${NC}"
+            fi
         fi
     fi
 else
@@ -327,15 +387,40 @@ echo
 jq '.contracts' "$CONFIG_FILE"
 
 echo
+
+# Verify all contracts have bytecode
+if [ "$NO_CAST" -eq 0 ]; then
+    echo "Verifying contract bytecode..."
+    ALL_OK=true
+    for KEY in credit_manager user_registry memory_registry agent_registry context_registry audit_registry; do
+        ADDR=$(jq -r ".contracts.$KEY" "$CONFIG_FILE")
+        if [ "$ADDR" != "null" ] && [ -n "$ADDR" ]; then
+            BYTECODE=$(cast code "$ADDR" --rpc-url "$RPC_URL" 2>/dev/null)
+            if [ "$BYTECODE" = "0x" ] || [ -z "$BYTECODE" ]; then
+                echo -e "${RED}  $KEY ($ADDR) has NO bytecode${NC}"
+                ALL_OK=false
+            else
+                echo -e "${GREEN}  $KEY ($ADDR) OK${NC}"
+            fi
+        fi
+    done
+    if [ "$ALL_OK" = false ]; then
+        echo
+        echo -e "${RED}WARNING: Some contracts have no bytecode. They may need redeployment.${NC}"
+    fi
+fi
+
+echo
 echo "Explorer:"
 echo "$EXPLORER"
 echo
 echo "NOTE:"
 echo "- CreditManager must be deployed first."
-echo "- MemoryRegistry and AgentRegistry will later receive"
-echo "  the CreditManager address for cross-contract calls."
-echo "- ContextRegistry will later receive MemoryRegistry"
-echo "  and AgentRegistry addresses."
+echo "- MemoryRegistry.initialize(credit_manager, user_registry)"
+echo "- AgentRegistry.initialize(credit_manager, user_registry)"
+echo "- ContextRegistry.initialize(memory_registry, agent_registry, credit_manager)"
+echo "- Credit consumers authorized: MemoryRegistry, AgentRegistry, ContextRegistry"
+echo "- Stat updaters authorized: MemoryRegistry, AgentRegistry"
 echo "- CreditManager network config initialized with:"
 echo "  is_testnet=$IS_TESTNET, treasury=$TREASURY"
 echo
