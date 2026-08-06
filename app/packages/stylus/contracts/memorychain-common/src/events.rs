@@ -9,12 +9,13 @@ sol! {
     event UserRegistered(address indexed owner, string username, uint256 timestamp);
     event UsernameUpdated(address indexed owner, string new_username);
     event UserDeactivated(address indexed owner);
+    event UpdaterAuthorized(address indexed updater);
+    event UpdaterRevoked(address indexed updater);
 
     // ── CreditManager events ──────────────────────────
     event CreditsPurchased(address indexed user, uint64 amount, uint64 new_balance);
     event CreditsConsumed(address indexed user, uint64 amount, uint64 new_balance);
     event CreditsRefunded(address indexed user, uint64 amount, uint64 new_balance);
-    event FeesUpdated(uint16 create_memory, uint16 update_memory, uint16 create_agent, uint16 update_agent, uint16 execute_agent);
 
     // ── CreditManager pricing events ──────────────────
     event FeeUpdated(uint8 operation, uint16 old_fee, uint16 new_fee);
@@ -22,6 +23,16 @@ sol! {
     event TreasuryUpdated(address indexed old_treasury, address indexed new_treasury);
     event TestnetModeUpdated(bool is_testnet);
     event PurchaseLimitsUpdated(uint256 min, uint256 max);
+    event ConsumerAuthorized(address indexed consumer);
+    event ConsumerRevoked(address indexed consumer);
+
+    // ── Pausable events ───────────────────────────────
+    event ContractPaused(address indexed admin);
+    event ContractUnpaused(address indexed admin);
+
+    // ── Admin transfer events ─────────────────────────
+    event AdminTransferProposed(address indexed current_admin, address indexed new_admin);
+    event AdminTransferCompleted(address indexed old_admin, address indexed new_admin);
 
     // ── MemoryRegistry events ─────────────────────────
     event MemoryCreated(bytes32 indexed memory_id, address indexed owner, string cid, bytes32 hash, uint8 memory_type, uint8 visibility);
@@ -44,4 +55,6 @@ sol! {
 
     // ── AuditRegistry events ──────────────────────────
     event AuditRecorded(bytes32 indexed event_id, address indexed actor, uint8 entity_type, bytes32 indexed entity_id, uint8 action, uint64 timestamp);
+    event RecorderAuthorized(address indexed recorder);
+    event RecorderRevoked(address indexed recorder);
 }

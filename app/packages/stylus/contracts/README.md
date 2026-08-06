@@ -31,6 +31,23 @@ The blockchain only stores verifiable references (owners, hashes, CIDs, versions
    ETH Treasury
 ```
 
+### Cross-Contract Interactions
+
+```
+MemoryRegistry ──getFee──> CreditManager
+MemoryRegistry ──consumeCredits──> CreditManager
+MemoryRegistry ──incrementMemories──> UserRegistry
+
+AgentRegistry ──getFee──> CreditManager
+AgentRegistry ──consumeCredits──> CreditManager
+AgentRegistry ──incrementAgents──> UserRegistry
+
+ContextRegistry ──getMemory──> MemoryRegistry (verify exists)
+ContextRegistry ──getAgent──> AgentRegistry (verify exists)
+ContextRegistry ──getFee──> CreditManager
+ContextRegistry ──consumeCredits──> CreditManager
+```
+
 ## Project Structure
 
 ```
@@ -40,88 +57,107 @@ contracts/
 │   └── src/
 │       ├── lib.rs
 │       ├── types.rs              # Enums (MemoryType, AgentType, etc.)
-│       ├── events.rs             # Solidity events (including pricing events)
-│       ├── interfaces.rs         # ICreditManager, IMemoryRegistry, IAgentRegistry
+│       ├── events.rs             # Solidity events
+│       ├── interfaces.rs         # ICreditManager, IMemoryRegistry, IAgentRegistry, IUserRegistry
 │       ├── errors.rs             # Typed error enums
 │       └── helpers.rs            # generate_id utility
 │
-├── credit-manager/               # Credit management + ETH payments (10 tests)
-├── user-registry/                # User management (5 tests)
-├── memory-registry/              # Memory lifecycle + preview cost
-├── agent-registry/               # Agent lifecycle + preview cost
-├── context-registry/             # Agent ↔ Memory relationships
+├── credit-manager/               # Credit management + ETH payments
+├── user-registry/                # User management + username uniqueness
+├── memory-registry/              # Memory lifecycle + user stats update
+├── agent-registry/               # Agent lifecycle + user stats update
+├── context-registry/             # Agent ↔ Memory relationships + credit charging
 ├── audit-registry/               # Verifiable history
 │
 ├── deploy/
-│   ├── sepolia.json              # Arbitrum Sepolia config + treasury
-│   └── one.json                  # Arbitrum One config + treasury
+│   ├── sepolia.json              # Arbitrum Sepolia config + addresses
+│   └── one.json                  # Arbitrum One config
 │
 └── scripts/
     └── deploy.sh                 # Automated deployment (dual wallet)
 ```
 
-## Dual Network Support
+## Security Features
 
-MemoryChain supports both **testnet** (Arbitrum Sepolia) and **mainnet** (Arbitrum One) with separate wallet configurations.
+### Pausable (All Contracts)
 
-### Wallet Configuration
+Every contract implements a `Pausable` pattern for emergency stops:
 
-```bash
-# .env file
-TESTNET_PRIVATE_KEY=0x...    # Private key for testnet deployments
-TESTNET_TREASURY=0x...       # Treasury address for testnet ETH
-MAINNET_PRIVATE_KEY=0x...    # Private key for mainnet deployments
-MAINNET_TREASURY=0x...       # Treasury address for mainnet ETH
+```rust
+// Admin can pause/unpause any contract
+contract.pause().unwrap();   // All mutating functions revert
+contract.unpause().unwrap(); // Operations resume
 ```
 
-### Network Comparison
+When paused, all state-mutating functions return `CommonError: contract is paused`.
 
-| Feature | Testnet (Sepolia) | Mainnet (Arbitrum One) |
-|---------|-------------------|------------------------|
-| ETH Type | Sepolia ETH (free from faucets) | Real ETH |
-| Price per MC | 0.000001 ETH | 0.000001 ETH |
-| Wallet | `TESTNET_*` | `MAINNET_*` |
-| Explorer | sepolia.arbiscan.io | arbiscan.io |
+### Two-Step Admin Transfer (All Contracts)
 
-## Cross-Contract Calls
+Admin transfer requires proposer + acceptor, preventing accidental or malicious transfers:
 
-| Contract | Calls | Purpose |
-|----------|-------|---------|
-| MemoryRegistry | CreditManager | `consumeCredits()` before registering |
-| AgentRegistry | CreditManager | `consumeCredits()` before registering |
-| ContextRegistry | MemoryRegistry | `getMemory()` to verify exists |
-| ContextRegistry | AgentRegistry | `getAgent()` to verify exists |
+```rust
+// Step 1: Current admin proposes new admin
+contract.propose_admin(new_admin_address)?;
+
+// Step 2: Proposed admin accepts
+// (called by new_admin_address in a separate transaction)
+contract.accept_admin()?;
+```
+
+### Access Control
+
+| Pattern | Contracts | Description |
+|---------|-----------|-------------|
+| Admin-only | All | Fee changes, pause, authorize/revoke |
+| Authorized consumers | CreditManager | Only whitelisted contracts can consume credits |
+| Authorized updaters | UserRegistry | Only whitelisted contracts can update user stats |
+| Resource ownership | MemoryRegistry, AgentRegistry | Only owner can update/archive/restore |
+| Context ownership | ContextRegistry | Only owner of agent or memory can modify links |
 
 ## Contract Modules
 
 ### UserRegistry
 
-Manages user identities within the protocol.
+Manages user identities with username uniqueness enforcement.
 
-| Function | Description |
-|----------|-------------|
-| `register_user(username)` | Register a new user |
-| `update_username(new_username)` | Update caller's username |
-| `deactivate_user()` | Deactivate caller's account |
-| `exists(owner)` | Check if address is registered |
-| `is_registered(owner)` | Check if caller is registered |
-| `get_username(owner)` | Get user's username |
-| `is_active(owner)` | Check if account is active |
-| `total_users()` | Get total registered users |
+| Function | Access | Description |
+|----------|--------|-------------|
+| `register_user(username)` | Public | Register new user (username must be unique, 1-64 chars) |
+| `update_username(new_username)` | Owner | Update caller's username |
+| `deactivate_user()` | Owner | Deactivate caller's account |
+| `increment_agents(owner)` | Authorized | Increment agent count (cross-contract) |
+| `increment_memories(owner)` | Authorized | Increment memory count (cross-contract) |
+| `authorize_updater(updater)` | Admin | Grant updater authorization |
+| `revoke_updater(updater)` | Admin | Revoke updater authorization |
+| `propose_admin(new_admin)` | Admin | Propose new admin (two-step) |
+| `accept_admin()` | Pending | Accept admin role |
+| `pause()` / `unpause()` | Admin | Emergency stop |
+| `exists(owner)` | View | Check if address is registered |
+| `is_registered(owner)` | View | Check if address is registered |
+| `get_username(owner)` | View | Get user's username |
+| `is_active(owner)` | View | Check if account is active |
+| `get_agent_count(owner)` | View | Get agent count |
+| `get_memory_count(owner)` | View | Get memory count |
+| `total_users()` | View | Get total registered users |
 
 ### CreditManager
 
-Manages Memory Credits (MC) — the internal consumption unit that funds AI processing. Supports ETH payments on both testnet and mainnet.
+Manages Memory Credits (MC) — the internal consumption unit that funds AI processing.
+
+**Security:**
+- `consume_credits()` **reverts** on insufficient balance (safe pattern)
+- `buy_credits()` uses `checked_mul` to prevent overflow
+- Treasury address validated against `Address::ZERO`
 
 #### Core Functions
 
-| Function | Description |
-|----------|-------------|
-| `buy_credits(amount)` | Buy credits with ETH (ETH is forwarded to treasury) |
-| `consume_credits(user, amount)` | Consume credits (authorized contracts only) |
-| `refund_credits(user, amount)` | Refund credits to user (admin only) |
-| `balance_of(user)` | Get credit balance |
-| `has_sufficient_credits(user, amount)` | Check if user has enough credits |
+| Function | Access | Description |
+|----------|--------|-------------|
+| `buy_credits(amount)` | Public (payable) | Buy credits with ETH (forwarded to treasury) |
+| `consume_credits(user, amount)` | Authorized | Consume credits (reverts on insufficient) |
+| `refund_credits(user, amount)` | Admin | Refund credits to user |
+| `balance_of(user)` | View | Get credit balance |
+| `has_sufficient_credits(user, amount)` | View | Check if user has enough credits |
 
 #### Fee Management (Admin)
 
@@ -136,13 +172,10 @@ Manages Memory Credits (MC) — the internal consumption unit that funds AI proc
 | Function | Description |
 |----------|-------------|
 | `set_price_per_credit(price_wei)` | Update ETH price per MC |
-| `set_treasury(treasury)` | Update treasury address |
+| `set_treasury(treasury)` | Update treasury address (validates != ZERO) |
 | `set_purchase_limits(min, max)` | Update min/max MC per purchase |
 | `set_testnet_mode(is_testnet)` | Toggle testnet mode flag |
-| `get_pricing()` | Get full pricing config |
-| `is_testnet()` | Check if testnet mode |
-| `get_treasury()` | Get treasury address |
-| `get_price_per_credit()` | Get price per credit in wei |
+| `initialize_network(is_testnet, treasury, price)` | Initialize network config |
 
 #### Authorization (Admin)
 
@@ -150,7 +183,6 @@ Manages Memory Credits (MC) — the internal consumption unit that funds AI proc
 |----------|-------------|
 | `authorize_consumer(consumer)` | Authorize contract to consume credits |
 | `revoke_consumer(consumer)` | Revoke consumer authorization |
-| `initialize_network(is_testnet, treasury, price)` | Initialize network config |
 
 #### Operation Constants
 
@@ -176,115 +208,138 @@ pub const OP_LINK_MEMORY: u8 = 6;
 | Execute agent | 2 MC |
 | Link memory | 1 MC |
 
-#### Pricing Defaults
-
-| Parameter | Value |
-|-----------|-------|
-| Price per credit | 0.000001 ETH (10^12 wei) |
-| Min purchase | 1 MC |
-| Max purchase | 1000 MC |
-
 ### MemoryRegistry
 
 Manages the lifecycle of user memories (knowledge units).
 
-**Cross-contract:** Consumes credits via CreditManager before registering. Fees are dynamic (read from CreditManager).
+**Cross-contract:**
+- Consumes credits via `CreditManager` before create/update
+- Updates user stats via `UserRegistry` after create
 
-| Function | Description |
-|----------|-------------|
-| `create_memory(cid, hash, type, vis)` | Create new memory |
-| `update_memory(id, new_cid, new_hash)` | Update existing memory |
-| `archive_memory(id)` | Archive memory (soft delete) |
-| `restore_memory(id)` | Restore archived memory |
-| `get_memory(id)` | Get memory data |
-| `get_memory_version(id, version)` | Get specific version |
-| `preview_create_cost()` | Get cost to create memory (MC) |
-| `get_memory_count_by_owner(owner)` | Get number of memories by owner |
-| `get_memory_by_owner_index(owner, index)` | Get memory ID by owner and index |
+**Validation:**
+- `memory_type` must be 0-4 (Preference/Knowledge/Document/Objective/Other)
+- `visibility` must be 0-2 (Private/Shared/Public)
+
+| Function | Access | Description |
+|----------|--------|-------------|
+| `create_memory(cid, hash, type, vis)` | Public | Create new memory (charges credits) |
+| `update_memory(id, new_cid, new_hash)` | Owner | Update existing memory (charges credits) |
+| `archive_memory(id)` | Owner | Archive memory (soft delete) |
+| `restore_memory(id)` | Owner | Restore archived memory |
+| `propose_admin(new_admin)` | Admin | Propose new admin |
+| `accept_admin()` | Pending | Accept admin role |
+| `pause()` / `unpause()` | Admin | Emergency stop |
+| `get_memory(id)` | View | Get memory data |
+| `get_memory_version(id, version)` | View | Get specific version |
+| `preview_create_cost()` | View | Get cost to create memory (MC) |
+| `get_memory_count_by_owner(owner)` | View | Get number of memories by owner |
+| `get_memory_by_owner_index(owner, index)` | View | Get memory ID by owner and index |
 
 ### AgentRegistry
 
 Manages personal AI agents created by users.
 
-**Cross-contract:** Consumes credits via CreditManager before registering. Fees are dynamic (read from CreditManager).
+**Cross-contract:**
+- Consumes credits via `CreditManager` before create/update
+- Updates user stats via `UserRegistry` after create
 
-| Function | Description |
-|----------|-------------|
-| `create_agent(name, desc, cid, hash)` | Create new agent |
-| `update_agent(id, new_cid, new_hash)` | Update agent blueprint |
-| `archive_agent(id)` | Archive agent (soft delete) |
-| `restore_agent(id)` | Restore archived agent |
-| `get_agent(id)` | Get agent data |
-| `get_agent_version(id, version)` | Get specific version |
-| `preview_create_cost()` | Get cost to create agent (MC) |
-| `get_agent_count_by_owner(owner)` | Get number of agents by owner |
-| `get_agent_by_owner_index(owner, index)` | Get agent ID by owner and index |
+| Function | Access | Description |
+|----------|--------|-------------|
+| `create_agent(name, desc, cid, hash)` | Public | Create new agent (charges credits) |
+| `update_agent(id, new_cid, new_hash)` | Owner | Update agent blueprint (charges credits) |
+| `archive_agent(id)` | Owner | Archive agent (soft delete) |
+| `restore_agent(id)` | Owner | Restore archived agent |
+| `propose_admin(new_admin)` | Admin | Propose new admin |
+| `accept_admin()` | Pending | Accept admin role |
+| `pause()` / `unpause()` | Admin | Emergency stop |
+| `get_agent(id)` | View | Get agent data |
+| `get_agent_version(id, version)` | View | Get specific version |
+| `preview_create_cost()` | View | Get cost to create agent (MC) |
+| `get_agent_count_by_owner(owner)` | View | Get number of agents by owner |
+| `get_agent_by_owner_index(owner, index)` | View | Get agent ID by owner and index |
 
 ### ContextRegistry
 
 Manages many-to-many relationships between agents and memories.
 
-**Cross-contract:** Verifies memory and agent exist before linking. Also verifies caller owns both resources.
+**Cross-contract:**
+- Verifies memory and agent exist before linking
+- Verifies caller owns both resources (link, unlink, change_priority, disable, enable)
+- Charges credits via `CreditManager` for linking
 
-| Function | Description |
-|----------|-------------|
-| `link_memory(agent_id, memory_id, priority)` | Link memory to agent |
-| `unlink_memory(agent_id, memory_id)` | Unlink memory from agent |
-| `change_priority(context_id, new_priority)` | Change link priority |
-| `disable_link(context_id)` | Disable link without deleting |
-| `enable_link(context_id)` | Re-enable disabled link |
-| `get_agent_context_count(agent_id)` | Get number of linked memories for agent |
-| `get_agent_context_by_index(agent_id, index)` | Get context ID by agent and index |
+| Function | Access | Description |
+|----------|--------|-------------|
+| `link_memory(agent_id, memory_id, priority)` | Owner | Link memory to agent (charges credits) |
+| `unlink_memory(agent_id, memory_id)` | Owner | Unlink memory from agent |
+| `change_priority(context_id, new_priority)` | Owner | Change link priority |
+| `disable_link(context_id)` | Owner | Disable link without deleting |
+| `enable_link(context_id)` | Owner | Re-enable disabled link |
+| `propose_admin(new_admin)` | Admin | Propose new admin |
+| `accept_admin()` | Pending | Accept admin role |
+| `pause()` / `unpause()` | Admin | Emergency stop |
+| `get_link(agent_id, memory_id)` | View | Get context_id for a link |
+| `get_context(context_id)` | View | Get full link data |
+| `get_agent_context_count(agent_id)` | View | Get number of linked memories for agent |
+| `get_agent_context_by_index(agent_id, index)` | View | Get context ID by agent and index |
 
 ### AuditRegistry
 
 Maintains verifiable history of the protocol.
 
-| Function | Description |
-|----------|-------------|
-| `record_audit(actor, entity_type, entity_id, action)` | Record audit event |
-| `get_audit_event(event_id)` | Get event data |
-| `authorize_recorder(recorder)` | Authorize contract to record |
+| Function | Access | Description |
+|----------|--------|-------------|
+| `record_audit(actor, entity_type, entity_id, action)` | Authorized | Record audit event |
+| `authorize_recorder(recorder)` | Admin | Authorize contract to record |
+| `revoke_recorder(recorder)` | Admin | Revoke recorder authorization |
+| `propose_admin(new_admin)` | Admin | Propose new admin |
+| `accept_admin()` | Pending | Accept admin role |
+| `pause()` / `unpause()` | Admin | Emergency stop |
+| `get_audit_event(event_id)` | View | Get event data |
+| `total_events()` | View | Get total recorded events |
 
 ## Events
 
-### Core Events
+### All Events by Contract
 
 | Contract | Events |
 |----------|--------|
-| UserRegistry | `UserRegistered`, `UsernameUpdated`, `UserDeactivated` |
-| CreditManager | `CreditsPurchased`, `CreditsConsumed`, `CreditsRefunded` |
-| MemoryRegistry | `MemoryCreated`, `MemoryUpdated`, `MemoryArchived`, `MemoryRestored` |
-| AgentRegistry | `AgentCreated`, `AgentUpdated`, `AgentArchived`, `AgentRestored` |
-| ContextRegistry | `ContextLinked`, `ContextUnlinked`, `PriorityChanged`, `LinkDisabled`, `LinkEnabled` |
-| AuditRegistry | `AuditRecorded` |
-
-### Pricing Events (CreditManager)
-
-| Event | Description |
-|-------|-------------|
-| `FeeUpdated(operation, old_fee, new_fee)` | Operation fee changed |
-| `PricePerCreditUpdated(old_price, new_price)` | ETH price per credit changed |
-| `TreasuryUpdated(old_treasury, new_treasury)` | Treasury address changed |
-| `TestnetModeUpdated(is_testnet)` | Testnet mode toggled |
-| `PurchaseLimitsUpdated(min, max)` | Purchase limits changed |
+| **UserRegistry** | `UserRegistered`, `UsernameUpdated`, `UserDeactivated`, `UpdaterAuthorized`, `UpdaterRevoked`, `ContractPaused`, `ContractUnpaused`, `AdminTransferProposed`, `AdminTransferCompleted` |
+| **CreditManager** | `CreditsPurchased`, `CreditsConsumed`, `CreditsRefunded`, `FeeUpdated`, `PricePerCreditUpdated`, `TreasuryUpdated`, `TestnetModeUpdated`, `PurchaseLimitsUpdated`, `ConsumerAuthorized`, `ConsumerRevoked`, `ContractPaused`, `ContractUnpaused`, `AdminTransferProposed`, `AdminTransferCompleted` |
+| **MemoryRegistry** | `MemoryCreated`, `MemoryUpdated`, `MemoryArchived`, `MemoryRestored`, `ContractPaused`, `ContractUnpaused`, `AdminTransferProposed`, `AdminTransferCompleted` |
+| **AgentRegistry** | `AgentCreated`, `AgentUpdated`, `AgentArchived`, `AgentRestored`, `ContractPaused`, `ContractUnpaused`, `AdminTransferProposed`, `AdminTransferCompleted` |
+| **ContextRegistry** | `ContextLinked`, `ContextUnlinked`, `PriorityChanged`, `LinkDisabled`, `LinkEnabled`, `ContractPaused`, `ContractUnpaused`, `AdminTransferProposed`, `AdminTransferCompleted` |
+| **AuditRegistry** | `AuditRecorded`, `RecorderAuthorized`, `RecorderRevoked`, `ContractPaused`, `ContractUnpaused`, `AdminTransferProposed`, `AdminTransferCompleted` |
 
 ## Error Handling
 
 All contracts use typed error enums for gas efficiency and type safety:
 
 ```rust
-// Common errors
-enum CommonError { NotAdmin, NotOwner, NotRegistered, ResourceNotFound, ... }
+// Common errors (all contracts)
+enum CommonError {
+    NotAdmin { caller },
+    NotOwner { caller, owner },
+    NotRegistered { caller },
+    ResourceNotFound,
+    ResourceArchived,
+    AlreadyExists,
+    InvalidInput { reason },
+    Paused,           // Contract is paused
+    NotPaused,        // Contract is not paused
+}
 
 // Credit errors
 enum CreditError {
-    InsufficientBalance,
+    InsufficientBalance { required, available },  // Reverts on insufficient
     ZeroAmount,
-    UnauthorizedConsumer,
-    InsufficientPayment { required, provided },  // ETH payment too low
-    PurchaseOutOfRange { min, max, requested },   // Outside limits
-    TestnetModeActive,
+    UnauthorizedConsumer { caller },
+    InsufficientPayment { required, provided },
+    PurchaseOutOfRange { min, max, requested },
+}
+
+// User errors
+enum UserError {
+    UsernameTaken { username },
 }
 
 // Memory errors
@@ -308,13 +363,10 @@ enum MemoryType {
     Other = 4,
 }
 
-enum AgentType {
-    General = 0,
-    Coder = 1,
-    Writer = 2,
-    Analyst = 3,
-    Researcher = 4,
-    Custom = 5,
+enum Visibility {
+    Private = 0,
+    Shared = 1,
+    Public = 2,
 }
 
 enum ResourceStatus {
@@ -331,49 +383,72 @@ enum ResourceStatus {
 User → Frontend → buy_credits(amount) → signs TX with ETH value → CreditManager
 
 1. User selects credit package (50, 100, 200 MC)
-2. Frontend calculates ETH required (amount × 0.000001 ETH)
+2. Frontend calculates ETH required (amount × price_per_credit)
 3. User signs transaction with msg.value = ETH required
 4. Contract:
-   a. Validates amount within limits (1-1000 MC)
-   b. Verifies msg.value >= required ETH
-   c. Grants credits to user balance
-   d. Emits CreditsPurchased event
+   a. Validates amount within limits (min-max MC)
+   b. Calculates required ETH with checked_mul (no overflow)
+   c. Verifies msg.value >= required ETH
+   d. Grants credits to user balance
+   e. Forwards ETH to treasury
+   f. Emits CreditsPurchased event
 ```
 
-### Create Memory/Agent Flow (Christian's Flow)
+### Create Memory Flow
 
 ```
-1. Backend detects intent → proposes creating memory/agent
+1. Backend detects intent → proposes creating memory
 2. Frontend shows form (name, description editable)
 3. User modifies if desired → signs transaction
 4. Contract:
-   a. Verifies sufficient credits (has_sufficient_credits)
-   b. Creates memory/agent + consumes credits (atomic)
-   c. Returns success
+   a. Validates CID, hash, memory_type (0-4), visibility (0-2)
+   b. Generates unique ID via keccak256(owner, timestamp, nonce)
+   c. Gets fee from CreditManager (OP_CREATE_MEMORY)
+   d. Consumes credits via CreditManager (reverts if insufficient)
+   e. Stores memory + version 1
+   f. Updates user stats via UserRegistry
+   g. Emits MemoryCreated event
 ```
 
-## Testing
+### Link Memory Flow
 
-### Run all tests
+```
+1. User wants to connect a memory to an agent
+2. Frontend calls link_memory(agent_id, memory_id, priority)
+3. Contract:
+   a. Verifies memory exists (cross-contract to MemoryRegistry)
+   b. Verifies agent exists (cross-contract to AgentRegistry)
+   c. Verifies caller owns BOTH memory and agent
+   d. Gets fee from CreditManager (OP_LINK_MEMORY)
+   e. Consumes credits via CreditManager
+   f. Creates context linking agent ↔ memory
+   g. Emits ContextLinked event
+```
+
+## Dual Network Support
+
+MemoryChain supports both **testnet** (Arbitrum Sepolia) and **mainnet** (Arbitrum One) with separate wallet configurations.
+
+### Wallet Configuration
 
 ```bash
-cargo test -F stylus-test
+# .env file
+TESTNET_PRIVATE_KEY=0x...    # Private key for testnet deployments
+TESTNET_TREASURY=0x...       # Treasury address for testnet ETH
+MAINNET_PRIVATE_KEY=0x...    # Private key for mainnet deployments
+MAINNET_TREASURY=0x...       # Treasury address for mainnet ETH
 ```
 
-### Run tests by package
+### Network Comparison
 
-```bash
-cargo test -p credit-manager -F stylus-test
-cargo test -p user-registry -F stylus-test
-```
+| Feature | Testnet (Sepolia) | Mainnet (Arbitrum One) |
+|---------|-------------------|------------------------|
+| ETH Type | Sepolia ETH (free from faucets) | Real ETH |
+| Price per MC | 0.000001 ETH | 0.000001 ETH |
+| Wallet | `TESTNET_*` | `MAINNET_*` |
+| Explorer | sepolia.arbiscan.io | arbiscan.io |
 
-### Run a specific test
-
-```bash
-cargo test -p credit-manager test_buy_credits -F stylus-test
-```
-
-## Build & Deploy
+## Deployment
 
 ### Prerequisites
 
@@ -401,57 +476,77 @@ MAINNET_PRIVATE_KEY=0x...
 MAINNET_TREASURY=0x...
 ```
 
-### Check contracts compile to valid Stylus WASM
-
-```bash
-cargo check --workspace
-cd credit-manager && cargo stylus check
-cd user-registry && cargo stylus check
-cd memory-registry && cargo stylus check
-cd agent-registry && cargo stylus check
-cd context-registry && cargo stylus check
-cd audit-registry && cargo stylus check
-```
-
-> _Script `deploy.sh` will automatically run these checks before deploying._
-
 ### Deploy to Arbitrum Sepolia (testnet)
 
 ```bash
 ./scripts/deploy.sh sepolia
 ```
 
-Apply the paramet  `--force` to redeploy even if addresses already exist in `deploy/sepolia.json`.
-    
+Use `--force` to redeploy even if addresses already exist:
+```bash
+./scripts/deploy.sh sepolia --force
+```
+
 ### Deploy to Arbitrum One (mainnet)
 
 ```bash
 ./scripts/deploy.sh one
 ```
 
-### What the deploy script does
+### What the Deploy Script Does
 
-1. Selects wallet based on network (TESTNET_* or MAINNET_*)
+1. Selects wallet based on network (`TESTNET_*` or `MAINNET_*`)
 2. Verifies workspace compiles (`cargo check`)
 3. Runs `cargo stylus check` for each contract
-4. Deploys contracts in correct order
-5. Initializes CreditManager with network config:
-   - `is_testnet`: true/false
-   - `treasury`: address to receive ETH
-   - `price_per_credit`: 0.000001 ETH (10^12 wei)
-6. Saves addresses to `deploy/<network>.json`
+4. Deploys contracts in correct dependency order:
+   - CreditManager (no dependencies)
+   - UserRegistry (no dependencies)
+   - MemoryRegistry (needs CreditManager + UserRegistry)
+   - AgentRegistry (needs CreditManager + UserRegistry)
+   - ContextRegistry (needs MemoryRegistry + AgentRegistry + CreditManager)
+   - AuditRegistry (no dependencies)
+5. Initializes all contracts with correct addresses:
+   - `MemoryRegistry.initialize(credit_manager, user_registry)`
+   - `AgentRegistry.initialize(credit_manager, user_registry)`
+   - `ContextRegistry.initialize(memory_registry, agent_registry, credit_manager)`
+   - `AuditRegistry.initialize()`
+6. Authorizes credit consumers: MemoryRegistry, AgentRegistry, ContextRegistry
+7. Authorizes stat updaters: MemoryRegistry, AgentRegistry (on UserRegistry)
+8. Configures CreditManager network (treasury, price, testnet mode)
+9. Saves addresses to `deploy/<network>.json`
 
-### Post-deployment setup (if needed)
+### Post-Deployment Verification
 
 ```bash
-# Authorize MemoryRegistry as credit consumer
-cast send <CREDIT_MANAGER> "authorizeConsumer(address)" <MEMORY_REGISTRY> --rpc-url $RPC_URL --private-key $PRIVATE_KEY
+# Check admin is set correctly
+cast call <CONTRACT> "admin()" --rpc-url $RPC_URL
 
-# Authorize AgentRegistry as credit consumer
-cast send <CREDIT_MANAGER> "authorizeConsumer(address)" <AGENT_REGISTRY> --rpc-url $RPC_URL --private-key $PRIVATE_KEY
+# Check contract is not paused
+cast call <CONTRACT> "isPaused()" --rpc-url $RPC_URL
 
-# Initialize ContextRegistry with MemoryRegistry and AgentRegistry addresses
-cast send <CONTEXT_REGISTRY> "initialize(address,address)" <MEMORY_REGISTRY> <AGENT_REGISTRY> --rpc-url $RPC_URL --private-key $PRIVATE_KEY
+# Check credit consumers are authorized
+cast call <CREDIT_MANAGER> "authorizedConsumers(address)" <MEMORY_REGISTRY> --rpc-url $RPC_URL
+```
+
+## Testing
+
+### Run all tests
+
+```bash
+cargo test --features stylus-test
+```
+
+### Run tests by package
+
+```bash
+cargo test -p credit-manager --features stylus-test
+cargo test -p user-registry --features stylus-test
+```
+
+### Run a specific test
+
+```bash
+cargo test -p credit-manager test_buy_credits --features stylus-test
 ```
 
 ## Frontend Integration
@@ -501,19 +596,29 @@ tiny-keccak = "2.0"
 
 ### Common Issues
 
-1. **"credit consumption failed"** - User doesn't have enough MC credits. They need to buy credits first via `buy_credits()`.
+1. **"credit consumption failed"** — User doesn't have enough MC credits. They need to buy credits first via `buy_credits()`.
 
-2. **"not memory owner" / "not agent owner"** - In ContextRegistry, the caller must own both the memory AND the agent to link them.
+2. **"not memory owner" / "not agent owner"** — In ContextRegistry, the caller must own both the memory AND the agent to link/unlink/modify.
 
-3. **"ETH transfer to treasury failed"** - The treasury address might be invalid or the contract might not have enough ETH balance.
+3. **"ETH transfer to treasury failed"** — The treasury address might be invalid or the contract might not have enough ETH balance.
 
-4. **"failed to get fee"** - CreditManager might not be initialized or the operation code is invalid.
+4. **"failed to get fee"** — CreditManager might not be initialized or the operation code is invalid.
+
+5. **"contract is paused"** — The contract has been paused by admin. Wait for unpause or contact admin.
+
+6. **"not pending admin"** — The `accept_admin()` caller doesn't match the proposed admin address.
+
+7. **"unauthorized consumer"** — The calling contract is not authorized to consume credits. Admin must call `authorizeConsumer()`.
+
+8. **"username already taken"** — The username is registered by another user. Choose a different username.
+
+9. **"invalid memory type" / "invalid visibility"** — memory_type must be 0-4, visibility must be 0-2.
 
 ### Fee Configuration
 
-Fees are now dynamic. To change operation costs:
+Fees are dynamic. To change operation costs:
 ```bash
-# As admin, call set_fee on CreditManager
+# As admin, call setFee on CreditManager
 cast send <CREDIT_MANAGER> "setFee(uint8,uint16)" <operation_code> <new_fee> --rpc-url $RPC_URL --private-key $PRIVATE_KEY
 ```
 
