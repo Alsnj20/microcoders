@@ -1,4 +1,5 @@
 import { Hanken_Grotesk, Inter, Orbitron, Source_Serif_4 } from "next/font/google";
+import { ViewTransition } from "react";
 import "@rainbow-me/rainbowkit/styles.css";
 import type { Metadata } from "next";
 import { ScaffoldEthAppWithProviders } from "~~/components/ScaffoldEthAppWithProviders";
@@ -78,7 +79,9 @@ const ScaffoldEthApp = ({ children }: { children: React.ReactNode }) => {
         suppressHydrationWarning
       >
         <ThemeProvider>
-          <ScaffoldEthAppWithProviders>{children}</ScaffoldEthAppWithProviders>
+          <ScaffoldEthAppWithProviders>
+            <ViewTransition>{children}</ViewTransition>
+          </ScaffoldEthAppWithProviders>
         </ThemeProvider>
       </body>
     </html>
