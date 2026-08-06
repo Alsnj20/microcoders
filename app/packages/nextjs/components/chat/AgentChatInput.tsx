@@ -37,7 +37,7 @@ export function AgentChatInput({ onSendMessage }: AgentChatInputProps) {
           type="text"
           value={input}
           onChange={e => setInput(e.target.value)}
-          placeholder="Ask AgentOS or request analysis..."
+          placeholder="Ask MemoryChain agent or request analysis..."
           className="flex-1 bg-transparent border-none outline-none font-['Hanken_Grotesk'] text-base text-foreground placeholder-outline px-2"
         />
 
