@@ -33,9 +33,9 @@ const baseUrl = process.env.VERCEL_URL
   : `http://localhost:${process.env.PORT || 3000}`;
 const imageUrl = `${baseUrl}/thumbnail.jpg`;
 
-const title = "AgentOS | Natural AI Interface";
-const titleTemplate = "%s | AgentOS";
-const description = "Autonomous AI Agent Ecosystem for Web3";
+const title = "MemoryChain | Propiedad del Conocimiento para IA";
+const titleTemplate = "%s | MemoryChain";
+const description = "El protocolo descentralizado para la propiedad del conocimiento utilizado por agentes de Inteligencia Artificial en Arbitrum Stylus.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(baseUrl),
