@@ -4,7 +4,7 @@ const ANIMATION_TIME = 2000;
 
 export function useAnimationConfig(data: unknown) {
   const [showAnimation, setShowAnimation] = useState(false);
-  const [prevData, setPrevData] = useState();
+  const [prevData, setPrevData] = useState<unknown>();
 
   useEffect(() => {
     if (prevData !== undefined && prevData !== data) {
