@@ -21,6 +21,8 @@ sol_storage! {
     pub struct MemoryRegistry {
         mapping(bytes32 => Memory) memories;
         mapping(bytes32 => mapping(uint32 => MemoryVersion)) versions;
+        mapping(address => mapping(uint256 => bytes32)) owner_memories;
+        mapping(address => uint256) owner_memory_count;
         uint256 total_memories;
         address credit_manager;
         mapping(address => uint256) nonces;
@@ -84,12 +86,19 @@ impl MemoryRegistry {
             return Err(String::from("MemoryRegistry: ID collision"));
         }
 
-        // CROSS-CONTRACT CALL: Consume credits via CreditManager
+        // CROSS-CONTRACT CALL: Get fee from CreditManager
         let credit_manager_addr = self.credit_manager.get();
         let credit_manager = ICreditManager::new(credit_manager_addr);
+        
+        let fee: u16 = credit_manager
+            .get_fee(self.vm(), Call::new(), 1u8) // OP_CREATE_MEMORY = 1
+            .map_err(|_| String::from("MemoryRegistry: failed to get fee"))?;
+        let fee_u64 = u64::from(fee);
+
+        // CROSS-CONTRACT CALL: Consume credits via CreditManager
         let context = Call::new_mutating(self);
         let success = credit_manager
-            .consume_credits(self.vm(), context, caller, 1)
+            .consume_credits(self.vm(), context, caller, fee_u64)
             .map_err(|_| String::from("MemoryRegistry: credit consumption failed"))?;
 
         if !success {
@@ -119,6 +128,12 @@ impl MemoryRegistry {
         version.created_at.set(timestamp);
 
         self.nonces.setter(caller).set(nonce + U256::from(1));
+        
+        // Store memory_id in owner's list
+        let memory_count: Uint<256, 4> = self.owner_memory_count.get(caller);
+        self.owner_memories.setter(caller).setter(memory_count).set(memory_id);
+        self.owner_memory_count.setter(caller).set(memory_count + U256::from(1));
+        
         self.total_memories.set(self.total_memories.get() + U256::from(1));
 
         self.vm().log(MemoryCreated {
@@ -163,12 +178,19 @@ impl MemoryRegistry {
             return Err(String::from("MemoryRegistry: zero hash"));
         }
 
-        // CROSS-CONTRACT CALL: Consume credits
+        // CROSS-CONTRACT CALL: Get fee from CreditManager
         let credit_manager_addr = self.credit_manager.get();
         let credit_manager = ICreditManager::new(credit_manager_addr);
+        
+        let fee: u16 = credit_manager
+            .get_fee(self.vm(), Call::new(), 2u8) // OP_UPDATE_MEMORY = 2
+            .map_err(|_| String::from("MemoryRegistry: failed to get fee"))?;
+        let fee_u64 = u64::from(fee);
+
+        // CROSS-CONTRACT CALL: Consume credits
         let context = Call::new_mutating(self);
         let success = credit_manager
-            .consume_credits(self.vm(), context, caller, 1)
+            .consume_credits(self.vm(), context, caller, fee_u64)
             .map_err(|_| String::from("MemoryRegistry: credit consumption failed"))?;
 
         if !success {
@@ -334,5 +356,65 @@ impl MemoryRegistry {
     /// Returns the admin address.
     pub fn admin(&self) -> Address {
         self.admin.get()
+    }
+
+    /// Returns the number of memories owned by an address.
+    pub fn get_memory_count_by_owner(&self, owner: Address) -> U256 {
+        self.owner_memory_count.get(owner)
+    }
+
+    /// Returns a memory ID by owner and index.
+    pub fn get_memory_by_owner_index(&self, owner: Address, index: U256) -> FixedBytes<32> {
+        self.owner_memories.getter(owner).getter(index).get()
+    }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// TESTS
+// ════════════════════════════════════════════════════════════════════════════
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use stylus_sdk::testing::*;
+
+    const DEFAULT_SENDER: Address = Address::new([
+        0xDE, 0xAD, 0xBE, 0xEF, 0xDE, 0xAD, 0xBE, 0xEF, 0xDE, 0xAD,
+        0xBE, 0xEF, 0xDE, 0xAD, 0xBE, 0xEF, 0xDE, 0xAD, 0xBE, 0xEF,
+    ]);
+
+    fn setup() -> (TestVM, MemoryRegistry) {
+        let vm = TestVM::default();
+        let mut contract = MemoryRegistry::from(&vm);
+        let credit_manager = Address::new([0x11; 20]);
+        contract.initialize(credit_manager);
+        (vm, contract)
+    }
+
+    #[test]
+    fn test_initialize() {
+        let (_vm, contract) = setup();
+        assert_eq!(contract.admin(), DEFAULT_SENDER);
+        assert_eq!(contract.total_memories(), U256::from(0));
+    }
+
+    #[test]
+    fn test_get_memory_not_found() {
+        let (_vm, contract) = setup();
+        let fake_id = FixedBytes::from([0x01; 32]);
+        assert!(contract.get_memory(fake_id).is_err());
+    }
+
+    #[test]
+    fn test_get_memory_version_not_found() {
+        let (_vm, contract) = setup();
+        let fake_id = FixedBytes::from([0x01; 32]);
+        assert!(contract.get_memory_version(fake_id, 1).is_err());
+    }
+
+    #[test]
+    fn test_get_memory_count_by_owner() {
+        let (_vm, contract) = setup();
+        assert_eq!(contract.get_memory_count_by_owner(DEFAULT_SENDER), U256::from(0));
     }
 }

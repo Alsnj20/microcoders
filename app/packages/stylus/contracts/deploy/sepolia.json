@@ -5,13 +5,13 @@
   "explorer": "https://sepolia.arbiscan.io",
   "treasury": "0x636b53B6DdA21FD7c953677ab1aA892A9957E97b",
   "contracts": {
-    "credit_manager": "0x85e81cc9e6739864d3034d4a33e308f8aa42cdb2",
-    "user_registry": "0xac1caa51407044751dd8a5fc15185103d90a0c1d",
-    "memory_registry": "0x4a990313b1a9868ba6790b460112ce325ff16032",
-    "agent_registry": "0x80c988c049883ae3d3d3cf144e0750d481334e25",
-    "context_registry": "0x9f17645a2a46447b284c7742ddb8dface1bdc108",
-    "audit_registry": "0xb191df826f6af21d45679f4c50418ef6f573d07d"
+    "credit_manager": "0xbf8c467e634e8fb6f37864312ffd077ac4ec2249",
+    "user_registry": "0xd84c2b84ae7dceb9aa2110b561ca37fb527a9fb4",
+    "memory_registry": "0x889e4f7a76897da038aebe9f1b41f824e4c5ea19",
+    "agent_registry": "0xa563ae851978592f868455599977e15d7d12338e",
+    "context_registry": "0x841b91a83868629e89fdecf6118bb87ac4f83e35",
+    "audit_registry": "0x934f7b1401ee6112a3634d84ccebac5c44748e72"
   },
   "deployer": "0x636b53B6DdA21FD7c953677ab1aA892A9957E97b",
-  "deployed_at": "2026-08-05T18:50:00Z"
+  "deployed_at": "2026-08-06T00:51:03Z"
 }

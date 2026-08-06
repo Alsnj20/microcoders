@@ -26,6 +26,8 @@ sol_storage! {
         mapping(bytes32 => AgentMemoryContext) contexts;
         mapping(bytes32 => mapping(bytes32 => bytes32)) agent_memory_link;
         mapping(bytes32 => bool) context_enabled;
+        mapping(bytes32 => mapping(uint256 => bytes32)) agent_contexts;
+        mapping(bytes32 => uint256) agent_context_count;
         mapping(address => uint256) nonces;
         address memory_registry;
         address agent_registry;
@@ -90,6 +92,14 @@ impl ContextRegistry {
             return Err(String::from("ContextRegistry: agent does not exist"));
         }
 
+        // Verify caller owns both memory and agent
+        if memory_owner != caller {
+            return Err(String::from("ContextRegistry: not memory owner"));
+        }
+        if agent_owner != caller {
+            return Err(String::from("ContextRegistry: not agent owner"));
+        }
+
         // Check if link already exists
         let existing_id: FixedBytes<32> =
             self.agent_memory_link.getter(agent_id).getter(memory_id).get();
@@ -123,6 +133,12 @@ impl ContextRegistry {
             .set(context_id);
 
         self.context_enabled.setter(context_id).set(true);
+        
+        // Store context_id in agent's list
+        let context_count: Uint<256, 4> = self.agent_context_count.get(agent_id);
+        self.agent_contexts.setter(agent_id).setter(context_count).set(context_id);
+        self.agent_context_count.setter(agent_id).set(context_count + U256::from(1));
+        
         self.nonces.setter(caller).set(nonce + U256::from(1));
 
         self.vm().log(ContextLinked {
@@ -249,5 +265,68 @@ impl ContextRegistry {
     /// Returns the admin address.
     pub fn admin(&self) -> Address {
         self.admin.get()
+    }
+
+    /// Returns the number of contexts (linked memories) for an agent.
+    pub fn get_agent_context_count(&self, agent_id: FixedBytes<32>) -> U256 {
+        self.agent_context_count.get(agent_id)
+    }
+
+    /// Returns a context ID by agent and index.
+    pub fn get_agent_context_by_index(&self, agent_id: FixedBytes<32>, index: U256) -> FixedBytes<32> {
+        self.agent_contexts.getter(agent_id).getter(index).get()
+    }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// TESTS
+// ════════════════════════════════════════════════════════════════════════════
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use stylus_sdk::testing::*;
+
+    const DEFAULT_SENDER: Address = Address::new([
+        0xDE, 0xAD, 0xBE, 0xEF, 0xDE, 0xAD, 0xBE, 0xEF, 0xDE, 0xAD,
+        0xBE, 0xEF, 0xDE, 0xAD, 0xBE, 0xEF, 0xDE, 0xAD, 0xBE, 0xEF,
+    ]);
+
+    fn setup() -> (TestVM, ContextRegistry) {
+        let vm = TestVM::default();
+        let mut contract = ContextRegistry::from(&vm);
+        let memory_registry = Address::new([0x22; 20]);
+        let agent_registry = Address::new([0x33; 20]);
+        contract.initialize(memory_registry, agent_registry);
+        (vm, contract)
+    }
+
+    #[test]
+    fn test_initialize() {
+        let (_vm, contract) = setup();
+        assert_eq!(contract.admin(), DEFAULT_SENDER);
+    }
+
+    #[test]
+    fn test_get_context_not_found() {
+        let (_vm, contract) = setup();
+        let fake_id = FixedBytes::from([0x01; 32]);
+        assert!(contract.get_context(fake_id).is_err());
+    }
+
+    #[test]
+    fn test_get_link_not_found() {
+        let (_vm, contract) = setup();
+        let fake_agent = FixedBytes::from([0x01; 32]);
+        let fake_memory = FixedBytes::from([0x02; 32]);
+        let result = contract.get_link(fake_agent, fake_memory);
+        assert_eq!(result, FixedBytes::ZERO);
+    }
+
+    #[test]
+    fn test_change_priority_not_active() {
+        let (_vm, mut contract) = setup();
+        let fake_id = FixedBytes::from([0x01; 32]);
+        assert!(contract.change_priority(fake_id, 10).is_err());
     }
 }

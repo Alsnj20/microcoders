@@ -139,3 +139,77 @@ impl AuditRegistry {
         self.admin.get()
     }
 }
+
+// ════════════════════════════════════════════════════════════════════════════
+// TESTS
+// ════════════════════════════════════════════════════════════════════════════
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use stylus_sdk::testing::*;
+
+    const DEFAULT_SENDER: Address = Address::new([
+        0xDE, 0xAD, 0xBE, 0xEF, 0xDE, 0xAD, 0xBE, 0xEF, 0xDE, 0xAD,
+        0xBE, 0xEF, 0xDE, 0xAD, 0xBE, 0xEF, 0xDE, 0xAD, 0xBE, 0xEF,
+    ]);
+
+    fn setup() -> (TestVM, AuditRegistry) {
+        let vm = TestVM::default();
+        let mut contract = AuditRegistry::from(&vm);
+        contract.initialize();
+        (vm, contract)
+    }
+
+    #[test]
+    fn test_initialize() {
+        let (_vm, contract) = setup();
+        assert_eq!(contract.admin(), DEFAULT_SENDER);
+        assert_eq!(contract.total_events(), U256::from(0));
+    }
+
+    #[test]
+    fn test_record_audit_by_admin() {
+        let (_vm, mut contract) = setup();
+        let actor = Address::new([0x02; 20]);
+        let entity = FixedBytes::from([0x03; 32]);
+        let result = contract.record_audit(actor, 0, entity, 0);
+        assert!(result.is_ok());
+        assert_eq!(contract.total_events(), U256::from(1));
+    }
+
+    #[test]
+    fn test_get_event_after_record() {
+        let (_vm, mut contract) = setup();
+        let actor = Address::new([0x02; 20]);
+        let entity = FixedBytes::from([0x03; 32]);
+        let event_id = contract.record_audit(actor, 1, entity, 2).unwrap();
+        
+        let (recorded_actor, entity_type, recorded_entity, action, _timestamp) = 
+            contract.get_audit_event(event_id).unwrap();
+        
+        assert_eq!(recorded_actor, actor);
+        assert_eq!(entity_type, 1);
+        assert_eq!(recorded_entity, entity);
+        assert_eq!(action, 2);
+    }
+
+    #[test]
+    fn test_get_audit_event_not_found() {
+        let (_vm, contract) = setup();
+        let fake_id = FixedBytes::from([0x01; 32]);
+        assert!(contract.get_audit_event(fake_id).is_err());
+    }
+
+    #[test]
+    fn test_authorize_recorder() {
+        let (_vm, mut contract) = setup();
+        let recorder = Address::new([0x01; 20]);
+        contract.authorize_recorder(recorder).unwrap();
+        // Admin can still record
+        let actor = Address::new([0x02; 20]);
+        let entity = FixedBytes::from([0x03; 32]);
+        let result = contract.record_audit(actor, 0, entity, 0);
+        assert!(result.is_ok());
+    }
+}
