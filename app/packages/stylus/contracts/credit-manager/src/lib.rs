@@ -16,7 +16,7 @@ use memorychain_common::{
     errors::{CommonError, CreditError},
     events::*,
 };
-use stylus_sdk::prelude::*;
+use stylus_sdk::{call::transfer::transfer_eth, prelude::*};
 
 sol_storage! {
     #[entrypoint]
@@ -193,6 +193,11 @@ impl CreditManager {
         account.balance.set(current_balance + amount_uint);
         account.purchased.set(current_purchased + amount_uint);
 
+        // Transfer ETH to treasury
+        let treasury = self.pricing.treasury.get();
+        transfer_eth(self.vm(), treasury, payment)
+            .map_err(|_| String::from("CreditError: ETH transfer to treasury failed"))?;
+
         let new_balance = u64::try_from(current_balance + amount_uint).unwrap_or(0);
         self.vm().log(CreditsPurchased {
             user: caller,
@@ -252,6 +257,7 @@ impl CreditManager {
     }
 
     /// Refunds credits to a user's account.
+    /// Only callable by admin.
     pub fn refund_credits(
         &mut self,
         user: Address,
@@ -259,9 +265,7 @@ impl CreditManager {
     ) -> Result<(), String> {
         let caller = self.vm().msg_sender();
 
-        if caller != self.admin.get()
-            && !self.authorized_consumers.get(caller)
-        {
+        if caller != self.admin.get() {
             return Err(CreditError::UnauthorizedConsumer { caller }.into());
         }
 

@@ -21,6 +21,8 @@ sol_storage! {
     pub struct AgentRegistry {
         mapping(bytes32 => Agent) agents;
         mapping(bytes32 => mapping(uint32 => AgentVersion)) versions;
+        mapping(address => mapping(uint256 => bytes32)) owner_agents;
+        mapping(address => uint256) owner_agent_count;
         uint256 total_agents;
         address credit_manager;
         mapping(address => uint256) nonces;
@@ -87,12 +89,19 @@ impl AgentRegistry {
             return Err(String::from("AgentRegistry: ID collision"));
         }
 
-        // CROSS-CONTRACT CALL: Consume credits (5 MC for create_agent)
+        // CROSS-CONTRACT CALL: Get fee from CreditManager
         let credit_manager_addr = self.credit_manager.get();
         let credit_manager = ICreditManager::new(credit_manager_addr);
+        
+        let fee: u16 = credit_manager
+            .get_fee(self.vm(), Call::new(), 3u8) // OP_CREATE_AGENT = 3
+            .map_err(|_| String::from("AgentRegistry: failed to get fee"))?;
+        let fee_u64 = u64::from(fee);
+
+        // CROSS-CONTRACT CALL: Consume credits
         let context = Call::new_mutating(self);
         let success = credit_manager
-            .consume_credits(self.vm(), context, caller, 5)
+            .consume_credits(self.vm(), context, caller, fee_u64)
             .map_err(|_| String::from("AgentRegistry: credit consumption failed"))?;
 
         if !success {
@@ -122,6 +131,12 @@ impl AgentRegistry {
         version.created_at.set(timestamp);
 
         self.nonces.setter(caller).set(nonce + U256::from(1));
+        
+        // Store agent_id in owner's list
+        let agent_count: Uint<256, 4> = self.owner_agent_count.get(caller);
+        self.owner_agents.setter(caller).setter(agent_count).set(agent_id);
+        self.owner_agent_count.setter(caller).set(agent_count + U256::from(1));
+        
         self.total_agents.set(self.total_agents.get() + U256::from(1));
 
         self.vm().log(AgentCreated {
@@ -165,12 +180,19 @@ impl AgentRegistry {
             return Err(String::from("AgentRegistry: zero hash"));
         }
 
-        // CROSS-CONTRACT CALL: Consume credits (2 MC for update_agent)
+        // CROSS-CONTRACT CALL: Get fee from CreditManager
         let credit_manager_addr = self.credit_manager.get();
         let credit_manager = ICreditManager::new(credit_manager_addr);
+        
+        let fee: u16 = credit_manager
+            .get_fee(self.vm(), Call::new(), 4u8) // OP_UPDATE_AGENT = 4
+            .map_err(|_| String::from("AgentRegistry: failed to get fee"))?;
+        let fee_u64 = u64::from(fee);
+
+        // CROSS-CONTRACT CALL: Consume credits
         let context = Call::new_mutating(self);
         let success = credit_manager
-            .consume_credits(self.vm(), context, caller, 2)
+            .consume_credits(self.vm(), context, caller, fee_u64)
             .map_err(|_| String::from("AgentRegistry: credit consumption failed"))?;
 
         if !success {
@@ -333,5 +355,65 @@ impl AgentRegistry {
     /// Returns the admin address.
     pub fn admin(&self) -> Address {
         self.admin.get()
+    }
+
+    /// Returns the number of agents owned by an address.
+    pub fn get_agent_count_by_owner(&self, owner: Address) -> U256 {
+        self.owner_agent_count.get(owner)
+    }
+
+    /// Returns an agent ID by owner and index.
+    pub fn get_agent_by_owner_index(&self, owner: Address, index: U256) -> FixedBytes<32> {
+        self.owner_agents.getter(owner).getter(index).get()
+    }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// TESTS
+// ════════════════════════════════════════════════════════════════════════════
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use stylus_sdk::testing::*;
+
+    const DEFAULT_SENDER: Address = Address::new([
+        0xDE, 0xAD, 0xBE, 0xEF, 0xDE, 0xAD, 0xBE, 0xEF, 0xDE, 0xAD,
+        0xBE, 0xEF, 0xDE, 0xAD, 0xBE, 0xEF, 0xDE, 0xAD, 0xBE, 0xEF,
+    ]);
+
+    fn setup() -> (TestVM, AgentRegistry) {
+        let vm = TestVM::default();
+        let mut contract = AgentRegistry::from(&vm);
+        let credit_manager = Address::new([0x11; 20]);
+        contract.initialize(credit_manager);
+        (vm, contract)
+    }
+
+    #[test]
+    fn test_initialize() {
+        let (_vm, contract) = setup();
+        assert_eq!(contract.admin(), DEFAULT_SENDER);
+        assert_eq!(contract.total_agents(), U256::from(0));
+    }
+
+    #[test]
+    fn test_get_agent_not_found() {
+        let (_vm, contract) = setup();
+        let fake_id = FixedBytes::from([0x01; 32]);
+        assert!(contract.get_agent(fake_id).is_err());
+    }
+
+    #[test]
+    fn test_get_agent_version_not_found() {
+        let (_vm, contract) = setup();
+        let fake_id = FixedBytes::from([0x01; 32]);
+        assert!(contract.get_agent_version(fake_id, 1).is_err());
+    }
+
+    #[test]
+    fn test_get_agent_count_by_owner() {
+        let (_vm, contract) = setup();
+        assert_eq!(contract.get_agent_count_by_owner(DEFAULT_SENDER), U256::from(0));
     }
 }

@@ -117,9 +117,9 @@ Manages Memory Credits (MC) — the internal consumption unit that funds AI proc
 
 | Function | Description |
 |----------|-------------|
-| `buy_credits(amount)` | Buy credits with ETH (requires msg.value) |
+| `buy_credits(amount)` | Buy credits with ETH (ETH is forwarded to treasury) |
 | `consume_credits(user, amount)` | Consume credits (authorized contracts only) |
-| `refund_credits(user, amount)` | Refund credits to user |
+| `refund_credits(user, amount)` | Refund credits to user (admin only) |
 | `balance_of(user)` | Get credit balance |
 | `has_sufficient_credits(user, amount)` | Check if user has enough credits |
 
@@ -188,7 +188,7 @@ pub const OP_LINK_MEMORY: u8 = 6;
 
 Manages the lifecycle of user memories (knowledge units).
 
-**Cross-contract:** Consumes credits via CreditManager before registering.
+**Cross-contract:** Consumes credits via CreditManager before registering. Fees are dynamic (read from CreditManager).
 
 | Function | Description |
 |----------|-------------|
@@ -199,12 +199,14 @@ Manages the lifecycle of user memories (knowledge units).
 | `get_memory(id)` | Get memory data |
 | `get_memory_version(id, version)` | Get specific version |
 | `preview_create_cost()` | Get cost to create memory (MC) |
+| `get_memory_count_by_owner(owner)` | Get number of memories by owner |
+| `get_memory_by_owner_index(owner, index)` | Get memory ID by owner and index |
 
 ### AgentRegistry
 
 Manages personal AI agents created by users.
 
-**Cross-contract:** Consumes credits via CreditManager before registering.
+**Cross-contract:** Consumes credits via CreditManager before registering. Fees are dynamic (read from CreditManager).
 
 | Function | Description |
 |----------|-------------|
@@ -215,12 +217,14 @@ Manages personal AI agents created by users.
 | `get_agent(id)` | Get agent data |
 | `get_agent_version(id, version)` | Get specific version |
 | `preview_create_cost()` | Get cost to create agent (MC) |
+| `get_agent_count_by_owner(owner)` | Get number of agents by owner |
+| `get_agent_by_owner_index(owner, index)` | Get agent ID by owner and index |
 
 ### ContextRegistry
 
 Manages many-to-many relationships between agents and memories.
 
-**Cross-contract:** Verifies memory and agent exist before linking.
+**Cross-contract:** Verifies memory and agent exist before linking. Also verifies caller owns both resources.
 
 | Function | Description |
 |----------|-------------|
@@ -229,6 +233,8 @@ Manages many-to-many relationships between agents and memories.
 | `change_priority(context_id, new_priority)` | Change link priority |
 | `disable_link(context_id)` | Disable link without deleting |
 | `enable_link(context_id)` | Re-enable disabled link |
+| `get_agent_context_count(agent_id)` | Get number of linked memories for agent |
+| `get_agent_context_by_index(agent_id, index)` | Get context ID by agent and index |
 
 ### AuditRegistry
 
@@ -415,6 +421,8 @@ cd audit-registry && cargo stylus check
 ./scripts/deploy.sh sepolia
 ```
 
+Apply the paramet  `--force` to redeploy even if addresses already exist in `deploy/sepolia.json`.
+    
 ### Deploy to Arbitrum One (mainnet)
 
 ```bash
@@ -488,6 +496,35 @@ stylus-core = "0.10.8"
 sha2 = "0.10"
 tiny-keccak = "2.0"
 ```
+
+## Troubleshooting
+
+### Common Issues
+
+1. **"credit consumption failed"** - User doesn't have enough MC credits. They need to buy credits first via `buy_credits()`.
+
+2. **"not memory owner" / "not agent owner"** - In ContextRegistry, the caller must own both the memory AND the agent to link them.
+
+3. **"ETH transfer to treasury failed"** - The treasury address might be invalid or the contract might not have enough ETH balance.
+
+4. **"failed to get fee"** - CreditManager might not be initialized or the operation code is invalid.
+
+### Fee Configuration
+
+Fees are now dynamic. To change operation costs:
+```bash
+# As admin, call set_fee on CreditManager
+cast send <CREDIT_MANAGER> "setFee(uint8,uint16)" <operation_code> <new_fee> --rpc-url $RPC_URL --private-key $PRIVATE_KEY
+```
+
+Operation codes:
+- 0: Register user (free)
+- 1: Create memory
+- 2: Update memory
+- 3: Create agent
+- 4: Update agent
+- 5: Execute agent
+- 6: Link memory
 
 ## License
 
