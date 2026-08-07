@@ -1,5 +1,6 @@
 "use client";
 
+import { User } from "lucide-react";
 import type { AgentBlueprint, UserProtocolState } from "../../types/chat";
 
 interface ChatSidebarProps {
@@ -14,11 +15,9 @@ export function ChatSidebar({ userState, agents, onSelectAgent }: ChatSidebarPro
       {/* User Info Header */}
       <div className="px-6 flex items-center gap-4 mb-6">
         <div className="relative shrink-0">
-          <img
-            className="size-12 rounded-full object-cover border border-border"
-            alt={userState.username}
-            src="https://lh3.googleusercontent.com/aida-public/AB6AXuCfwydSf4eT5deF0TsqX2HrkwueTomzy6nMFqGHTj_6_5F3Ch4c44uRurvTdYtJaCljYTnLKjNV6Ar4QtT3XNQlWUbzCZd7kdlsDNTKqM-hLMrk3_9KMWR4jiWkEORNFF7pwOsktnySVf8GGiMxGQFt4dWVVpO60yAIotruOAE-mIlCJjkh9YJq69R8BO_p7NV04mMUwrdiIHN2HB1_xUdpv4z3jPCIt-ZoUNj2KCTG1EncHAUEsY7Z"
-          />
+          <div className="size-12 rounded-full bg-muted border border-border flex items-center justify-center">
+            <User className="size-6 text-muted-foreground" />
+          </div>
           <div className="absolute bottom-0 right-0 size-3 bg-primary rounded-full border-2 border-muted" />
         </div>
         <div className="overflow-hidden">
@@ -39,23 +38,31 @@ export function ChatSidebar({ userState, agents, onSelectAgent }: ChatSidebarPro
             Chats
           </h3>
           <div className="space-y-1">
-            <button
-              type="button"
+            <a
+              href="/chat"
               className="w-full flex items-center gap-3 px-4 py-3 border-l-4 border-primary bg-input text-primary font-bold transition-all duration-200 rounded-r-lg text-left"
             >
               <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>
                 chat_bubble
               </span>
-              <span className="text-sm">Solana & DeFi Analysis</span>
-            </button>
+              <span className="text-sm">Chat General</span>
+            </a>
 
-            <button
-              type="button"
+            <a
+              href="/agents"
               className="w-full flex items-center gap-3 px-4 py-3 text-muted-foreground hover:text-foreground hover:bg-surface-container-low transition-colors border-l-4 border-transparent hover:border-border rounded-r-lg text-left"
             >
-              <span className="material-symbols-outlined text-xl">chat_bubble</span>
-              <span className="text-sm">Knowledge Base Queries</span>
-            </button>
+              <span className="material-symbols-outlined text-xl">smart_toy</span>
+              <span className="text-sm">Agentes</span>
+            </a>
+
+            <a
+              href="/memories"
+              className="w-full flex items-center gap-3 px-4 py-3 text-muted-foreground hover:text-foreground hover:bg-surface-container-low transition-colors border-l-4 border-transparent hover:border-border rounded-r-lg text-left"
+            >
+              <span className="material-symbols-outlined text-xl">memory</span>
+              <span className="text-sm">Memorias</span>
+            </a>
           </div>
         </div>
 
@@ -68,10 +75,9 @@ export function ChatSidebar({ userState, agents, onSelectAgent }: ChatSidebarPro
             {agents.map((agent) => {
               const isSelected = userState.activeAgentId === agent.id;
               return (
-                <button
+                <a
                   key={agent.id}
-                  type="button"
-                  onClick={() => onSelectAgent?.(agent.id)}
+                  href="/agents"
                   className={`w-full flex items-center gap-3 px-4 py-3 transition-all duration-200 border-l-4 rounded-r-lg text-left ${
                     isSelected
                       ? "border-primary bg-input text-primary font-bold"
@@ -85,24 +91,9 @@ export function ChatSidebar({ userState, agents, onSelectAgent }: ChatSidebarPro
                     {agent.icon}
                   </span>
                   <span className="text-sm truncate">{agent.name}</span>
-                </button>
+                </a>
               );
             })}
-          </div>
-
-          <div className="px-4 mt-3 flex gap-2">
-            <button
-              type="button"
-              className="flex-1 py-1.5 rounded-lg bg-input text-foreground text-xs font-semibold hover:bg-surface-container-high transition-colors border border-border"
-            >
-              Add
-            </button>
-            <button
-              type="button"
-              className="flex-1 py-1.5 rounded-lg bg-input text-foreground text-xs font-semibold hover:bg-surface-container-high transition-colors border border-border"
-            >
-              Ver más
-            </button>
           </div>
         </div>
 
@@ -111,13 +102,13 @@ export function ChatSidebar({ userState, agents, onSelectAgent }: ChatSidebarPro
           <h3 className="px-4 mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
             Memoria
           </h3>
-          <button
-            type="button"
+          <a
+            href="/memories"
             className="w-full flex items-center gap-3 px-4 py-3 text-muted-foreground hover:text-foreground hover:bg-surface-container-low transition-colors border-l-4 border-transparent hover:border-border rounded-r-lg text-left"
           >
             <span className="material-symbols-outlined text-xl">psychology</span>
-            <span className="text-sm">Knowledge Base (SHA-256)</span>
-          </button>
+            <span className="text-sm">Base de Conocimiento (SHA-256)</span>
+          </a>
         </div>
       </div>
 
@@ -127,7 +118,7 @@ export function ChatSidebar({ userState, agents, onSelectAgent }: ChatSidebarPro
           type="button"
           className="w-full py-3 rounded-full bg-secondary text-secondary-foreground text-sm font-semibold hover:bg-secondary/90 transition-all border border-border"
         >
-          Connect Wallet
+          Conectar Wallet
         </button>
       </div>
     </aside>
