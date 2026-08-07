@@ -58,7 +58,7 @@ export function AgentsPage() {
   };
 
   return (
-    <div className="flex pt-16">
+    <div className="flex h-[calc(100vh-4rem)]">
       {/* Left Sidebar - Agent Selection + Conversations */}
       <AgentSidebar
         agent={selectedAgent}

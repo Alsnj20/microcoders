@@ -53,7 +53,7 @@ export function MemoriesPage() {
   };
 
   return (
-    <div className="flex pt-16">
+    <div className="flex h-[calc(100vh-4rem)]">
       <MemorySidebar
         collections={collections}
         selectedCollection={selectedCollection}
@@ -62,7 +62,7 @@ export function MemoriesPage() {
         onCreateMemory={handleCreateMemory}
       />
 
-      <main className="flex-1 p-6 md:p-10">
+      <main className="flex-1 overflow-auto p-6 md:p-10">
         <div className="max-w-6xl mx-auto">
           <MemoryHeader
             searchQuery={searchQuery}
