@@ -4,8 +4,8 @@ export function AgentChatHeader() {
   return (
     <header className="sticky top-0 z-40 bg-background/90 border-b border-border backdrop-blur-md flex justify-between items-center w-full px-6 h-16">
       <div className="font-['Source_Serif_4'] text-xl font-medium tracking-tight text-foreground flex items-center gap-2">
-        <span className="material-symbols-outlined text-3xl text-primary">eco</span>
-        <span>AgentOS</span>
+        <span className="material-symbols-outlined text-3xl text-primary">hub</span>
+        <span>MemoryChain</span>
       </div>
 
       {/* Contextual Navigation */}

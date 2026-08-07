@@ -33,6 +33,10 @@ sol_storage! {
         // ── Access control ─────────────────────────────
         address admin;
         mapping(address => bool) authorized_consumers;
+        address pending_admin;
+
+        // ── Pausable ───────────────────────────────────
+        bool paused;
     }
 
     pub struct CreditAccount {
@@ -107,6 +111,87 @@ impl CreditManager {
         }
     }
 
+    // ════════════════════════════════════════════════════════════════════════
+    // PAUSABLE
+    // ════════════════════════════════════════════════════════════════════════
+
+    /// Pauses the contract. Admin only.
+    pub fn pause(&mut self) -> Result<(), String> {
+        let caller = self.vm().msg_sender();
+        if caller != self.admin.get() {
+            return Err(CommonError::NotAdmin { caller }.into());
+        }
+        self.paused.set(true);
+        self.vm().log(ContractPaused { admin: caller });
+        Ok(())
+    }
+
+    /// Unpauses the contract. Admin only.
+    pub fn unpause(&mut self) -> Result<(), String> {
+        let caller = self.vm().msg_sender();
+        if caller != self.admin.get() {
+            return Err(CommonError::NotAdmin { caller }.into());
+        }
+        self.paused.set(false);
+        self.vm().log(ContractUnpaused { admin: caller });
+        Ok(())
+    }
+
+    /// Returns whether the contract is paused.
+    pub fn is_paused(&self) -> bool {
+        self.paused.get()
+    }
+
+    fn require_not_paused(&self) -> Result<(), String> {
+        if self.paused.get() {
+            return Err(CommonError::Paused.into());
+        }
+        Ok(())
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // ADMIN TRANSFER (Two-step)
+    // ════════════════════════════════════════════════════════════════════════
+
+    /// Proposes a new admin. Current admin only.
+    pub fn propose_admin(&mut self, new_admin: Address) -> Result<(), String> {
+        let caller = self.vm().msg_sender();
+        if caller != self.admin.get() {
+            return Err(CommonError::NotAdmin { caller }.into());
+        }
+        if new_admin == Address::ZERO {
+            return Err(CommonError::InvalidInput { reason: "new admin cannot be zero address" }.into());
+        }
+        self.pending_admin.set(new_admin);
+        self.vm().log(AdminTransferProposed {
+            current_admin: caller,
+            new_admin,
+        });
+        Ok(())
+    }
+
+    /// Accepts admin role. Called by the proposed admin.
+    pub fn accept_admin(&mut self) -> Result<(), String> {
+        let caller = self.vm().msg_sender();
+        let pending = self.pending_admin.get();
+        if caller != pending {
+            return Err(String::from("CreditManager: not pending admin"));
+        }
+        let old_admin = self.admin.get();
+        self.admin.set(caller);
+        self.pending_admin.set(Address::ZERO);
+        self.vm().log(AdminTransferCompleted {
+            old_admin,
+            new_admin: caller,
+        });
+        Ok(())
+    }
+
+    /// Returns the pending admin address.
+    pub fn pending_admin(&self) -> Address {
+        self.pending_admin.get()
+    }
+
     /// Initializes network configuration. Admin only.
     ///
     /// # Arguments
@@ -122,6 +207,10 @@ impl CreditManager {
         let caller = self.vm().msg_sender();
         if caller != self.admin.get() {
             return Err(CommonError::NotAdmin { caller }.into());
+        }
+
+        if treasury == Address::ZERO {
+            return Err(CommonError::InvalidInput { reason: "treasury cannot be zero address" }.into());
         }
 
         let old_treasury = self.pricing.treasury.get();
@@ -153,7 +242,10 @@ impl CreditManager {
     ///
     /// # Arguments
     /// * `amount` - Number of MC credits to purchase
+    #[payable]
     pub fn buy_credits(&mut self, amount: u64) -> Result<(), String> {
+        self.require_not_paused()?;
+
         if amount == 0 {
             return Err(CreditError::ZeroAmount.into());
         }
@@ -174,7 +266,8 @@ impl CreditManager {
         let caller = self.vm().msg_sender();
         let payment = self.vm().msg_value();
         let price_per_credit = self.pricing.price_per_credit.get();
-        let required = price_per_credit * amount_u256;
+        let required = price_per_credit.checked_mul(amount_u256)
+            .ok_or(CommonError::InvalidInput { reason: "price overflow" })?;
 
         // Require ETH payment (works for both testnet and mainnet)
         if payment < required {
@@ -189,20 +282,25 @@ impl CreditManager {
         let current_purchased: Uint<64, 1> = self.accounts.getter(caller).purchased.get();
         let amount_uint = Uint::from(amount);
 
+        let new_balance = current_balance.checked_add(amount_uint)
+            .ok_or(CommonError::InvalidInput { reason: "balance overflow" })?;
+        let new_purchased = current_purchased.checked_add(amount_uint)
+            .ok_or(CommonError::InvalidInput { reason: "purchased overflow" })?;
+
         let mut account = self.accounts.setter(caller);
-        account.balance.set(current_balance + amount_uint);
-        account.purchased.set(current_purchased + amount_uint);
+        account.balance.set(new_balance);
+        account.purchased.set(new_purchased);
 
         // Transfer ETH to treasury
         let treasury = self.pricing.treasury.get();
         transfer_eth(self.vm(), treasury, payment)
             .map_err(|_| String::from("CreditError: ETH transfer to treasury failed"))?;
 
-        let new_balance = u64::try_from(current_balance + amount_uint).unwrap_or(0);
+        let balance_u64 = u64::try_from(new_balance).unwrap_or(0);
         self.vm().log(CreditsPurchased {
             user: caller,
             amount,
-            new_balance,
+            new_balance: balance_u64,
         });
 
         Ok(())
@@ -222,7 +320,9 @@ impl CreditManager {
         &mut self,
         user: Address,
         amount: u64,
-    ) -> Result<bool, String> {
+    ) -> Result<(), String> {
+        self.require_not_paused()?;
+
         let caller = self.vm().msg_sender();
 
         if !self.authorized_consumers.get(caller) {
@@ -237,14 +337,20 @@ impl CreditManager {
         let amount_uint = Uint::from(amount);
 
         if balance < amount_uint {
-            return Ok(false);
+            return Err(CreditError::InsufficientBalance {
+                required: amount,
+                available: u64::try_from(balance).unwrap_or(0),
+            }.into());
         }
 
         let spent: Uint<64, 1> = self.accounts.getter(user).spent.get();
 
+        let new_spent = spent.checked_add(amount_uint)
+            .ok_or(CommonError::InvalidInput { reason: "spent overflow" })?;
+
         let mut account = self.accounts.setter(user);
         account.balance.set(balance - amount_uint);
-        account.spent.set(spent + amount_uint);
+        account.spent.set(new_spent);
 
         let new_balance = u64::try_from(balance - amount_uint).unwrap_or(0);
         self.vm().log(CreditsConsumed {
@@ -253,7 +359,7 @@ impl CreditManager {
             new_balance,
         });
 
-        Ok(true)
+        Ok(())
     }
 
     /// Refunds credits to a user's account.
@@ -263,6 +369,8 @@ impl CreditManager {
         user: Address,
         amount: u64,
     ) -> Result<(), String> {
+        self.require_not_paused()?;
+
         let caller = self.vm().msg_sender();
 
         if caller != self.admin.get() {
@@ -277,18 +385,24 @@ impl CreditManager {
         let spent: Uint<64, 1> = self.accounts.getter(user).spent.get();
         let amount_uint = Uint::from(amount);
 
+        let new_balance = balance.checked_add(amount_uint)
+            .ok_or(CommonError::InvalidInput { reason: "balance overflow" })?;
+
+        let new_spent = if spent >= amount_uint {
+            spent - amount_uint
+        } else {
+            Uint::ZERO
+        };
+
         let mut account = self.accounts.setter(user);
-        account.balance.set(balance + amount_uint);
+        account.balance.set(new_balance);
+        account.spent.set(new_spent);
 
-        if spent >= amount_uint {
-            account.spent.set(spent - amount_uint);
-        }
-
-        let new_balance = u64::try_from(balance + amount_uint).unwrap_or(0);
+        let balance_u64 = u64::try_from(new_balance).unwrap_or(0);
         self.vm().log(CreditsRefunded {
             user,
             amount,
-            new_balance,
+            new_balance: balance_u64,
         });
 
         Ok(())
@@ -304,6 +418,8 @@ impl CreditManager {
     /// * `operation` - Operation type (OP_CREATE_MEMORY, OP_CREATE_AGENT, etc.)
     /// * `fee` - New fee in MC credits
     pub fn set_fee(&mut self, operation: u8, fee: u16) -> Result<(), String> {
+        self.require_not_paused()?;
+
         let caller = self.vm().msg_sender();
         if caller != self.admin.get() {
             return Err(CommonError::NotAdmin { caller }.into());
@@ -346,6 +462,8 @@ impl CreditManager {
 
     /// Updates ETH price per credit. Admin only.
     pub fn set_price_per_credit(&mut self, price_wei: U256) -> Result<(), String> {
+        self.require_not_paused()?;
+
         let caller = self.vm().msg_sender();
         if caller != self.admin.get() {
             return Err(CommonError::NotAdmin { caller }.into());
@@ -364,9 +482,15 @@ impl CreditManager {
 
     /// Updates treasury address. Admin only.
     pub fn set_treasury(&mut self, treasury: Address) -> Result<(), String> {
+        self.require_not_paused()?;
+
         let caller = self.vm().msg_sender();
         if caller != self.admin.get() {
             return Err(CommonError::NotAdmin { caller }.into());
+        }
+
+        if treasury == Address::ZERO {
+            return Err(CommonError::InvalidInput { reason: "treasury cannot be zero address" }.into());
         }
 
         let old_treasury = self.pricing.treasury.get();
@@ -382,6 +506,8 @@ impl CreditManager {
 
     /// Updates purchase limits. Admin only.
     pub fn set_purchase_limits(&mut self, min: u64, max: u64) -> Result<(), String> {
+        self.require_not_paused()?;
+
         let caller = self.vm().msg_sender();
         if caller != self.admin.get() {
             return Err(CommonError::NotAdmin { caller }.into());
@@ -404,6 +530,8 @@ impl CreditManager {
 
     /// Toggles testnet mode. Admin only.
     pub fn set_testnet_mode(&mut self, is_testnet: bool) -> Result<(), String> {
+        self.require_not_paused()?;
+
         let caller = self.vm().msg_sender();
         if caller != self.admin.get() {
             return Err(CommonError::NotAdmin { caller }.into());
@@ -422,6 +550,8 @@ impl CreditManager {
 
     /// Authorizes a contract to consume credits. Admin only.
     pub fn authorize_consumer(&mut self, consumer: Address) -> Result<(), String> {
+        self.require_not_paused()?;
+
         let caller = self.vm().msg_sender();
 
         if caller != self.admin.get() {
@@ -430,11 +560,15 @@ impl CreditManager {
 
         self.authorized_consumers.setter(consumer).set(true);
 
+        self.vm().log(ConsumerAuthorized { consumer });
+
         Ok(())
     }
 
     /// Revokes authorization from a consumer. Admin only.
     pub fn revoke_consumer(&mut self, consumer: Address) -> Result<(), String> {
+        self.require_not_paused()?;
+
         let caller = self.vm().msg_sender();
 
         if caller != self.admin.get() {
@@ -442,6 +576,8 @@ impl CreditManager {
         }
 
         self.authorized_consumers.setter(consumer).set(false);
+
+        self.vm().log(ConsumerRevoked { consumer });
 
         Ok(())
     }

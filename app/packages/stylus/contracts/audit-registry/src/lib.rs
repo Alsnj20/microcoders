@@ -8,6 +8,7 @@ extern crate alloc;
 use alloc::string::String;
 use alloy_primitives::{Address, FixedBytes, Uint, U256};
 use memorychain_common::{
+    errors::CommonError,
     events::*,
     helpers::generate_id,
 };
@@ -21,6 +22,8 @@ sol_storage! {
         mapping(address => uint256) nonces;
         address admin;
         mapping(address => bool) authorized_recorders;
+        address pending_admin;
+        bool paused;
     }
 
     pub struct AuditEvent {
@@ -42,6 +45,87 @@ impl AuditRegistry {
         }
     }
 
+    // ════════════════════════════════════════════════════════════════════════
+    // PAUSABLE
+    // ════════════════════════════════════════════════════════════════════════
+
+    /// Pauses the contract. Admin only.
+    pub fn pause(&mut self) -> Result<(), String> {
+        let caller = self.vm().msg_sender();
+        if caller != self.admin.get() {
+            return Err(CommonError::NotAdmin { caller }.into());
+        }
+        self.paused.set(true);
+        self.vm().log(ContractPaused { admin: caller });
+        Ok(())
+    }
+
+    /// Unpauses the contract. Admin only.
+    pub fn unpause(&mut self) -> Result<(), String> {
+        let caller = self.vm().msg_sender();
+        if caller != self.admin.get() {
+            return Err(CommonError::NotAdmin { caller }.into());
+        }
+        self.paused.set(false);
+        self.vm().log(ContractUnpaused { admin: caller });
+        Ok(())
+    }
+
+    /// Returns whether the contract is paused.
+    pub fn is_paused(&self) -> bool {
+        self.paused.get()
+    }
+
+    fn require_not_paused(&self) -> Result<(), String> {
+        if self.paused.get() {
+            return Err(CommonError::Paused.into());
+        }
+        Ok(())
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // ADMIN TRANSFER (Two-step)
+    // ════════════════════════════════════════════════════════════════════════
+
+    /// Proposes a new admin. Current admin only.
+    pub fn propose_admin(&mut self, new_admin: Address) -> Result<(), String> {
+        let caller = self.vm().msg_sender();
+        if caller != self.admin.get() {
+            return Err(CommonError::NotAdmin { caller }.into());
+        }
+        if new_admin == Address::ZERO {
+            return Err(CommonError::InvalidInput { reason: "new admin cannot be zero address" }.into());
+        }
+        self.pending_admin.set(new_admin);
+        self.vm().log(AdminTransferProposed {
+            current_admin: caller,
+            new_admin,
+        });
+        Ok(())
+    }
+
+    /// Accepts admin role. Called by the proposed admin.
+    pub fn accept_admin(&mut self) -> Result<(), String> {
+        let caller = self.vm().msg_sender();
+        let pending = self.pending_admin.get();
+        if caller != pending {
+            return Err(String::from("AuditRegistry: not pending admin"));
+        }
+        let old_admin = self.admin.get();
+        self.admin.set(caller);
+        self.pending_admin.set(Address::ZERO);
+        self.vm().log(AdminTransferCompleted {
+            old_admin,
+            new_admin: caller,
+        });
+        Ok(())
+    }
+
+    /// Returns the pending admin address.
+    pub fn pending_admin(&self) -> Address {
+        self.pending_admin.get()
+    }
+
     /// Records an audit event.
     pub fn record_audit(
         &mut self,
@@ -50,6 +134,8 @@ impl AuditRegistry {
         entity_id: FixedBytes<32>,
         action: u8,
     ) -> Result<FixedBytes<32>, String> {
+        self.require_not_paused()?;
+
         let caller = self.vm().msg_sender();
 
         if !self.authorized_recorders.get(caller) && caller != self.admin.get() {
@@ -118,6 +204,8 @@ impl AuditRegistry {
 
         self.authorized_recorders.setter(recorder).set(true);
 
+        self.vm().log(RecorderAuthorized { recorder });
+
         Ok(())
     }
 
@@ -130,6 +218,8 @@ impl AuditRegistry {
         }
 
         self.authorized_recorders.setter(recorder).set(false);
+
+        self.vm().log(RecorderRevoked { recorder });
 
         Ok(())
     }
@@ -211,5 +301,19 @@ mod tests {
         let entity = FixedBytes::from([0x03; 32]);
         let result = contract.record_audit(actor, 0, entity, 0);
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_pausable() {
+        let (_vm, mut contract) = setup();
+        assert!(!contract.is_paused());
+        contract.pause().unwrap();
+        assert!(contract.is_paused());
+        let actor = Address::new([0x02; 20]);
+        let entity = FixedBytes::from([0x03; 32]);
+        assert!(contract.record_audit(actor, 0, entity, 0).is_err());
+        contract.unpause().unwrap();
+        assert!(!contract.is_paused());
+        assert!(contract.record_audit(actor, 0, entity, 0).is_ok());
     }
 }
