@@ -20,7 +20,7 @@ export function AgentInfoPanel({ agent, onEdit }: AgentInfoPanelProps) {
   }
 
   return (
-    <aside className="hidden xl:block w-80 min-h-[calc(100vh-4rem)] border-l border-border/40 bg-background">
+      <aside className="hidden xl:block w-80 min-h-[calc(100vh-4rem)] border-l border-border/40 bg-background overflow-auto">
       {/* Header */}
       <div className="p-6 border-b border-border/40">
         <div className="flex items-center justify-between mb-4">

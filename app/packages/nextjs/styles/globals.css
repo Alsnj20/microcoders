@@ -113,10 +113,6 @@ h4, h5, h6 {
   line-height: 1.25;
 }
 
-p {
-  margin: 1rem 0;
-}
-
 .link {
   text-underline-offset: 2px;
 }

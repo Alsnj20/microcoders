@@ -1,5 +1,13 @@
 "use client";
 
+import {
+  LateralBar,
+  LateralBarHeader,
+  LateralBarFooter,
+  LateralBarContent,
+  LateralBarSection,
+  LateralBarSectionButton,
+} from "../../../../../components/ui/lateral-bar";
 import type { Agent, Conversation } from "../../types/agent";
 
 interface AgentSidebarProps {
@@ -18,9 +26,9 @@ export function AgentSidebar({
   onCreateConversation,
 }: AgentSidebarProps) {
   return (
-    <aside className="hidden lg:flex flex-col w-72 min-h-[calc(100vh-4rem)] border-r border-border/40 bg-background">
-      {/* Agent Selector */}
-      <div className="p-4 border-b border-border/40">
+    <LateralBar>
+      {/* Agent Selector Header */}
+      <LateralBarHeader>
         <div className="flex items-center gap-3 px-3 py-2 rounded-xl bg-muted/50 border border-border/40">
           <span className="text-2xl">{agent?.icon || "🤖"}</span>
           <div className="flex-1 min-w-0">
@@ -29,10 +37,10 @@ export function AgentSidebar({
           </div>
           <span className="material-symbols-outlined text-lg text-muted-foreground">expand_more</span>
         </div>
-      </div>
+      </LateralBarHeader>
 
       {/* New Conversation Button */}
-      <div className="p-4">
+      <div className="px-4 py-2">
         <button
           type="button"
           onClick={onCreateConversation}
@@ -43,36 +51,30 @@ export function AgentSidebar({
         </button>
       </div>
 
-      {/* Conversations List */}
-      <div className="flex-1 overflow-y-auto px-3">
-        <p className="text-xs font-semibold text-muted-foreground tracking-wider mb-3 px-1">CONVERSACIONES</p>
-        <div className="space-y-1">
+      <LateralBarContent>
+        {/* Conversations List */}
+        <LateralBarSection title="CONVERSACIONES">
           {conversations.map((conv) => (
-            <button
+            <LateralBarSectionButton
               key={conv.id}
-              type="button"
               onClick={() => onSelectConversation(conv.id)}
-              className={`w-full text-left px-3 py-3 rounded-xl transition-all ${
-                selectedConversationId === conv.id
-                  ? "bg-primary/10 border border-primary/20"
-                  : "hover:bg-muted/50 border border-transparent"
-              }`}
+              isActive={selectedConversationId === conv.id}
+              icon="chat_bubble"
             >
-              <div className="flex items-center gap-2 mb-1">
-                <span className="material-symbols-outlined text-sm text-muted-foreground">chat_bubble</span>
+              <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-foreground truncate">{conv.title}</p>
+                {conv.lastMessage && (
+                  <p className="text-xs text-muted-foreground truncate text-wrap">{conv.lastMessage}</p>
+                )}
+                <p className="text-xs text-muted-foreground/60 mt-1">{conv.timestamp}</p>
               </div>
-              {conv.lastMessage && (
-                <p className="text-xs text-muted-foreground truncate pl-6">{conv.lastMessage}</p>
-              )}
-              <p className="text-xs text-muted-foreground/60 pl-6 mt-1">{conv.timestamp}</p>
-            </button>
+            </LateralBarSectionButton>
           ))}
-        </div>
-      </div>
+        </LateralBarSection>
+      </LateralBarContent>
 
       {/* Banner */}
-      <div className="p-4 border-t border-border/40">
+      <LateralBarFooter>
         <div className="p-4 rounded-2xl bg-muted/30 border border-border/30">
           <div className="flex items-center gap-2 mb-2">
             <span className="text-2xl">👾</span>
@@ -83,7 +85,7 @@ export function AgentSidebar({
           </div>
           <p className="text-xs text-muted-foreground">En blockchain, para siempre.</p>
         </div>
-      </div>
-    </aside>
+      </LateralBarFooter>
+    </LateralBar>
   );
 }
