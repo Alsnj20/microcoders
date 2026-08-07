@@ -1,17 +1,42 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { PetAvatar } from "~~/src/modules/pet/components/pet-avatar";
+import { usePet } from "~~/src/modules/pet/hooks/use-pet";
+
+const PET_SIZE = 32;
+const SPRITE_SCALE = PET_SIZE / 16;
+
+
+function randomBetween(min: number, max: number): number {
+  return Math.random() * (max - min) + min;
+}
 
 export const Header = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const pet = usePet({ spritesheet: "/sprites/pet.png" });
+
+  useEffect(() => {
+    const scheduleJump = () => {
+      const delay = randomBetween(2000, 8000);
+      return setTimeout(() => {
+        if (Math.random() > 0.5) {
+          pet.jump();
+        } else {
+          pet.blink();
+        }
+        timerId = scheduleJump();
+      }, delay);
+    };
+
+    let timerId = scheduleJump();
+    return () => clearTimeout(timerId);
+  }, [pet.jump, pet.blink]);
 
   const navLinks = [
-    { name: "Problema", href: "#problem" },
-    { name: "Solución", href: "#solution" },
+    { name: "Inicio", href: "#hero" },
     { name: "Arquitectura", href: "#architecture" },
-    { name: "Contratos", href: "#contracts" },
-    { name: "Créditos", href: "#credits" },
     { name: "Características", href: "#features" },
   ];
 
@@ -20,8 +45,19 @@ export const Header = () => {
       <div className="flex justify-between items-center h-20 px-6 md:px-12 max-w-7xl mx-auto">
         {/* Brand Logo */}
         <Link href="/" className="flex items-center gap-3 font-semibold text-xl tracking-tight text-primary">
-          <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-sm">
-            <span className="material-symbols-outlined text-2xl">hub</span>
+          <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center overflow-hidden shadow-sm">
+            <PetAvatar
+              spritesheet="/sprites/pet.png"
+              currentState={pet.currentState}
+              currentFrame={pet.currentFrame}
+              position={{ x: 0, y: 0 }}
+              frameWidth={16}
+              frameHeight={16}
+              scale={SPRITE_SCALE}
+              positionMode="relative"
+              onClick={pet.onClick}
+              onHover={pet.onHover}
+            />
           </div>
           <div className="flex flex-col">
             <span className="leading-none text-lg font-bold text-foreground">MemoryChain</span>
@@ -48,8 +84,8 @@ export const Header = () => {
             href="/chat"
             className="bg-primary text-primary-foreground text-sm font-semibold px-6 py-3 rounded-lg hover:opacity-90 transition-all duration-200 shadow-md hover:shadow-primary/20 active:scale-95 hidden sm:inline-flex items-center gap-2"
           >
-            <span>Launch App</span>
-            <span className="material-symbols-outlined text-base">arrow_forward</span>
+            <span>Conectar Wallet</span>
+            <span className="material-symbols-outlined text-base">account_balance_wallet</span>
           </Link>
 
           <button
@@ -81,8 +117,8 @@ export const Header = () => {
             onClick={() => setIsMobileMenuOpen(false)}
             className="bg-primary text-primary-foreground text-center font-semibold py-3.5 rounded-lg mt-2 shadow-md text-sm flex items-center justify-center gap-2"
           >
-            <span>Launch App</span>
-            <span className="material-symbols-outlined text-base">arrow_forward</span>
+            <span>Conectar Wallet</span>
+            <span className="material-symbols-outlined text-base">account_balance_wallet</span>
           </Link>
         </div>
       )}
