@@ -43,7 +43,7 @@ export const AboutJp3dSection = () => {
         {/* Section Header */}
         <div className="text-center max-w-3xl mx-auto space-y-4">
           <span className="inline-block bg-destructive/10 text-destructive text-xs font-bold px-4 py-1.5 rounded-full border border-destructive/20">
-            🚨 EL PROBLEMA ACTUAL
+            EL PROBLEMA ACTUAL
           </span>
           <h2 className="text-3xl md:text-5xl font-extrabold text-foreground tracking-tight">
             La Paradoja del Conocimiento en IA
