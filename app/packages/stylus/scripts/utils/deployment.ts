@@ -20,8 +20,15 @@ export function clearDeploymentDir(): void {
 }
 
 export function getDeploymentConfig(deployOptions: DeployOptions): DeploymentConfig {
-  // If network is specified, try to get RPC URL from viem chains
-  if (!deployOptions.network) deployOptions.network = "devnet";
+  if (!deployOptions.network) {
+    throw new Error(
+      "Network is required. Use --network <networkName>.\n" +
+      "Examples:\n" +
+      "  --network arbitrumNitro    (local Nitro dev)\n" +
+      "  --network arbitrumSepolia  (Sepolia testnet)\n" +
+      "  --network arbitrumOne      (Arbitrum mainnet)",
+    );
+  }
 
   const chain = getChain(deployOptions.network);
   if (!chain) throw new Error(`Network ${deployOptions.network} not found`);

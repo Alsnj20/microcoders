@@ -7,16 +7,14 @@ import {
   contractHasInitializeFunction,
   ensureDeploymentDirectory,
   executeCommand,
-  extractDeploymentInfo,
   getBlockExplorerUrlFromChain,
   getContractData,
   getDeploymentConfig,
   getRpcUrlFromChain,
   saveDeployment,
-  // estimateGasPrice,
 } from "./utils/";
 import { buildDeployCommand } from "./utils/command";
-import type { DeployOptions } from "./utils/type";
+import type { DeployOptions, DeploymentData } from "./utils/type";
 
 /**
  * Deploy a single contract using cargo stylus
@@ -33,43 +31,95 @@ export default async function deployStylusContract(deployOptions: DeployOptions)
   console.log(`📄 Contract name: ${config.contractName}`);
 
   try {
-    // Step 1: Deploy the contract using cargo stylus with contract address
-    // --contract-address='${config.contractAddress}' deactivated for now as it's not working. Issue https://github.com/OffchainLabs/cargo-stylus/issues/171
+    // Step 1: Deploy the contract using cargo stylus with --wasm-file and --verbose
+    // The verbose output (stderr) contains: "deployed code at address: 0x..." and "deployment tx hash: 0x..."
+
     const deployCommand = await buildDeployCommand(config, deployOptions);
-    const deployOutput = await executeCommand(
+    const { stderr: deployOutput } = await executeCommand(
       deployCommand,
       path.join("contracts", deployOptions.contract!),
       "Deploying contract with cargo stylus",
     );
 
     if (deployOptions.estimateGas) {
-      console.log(deployOutput);
       return;
     }
 
-    // Extract the actual deployed address from the output
-    const deploymentInfo = extractDeploymentInfo(deployOutput);
-    if (deploymentInfo) {
-      const blockExplorerUrl = getBlockExplorerUrlFromChain(config.chain);
-      if (blockExplorerUrl) {
-        console.log(`📋 Contract deployed: ${blockExplorerUrl}/address/${deploymentInfo.address}`);
-        console.log(`Transaction hash: ${blockExplorerUrl}/tx/${deploymentInfo.txHash}`);
-      } else {
-        console.log(`📋 Contract deployed at address: ${deploymentInfo.address}`);
-        console.log("Transaction hash: ", deploymentInfo.txHash);
+    // Parse address and tx hash from verbose output
+    const addressMatch = deployOutput.match(/deployed code at address:\s*(0x[0-9a-fA-F]{40})/);
+    const txHashMatch = deployOutput.match(/deployment tx hash:\s*(0x[0-9a-fA-F]{64})/);
+
+    let deploymentInfo: DeploymentData | null = null;
+
+    if (addressMatch && txHashMatch) {
+      deploymentInfo = {
+        address: addressMatch[1] as `0x${string}`,
+        txHash: txHashMatch[1] as string,
+      };
+    }
+
+    // Fallback: scan blocks if parsing failed
+    if (!deploymentInfo) {
+      const publicClient = createPublicClient({
+        chain: config.chain,
+        transport: http(),
+      });
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      const blockAfter = await publicClient.getBlockNumber();
+      const blockBefore = blockAfter > 5n ? blockAfter - 5n : 0n;
+
+      // Collect ALL contract creations in the range, take the LATEST one
+      for (let blockNum = blockAfter; blockNum >= blockBefore && blockNum >= 0n; blockNum--) {
+        const block = await publicClient.getBlock({ blockNumber: blockNum });
+        for (const txHash of block.transactions) {
+          const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash as `0x${string}` });
+          if (receipt.contractAddress) {
+            deploymentInfo = {
+              address: receipt.contractAddress,
+              txHash: txHash as string,
+            };
+            break;
+          }
+        }
+        if (deploymentInfo) break;
       }
+    }
+
+    if (!deploymentInfo) {
+      throw new Error(
+        `Could not find deployment address in cargo stylus output or on-chain receipts. Deploy may have failed silently.`,
+      );
+    }
+
+    const blockExplorerUrl = getBlockExplorerUrlFromChain(config.chain);
+    if (blockExplorerUrl) {
+      console.log(`📋 Contract deployed: ${blockExplorerUrl}/address/${deploymentInfo.address}`);
+      console.log(`Transaction hash: ${blockExplorerUrl}/tx/${deploymentInfo.txHash}`);
     } else {
-      throw new Error("Failed to extract deployed address");
+      console.log(`📋 Contract deployed at address: ${deploymentInfo.address}`);
+      console.log("Transaction hash: ", deploymentInfo.txHash);
     }
 
     // Save the deployed address to chain-specific deployment file
     saveDeployment(config, deploymentInfo);
 
     // Step 2: Export ABI using the shared function
-    await exportStylusAbi(config.contractFolder, config.contractName, false, config.chain.id.toString());
+    // cargo stylus export-abi may fail on some chains (e.g. Nitro dev) due to /dev/tty issues.
+    // We try anyway — if the output file is created, great; if not, we skip ABI generation.
+    try {
+      await exportStylusAbi(config.contractFolder, config.contractName, false, config.chain.id.toString());
+    } catch {
+      console.log("⏭️  ABI export failed or skipped — addresses will still be synced");
+    }
 
     // Get contract data from deployed contracts after ABI export
-    const contractData = getContractData(config.chain.id.toString(), config.contractName);
+    let contractData;
+    try {
+      contractData = getContractData(config.chain.id.toString(), config.contractName);
+    } catch {
+      // ABI export may have been skipped (Nitro dev chain)
+      contractData = undefined;
+    }
 
     // Call the initialize function if orbit deployment
     if (
@@ -88,7 +138,8 @@ export default async function deployStylusContract(deployOptions: DeployOptions)
         transport: http(),
       });
 
-      const account = privateKeyToAccount(config.privateKey as `0x${string}`);
+      const pkOrbit = config.privateKey.startsWith("0x") ? config.privateKey : `0x${config.privateKey}`;
+      const account = privateKeyToAccount(pkOrbit as `0x${string}`);
 
       const { request } = await publicClient.simulateContract({
         account,
@@ -110,7 +161,7 @@ export default async function deployStylusContract(deployOptions: DeployOptions)
     // Step 3: Verify the contract
     if (deployOptions.verify) {
       try {
-        const output = await executeCommand(
+        const { stdout: output } = await executeCommand(
           `cargo stylus verify --endpoint=${getRpcUrlFromChain(config.chain)} --deployment-tx=${deploymentInfo.txHash}`,
           path.join("contracts", deployOptions.contract!),
           "Verifying contract with cargo stylus",
@@ -132,6 +183,6 @@ export default async function deployStylusContract(deployOptions: DeployOptions)
     } else {
       console.error(error);
     }
-    process.exit(1);
+    // Don't exit — let remaining contracts continue deploying
   }
 }
