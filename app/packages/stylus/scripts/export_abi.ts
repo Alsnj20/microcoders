@@ -45,8 +45,13 @@ export async function exportStylusAbi(contractFolder: string, contractName: stri
       await generateTsAbi(abiFilePath, config.contractName, config.contractAddress, config.txHash, config.chainId);
     }
   } catch (error) {
-    handleSolcError(error as Error);
-    process.exit(1);
+    // When called from deploy, don't exit — warn and let caller handle it
+    if (isScript) {
+      handleSolcError(error as Error);
+      process.exit(1);
+    } else {
+      console.warn(`⚠️  ABI export failed (continuing deploy): ${(error as Error).message}`);
+    }
   }
 }
 

@@ -1,7 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
 import { ethers } from "ethers";
-import prettier from "prettier";
 import toml from "toml";
 import type { Address } from "viem";
 import { getContractDataFromDeployments } from "./deployment";
@@ -87,7 +86,10 @@ export function generateContractAddress(): string {
 
 export function extractDeploymentInfo(output: string): DeploymentData | null {
   let result: DeploymentData | null = null;
-  const lines = output.split("\n");
+  // Strip ANSI color codes before matching
+  // eslint-disable-next-line no-control-regex
+  const cleanOutput = output.replace(/\x1b\[[0-9;]*m/g, "");
+  const lines = cleanOutput.split("\n");
   for (const line of lines) {
     if (line.includes("deployed code at address:")) {
       // Extract the hex address directly
@@ -175,7 +177,7 @@ export async function generateTsAbi(
     fs.mkdirSync(TARGET_DIR);
   }
 
-  fs.writeFileSync(TARGET_FILE, await prettier.format(output, { parser: "typescript" }));
+  fs.writeFileSync(TARGET_FILE, output);
 
   console.log(`📝 Updated TypeScript contract definition file on ${TARGET_FILE}`);
 }

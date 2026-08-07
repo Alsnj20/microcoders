@@ -13,9 +13,9 @@ if (require.main === module) {
     .usage("Usage: pnpm deploy --name <contractName> --network <network>")
     .option("network", {
       alias: "net",
-      describe: "Network to deploy to",
+      describe: "Network to deploy to (arbitrumNitro, arbitrumSepolia, arbitrumOne)",
       type: "string",
-      demandOption: false,
+      demandOption: true,
     })
     .option("estimate-gas", {
       alias: "eg",

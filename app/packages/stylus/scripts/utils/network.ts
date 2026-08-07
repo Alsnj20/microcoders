@@ -17,7 +17,7 @@ if (fs.existsSync(envPath)) {
 }
 
 export const SUPPORTED_NETWORKS: Record<string, Chain> = {
-  arbitrum,
+  arbitrumOne: arbitrum,
   arbitrumSepolia,
   arbitrumNitro: arbitrumNitro as Chain,
   arbitrumNova: arbitrumNova as Chain,
@@ -28,7 +28,8 @@ export const SUPPORTED_NETWORKS: Record<string, Chain> = {
 };
 
 export const ALIASES: Record<string, string> = {
-  mainnet: "arbitrum",
+  mainnet: "arbitrumOne",
+  arbitrum: "arbitrumOne",
   sepolia: "arbitrumSepolia",
   devnet: "arbitrumNitro",
   nova: "arbitrumNova",
@@ -81,7 +82,7 @@ export function getPrivateKey(networkName: string): string {
   }
 
   switch (actualNetworkName.toLowerCase()) {
-    case "arbitrum":
+    case "arbitrumone":
       if (process.env["PRIVATE_KEY_MAINNET"]) {
         return process.env["PRIVATE_KEY_MAINNET"];
       } else {
@@ -98,6 +99,12 @@ export function getPrivateKey(networkName: string): string {
         return process.env["PRIVATE_KEY_NOVA"];
       } else {
         throw new Error("PRIVATE_KEY_NOVA is not set");
+      }
+    case "arbitrumnitro":
+      if (process.env["PRIVATE_KEY_NITRO"]) {
+        return process.env["PRIVATE_KEY_NITRO"];
+      } else {
+        throw new Error("PRIVATE_KEY_NITRO is not set");
       }
     case "educhaintestnet":
       if (process.env["PRIVATE_KEY_EDUCHAIN_TESTNET"]) {
@@ -124,7 +131,11 @@ export function getPrivateKey(networkName: string): string {
         throw new Error("PRIVATE_KEY_SUPERPOSITION_TESTNET is not set");
       }
     default:
-      return process.env["PRIVATE_KEY"] || "0xb6b15c8cb491557369f3c7d2c287b053eb229daa9c22138887752191c9520659";
+      if (process.env["PRIVATE_KEY"]) {
+        return process.env["PRIVATE_KEY"];
+      } else {
+        throw new Error("PRIVATE_KEY is not set");
+      }
   }
 }
 
@@ -138,7 +149,7 @@ export const getAccountAddress = (networkName: string): Address | undefined => {
   }
 
   switch (actualNetworkName.toLowerCase()) {
-    case "arbitrum":
+    case "arbitrumone":
       return process.env["ACCOUNT_ADDRESS_MAINNET"] as Address;
     case "arbitrumsepolia":
       return process.env["ACCOUNT_ADDRESS_SEPOLIA"] as Address;
@@ -153,7 +164,7 @@ export const getAccountAddress = (networkName: string): Address | undefined => {
     case "superpositiontestnet":
       return process.env["ACCOUNT_ADDRESS_SUPERPOSITION_TESTNET"] as Address;
     default:
-      return (process.env["ACCOUNT_ADDRESS"] as Address) || "0x3f1Eae7D46d88F08fc2F8ed27FCb2AB183EB2d0E";
+      return process.env["ACCOUNT_ADDRESS"] as Address;
   }
 };
 
