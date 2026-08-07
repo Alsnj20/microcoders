@@ -12,23 +12,23 @@ The blockchain only stores verifiable references (owners, hashes, CIDs, versions
 
 ```
                      Wallet
-                        │
-                 UserRegistry
-                        │
-         ┌──────────────┴──────────────┐
-         ▼                             ▼
-  MemoryRegistry               AgentRegistry
-         │                             │
-         └──────────────┬──────────────┘
-                        ▼
-                ContextRegistry
-                        │
-         ┌──────────────┴──────────────┐
-         ▼                             ▼
-  CreditManager                 AuditRegistry
-         │
-         ▼
-   ETH Treasury
+                         │
+                  UserRegistry
+                         │
+          ┌──────────────┴──────────────┐
+          ▼                             ▼
+   MemoryRegistry               AgentRegistry
+          │                             │
+          └──────────────┬──────────────┘
+                         ▼
+                 ContextRegistry
+                         │
+          ┌──────────────┴──────────────┐
+          ▼                             ▼
+   CreditManager                 AuditRegistry
+          │
+          ▼
+    ETH Treasury
 ```
 
 ### Cross-Contract Interactions
@@ -207,6 +207,17 @@ pub const OP_LINK_MEMORY: u8 = 6;
 | Update agent | 2 MC |
 | Execute agent | 2 MC |
 | Link memory | 1 MC |
+
+#### Treasury Management
+In this case, 1 MC = 0.000001 ETH (configurable by admin). All ETH from credit purchases is forwarded to the treasury address.
+|Credits | ETH |
+|--------|----|
+|1 MC | 0.000001 ETH |
+|10 MC | 0.00001 ETH |
+|100 MC | 0.0001 ETH |
+|500 MC | 0.0005 ETH |
+|1000 MC | 0.001 ETH |
+
 
 ### MemoryRegistry
 

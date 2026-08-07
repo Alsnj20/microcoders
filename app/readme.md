@@ -114,25 +114,47 @@ pnpm chain
 
 This command starts a local Stylus-compatible network using the Nitro dev node script (`./nitro-devnode/run-dev-node.sh`). The network runs on your local machine and can be used for testing and development. You can customize the Nitro dev node configuration in the `nitro-devnode` submodule.
 
-### 5. Deploy the test contract
+### 5. Deploy the contracts
 
 In your second terminal:
 
 ```bash
-pnpm deploy
+pnpm run deploy:contracts --network arbitrumNitro
 ```
 
-This command deploys a test smart contract to the local network. The contract is located in `packages/stylus/contracts/your-contract/src` and can be modified to suit your needs. The `pnpm deploy` command uses the deploy script located in `packages/stylus/scripts` to deploy the contract to the network. You can also customize the deploy script .
+This command deploys all 6 MemoryChain contracts to the local network (CreditManager, UserRegistry, MemoryRegistry, AgentRegistry, ContextRegistry, AuditRegistry). After deployment it automatically:
+
+1. Generates ABIs for all contracts
+2. Writes addresses + ABIs to `deployedContracts.ts`
+3. Initializes all contracts (`initialize()`)
+4. Authorizes cross-contract calls
+
+The `--network` flag is **required**. Available options:
+- `arbitrumNitro` — local Nitro dev node (default RPC: `http://localhost:8547`)
+- `arbitrumSepolia` — Arbitrum Sepolia testnet
+- `arbitrumOne` — Arbitrum One mainnet
 
 ### 6. Start your NextJS app
 
 In your third terminal:
 
 ```bash
-pnpm start
+pnpm dev
 ```
 
-Visit your app at: `http://localhost:3000`. You can interact with your smart contract using the **Debug Contracts** page, which provides a user-friendly interface for testing your contract's functions and viewing its state.
+Visit your app at: `http://localhost:3000`. The frontend auto-detects deployed contracts from `deployedContracts.ts` and generates the correct ABIs and addresses.
+
+### 7. E2E Test
+
+Navigate to `http://localhost:3000/e2e` to test the full flow:
+
+1. Connect wallet
+2. Buy Credits
+3. Register User
+4. Create Memory
+5. Create Agent
+
+All interactions use real on-chain contracts.
 
 ### 7. Test your smart contract
 
@@ -142,9 +164,10 @@ pnpm stylus:test
 
 ## Development Workflow
 
-- Edit your smart contract `lib.rs` in `packages/stylus/contracts/your-contract/src`
+- Edit your smart contracts `lib.rs` in `packages/stylus/contracts/<contract>/src`
 - Edit your frontend in `packages/nextjs/app`
 - Edit your deployment scripts in `packages/stylus/scripts`
+- Update ABIs in `packages/stylus/scripts/generateabis.ts` if you change contract signatures
 
 ## Create Your Own Contract
 
@@ -188,14 +211,14 @@ This command performs several important checks:
 ### Step 3: Deploy Your Contract
 
 ```bash
-pnpm deploy [...options]
+pnpm run deploy:contracts --network <network>
 ```
 
-This command runs the `deploy.ts` script located in `packages/stylus/scripts`. You can customize this script with your deployment logic.
+This command deploys the contract to the specified network. The `--network` flag is required.
 
 **Available Options:**
 
-- `--network <network>`: Specify which network to deploy to
+- `--network <network>`: **Required** — Target network (`arbitrumNitro`, `arbitrumSepolia`, `arbitrum`)
 - `--estimate-gas`: Only perform gas estimation without deploying
 - `--max-fee=<maxFee>`: Set maximum fee per gas in gwei
 
@@ -225,7 +248,7 @@ To deploy your contracts to other networks (other than the default local Nitro d
    PRIVATE_KEY_SEPOLIA=your_private_key_here
    ```
 
-   **Security Note:** A development key is used by default when running the Nitro dev node locally, but for external deployments, you must provide your own private key.
+   **Security Note:** A development key is used by default when running the Nitro dev node locally (`PRIVATE_KEY_NITRO` in `.env`). For external deployments, you must provide your own private key (`PRIVATE_KEY_SEPOLIA`, etc.).
 
 3. **Set the Account Address**
 
@@ -242,7 +265,7 @@ To deploy your contracts to other networks (other than the default local Nitro d
    ```ts
    import * as chains from "./utils/scaffold-stylus/supportedChains";
    // ...
-   targetNetworks: [chains.arbitrumSepolia],
+   targetNetworks: [chains.arbitrumOne],
    ```
 
 ### Arbitrum Testnet Faucets (Optional)
@@ -255,7 +278,13 @@ For Arbitrum testnets, you may need testnet ETH to deploy contracts. You can obt
 
 ### Available Networks
 
-This template supports Arbitrum networks only. You can test which networks are available and their RPC URLs:
+This template supports Arbitrum networks only:
+
+| Network | Chain ID | RPC URL | Use Case |
+|---------|----------|---------|----------|
+| `arbitrumNitro` | 412346 | `http://localhost:8547` | Local dev |
+| `arbitrumSepolia` | 421614 | `https://sepolia-rollup.arbitrum.io/rpc` | Testnet |
+| `arbitrumOne` | 42161 | `https://arb1.arbitrum.io/rpc` | Mainnet |
 
 ```bash
 pnpm info:networks
@@ -268,7 +297,7 @@ This will show you all supported networks and their corresponding RPC endpoints.
 Once configured, deploy to your target network:
 
 ```bash
-pnpm deploy --network <network>
+pnpm run deploy:contracts --network <network>
 ```
 
 **Important Security Notes:**

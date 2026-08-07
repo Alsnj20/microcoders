@@ -1,4 +1,5 @@
 import { spawn } from "child_process";
+import * as path from "path";
 import { http, createPublicClient, formatUnits } from "viem";
 import { extractGasPriceFromOutput, isContractHasConstructor } from "./contract";
 import { getRpcUrlFromChain } from "./network";
@@ -66,6 +67,15 @@ export async function buildDeployCommand(config: DeploymentConfig, deployOptions
     }
   }
 
+  // Use --wasm-file to skip Docker build and use the pre-compiled wasm directly.
+  // cargo stylus deploy without --wasm-file tries to compile in Docker and fails silently.
+  const wasmName = config.contractName.replace(/-/g, "_");
+  const wasmPath = path.join("..", "target", "wasm32-unknown-unknown", "release", `${wasmName}.wasm`);
+  baseCommand += ` --wasm-file='${wasmPath}'`;
+
+  // Add verbose flag so we can parse the deployed address from output
+  baseCommand += ` --verbose`;
+
   if (deployOptions.constructorArgs && deployOptions.constructorArgs.length > 0 && !deployOptions.isOrbit) {
     baseCommand += ` --constructor-args ${deployOptions.constructorArgs.map(arg => `"${arg}"`).join(" ")} `;
   }
@@ -78,7 +88,7 @@ export async function estimateGasPrice(config: DeploymentConfig, deployOptions: 
   if (deployOptions.constructorArgs) {
     deployCommand += ` --constructor-args='${deployOptions.constructorArgs.join(" ")}'`;
   }
-  const deployOutput = await executeCommand(
+  const { stdout: deployOutput } = await executeCommand(
     deployCommand,
     config.contractName,
     "Estimating gas price with cargo stylus",
@@ -90,7 +100,11 @@ export async function estimateGasPrice(config: DeploymentConfig, deployOptions: 
   return "0";
 }
 
-export function executeCommand(command: string, cwd: string, description: string): Promise<string> {
+export function executeCommand(
+  command: string,
+  cwd: string,
+  description: string,
+): Promise<{ stdout: string; stderr: string }> {
   console.log(`\n🔄 ${description}...`);
   // Sanitize command to hide private key (create a copy to avoid modifying original)
   const sanitizedCommand = command.slice();
@@ -136,7 +150,7 @@ export function executeCommand(command: string, cwd: string, description: string
 
       if (code === 0 && !errors) {
         console.log(`\n✅ ${description} completed successfully!`);
-        resolve(output);
+        resolve({ stdout: output, stderr: errorOutput });
       } else {
         console.error(`\n❌ ${description} failed with exit code ${code}`);
         // Print error output starting from "project metadata hash computed on deployment" or error patterns, or all logs if not found
