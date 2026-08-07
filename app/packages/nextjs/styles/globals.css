@@ -38,13 +38,17 @@
 @source "../app";
 @source "../components";
 @source "../utils";
+@source "../src";
 
 @theme {
-  --font-sans: var(--font-hanken-grotesk), var(--font-inter), system-ui, sans-serif;
+  /* Body, UI, chat, buttons → Hanken Grotesk */
+  --font-sans: var(--font-hanken-grotesk), system-ui, sans-serif;
+  /* Headings, hero text, editorial titles → Source Serif 4 */
   --font-serif: var(--font-source-serif), Georgia, serif;
   --font-headline-md: var(--font-source-serif), Georgia, serif;
   --font-display-lg: var(--font-source-serif), Georgia, serif;
-  --font-body-md: var(--font-hanken-grotesk), sans-serif;
+  /* Body copy explicit alias */
+  --font-body-md: var(--font-hanken-grotesk), system-ui, sans-serif;
   --shadow-center: 0 0 12px -2px rgb(0 0 0 / 0.05);
   --animate-pulse-fast: pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 
@@ -85,14 +89,28 @@
   }
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 body {
   min-height: 100vh;
   background: var(--color-background);
+  font-family: var(--font-hanken-grotesk), system-ui, sans-serif;
 }
 
-h1, h2, h3, h4 {
+/* Headings use Source Serif 4 for editorial feel */
+h1, h2, h3 {
+  font-family: var(--font-source-serif), Georgia, serif;
   margin-bottom: 0.5rem;
-  line-height: 1;
+  line-height: 1.15;
+}
+
+/* h4 and smaller stay in sans for UI contexts */
+h4, h5, h6 {
+  font-family: var(--font-hanken-grotesk), system-ui, sans-serif;
+  margin-bottom: 0.5rem;
+  line-height: 1.25;
 }
 
 p {
@@ -349,4 +367,29 @@ p {
     from { height: var(--radix-collapsible-content-height, var(--collapsible-panel-height, auto)); }
     to { height: 0; }
   }
+
+  /* Infinite marquee scroll */
+  @keyframes marquee {
+    from { transform: translateX(0); }
+    to   { transform: translateX(-50%); }
+  }
+  --animate-marquee: marquee 30s linear infinite;
+
+  /* Page fade-in/out via View Transitions API */
+  @keyframes vt-fade-in {
+    from { opacity: 0; transform: translateY(6px); filter: blur(2px); }
+    to   { opacity: 1; transform: translateY(0);  filter: blur(0);  }
+  }
+  @keyframes vt-fade-out {
+    from { opacity: 1; transform: translateY(0);  filter: blur(0);  }
+    to   { opacity: 0; transform: translateY(-6px); filter: blur(2px); }
+  }
+}
+
+/* ── View Transitions: smooth fade between pages ── */
+::view-transition-old(root) {
+  animation: 150ms ease-in both vt-fade-out;
+}
+::view-transition-new(root) {
+  animation: 210ms ease-out 120ms both vt-fade-in;
 }
