@@ -104,6 +104,9 @@ Cada memoria registra:
 - Hash.
 - CID.
 - Versión.
+- Tipo (Preference, Knowledge, Document, Objective, Other).
+- Visibilidad (Private por defecto, Public, Restricted).
+- Estado (Active, Archived).
 
 El contenido permanece cifrado en IPFS.
 Las memorias nunca se eliminan.
@@ -125,6 +128,7 @@ La blockchain únicamente registra:
 - Hash.
 - CID.
 - Versión.
+- Estado (Active, Archived).
 
 ---
 
@@ -146,8 +150,10 @@ Varios Agentes
 
 Cada relación registra:
 - Prioridad.
-- Estado.
+- Estado (enabled/disabled).
 - Fecha de creación.
+
+El llamador debe ser propietario de AMBOS recursos (agente y memoria) para modificar enlaces.
 
 Gracias a esto un mismo conocimiento puede ser reutilizado por distintos agentes sin duplicar información.
 
@@ -178,6 +184,8 @@ Los créditos cubren:
 - Infraestructura del backend.
 
 Los costos de gas de Arbitrum permanecen completamente independientes.
+
+Las operaciones de creación y actualización utilizan una sola llamada cross-contract (`consumeCreditsForOp`) que combina la consulta de fee y el consumo de créditos, reduciendo el overhead de gas.
 ---
 
 ## Auditoría
@@ -218,6 +226,7 @@ Gestiona el ciclo de vida del conocimiento.
 - Gestionar versiones.
 - Registrar hashes.
 - Registrar CIDs.
+- Validar tipo de memoria (0-4) y visibilidad (0-2, por defecto: 0=Private).
 
 No almacena información privada.
 
@@ -227,7 +236,7 @@ No almacena información privada.
 Gestiona los agentes personales.
 
 ### Responsabilidades
-- Crear agentes.
+- Crear agentes (CID + hash).
 - Actualizar agentes.
 - Archivar agentes.
 - Restaurar agentes.
@@ -244,10 +253,12 @@ Administra la relación entre agentes y memorias.
 - Asociar memorias a agentes.
 - Eliminar asociaciones.
 - Gestionar prioridades.
+- Habilitar/deshabilitar enlaces.
 - Consultar el contexto de un agente.
 - Consultar qué agentes utilizan una memoria.
 
 Implementa la relación muchos a muchos entre ambos recursos.
+El llamador debe ser propietario de AMBOS recursos (agente y memoria) para modificar enlaces.
 
 ---
 
@@ -258,6 +269,7 @@ Gestiona los Memory Credits.
 ### Responsabilidades
 - Comprar créditos.
 - Consumir créditos.
+- Consumir créditos por operación (una sola llamada cross-contract).
 - Consultar saldo.
 - Reembolsar créditos.
 - Configurar costos de operaciones.
@@ -284,6 +296,9 @@ La blockchain únicamente almacena:
 - Hashes.
 - Relaciones.
 - Versiones.
+- Tipo de memoria (0-4).
+- Visibilidad (0=Private, 1=Public, 2=Restricted).
+- Estado (Active/Archived).
 - Créditos.
 - Eventos.
 
@@ -292,8 +307,8 @@ La blockchain únicamente almacena:
 ## Off-chain
 Los datos privados permanecen cifrados.
 Se almacenan:
-- Memorias.
-- Blueprints.
+- Contenido de memorias.
+- Blueprints de agentes.
 - Prompts.
 - Embeddings.
 - Configuraciones.

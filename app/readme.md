@@ -139,7 +139,7 @@ The `--network` flag is **required**. Available options:
 In your third terminal:
 
 ```bash
-pnpm dev
+pnpm start
 ```
 
 Visit your app at: `http://localhost:3000`. The frontend auto-detects deployed contracts from `deployedContracts.ts` and generates the correct ABIs and addresses.

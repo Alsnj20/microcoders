@@ -6,7 +6,7 @@ import type { GenericContractsDeclaration } from "../utils/scaffold-eth/contract
 const deployedContracts = {
   "412346": {
     "CreditManager": {
-      "address": "0xac3b14cb55c2242bb8ca1dc8269701948cb0c348",
+      "address": "0x75e0e92a79880bd81a69f72983d03c75e2b33dc8",
       "abi": [
         {
           "type": "function",
@@ -409,7 +409,7 @@ const deployedContracts = {
       ]
     },
     "UserRegistry": {
-      "address": "0xb66ff14a830d5527f06e384b309288b843d555c4",
+      "address": "0xa39ffa43eba037d67a0f4fe91956038aba0ca386",
       "abi": [
         {
           "type": "function",
@@ -673,7 +673,7 @@ const deployedContracts = {
       ]
     },
     "MemoryRegistry": {
-      "address": "0x7696e37e86b993ac1ce27feed48fa154cb8b2eda",
+      "address": "0x841118047f42754332d0ad4db8a2893761dd7f5d",
       "abi": [
         {
           "type": "function",
@@ -961,7 +961,7 @@ const deployedContracts = {
       ]
     },
     "AgentRegistry": {
-      "address": "0xcb593e5f96363a4919b583f07fe45880a1daf94e",
+      "address": "0x84401cd7abbebb22acb7af2becfd9be56c30bcf1",
       "abi": [
         {
           "type": "function",
@@ -1244,7 +1244,7 @@ const deployedContracts = {
       ]
     },
     "ContextRegistry": {
-      "address": "0x9e607dbb3e6d7458b7570d1b2f6ceb96e597acc2",
+      "address": "0xd92773693917f0ff664f85c3cb698c33420947ff",
       "abi": [
         {
           "type": "function",
@@ -1499,7 +1499,7 @@ const deployedContracts = {
       ]
     },
     "AuditRegistry": {
-      "address": "0xa3bad834e6507566b4d43b0a449e1710b269aa26",
+      "address": "0x7af2571dc86b7608ddc6acfbf01b2be6f0efc244",
       "abi": [
         {
           "type": "function",
