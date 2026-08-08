@@ -162,11 +162,10 @@ deploy_contract() {
     echo "Checking $NAME"
     echo "-----------------------------------------------"
 
-    # Run cargo stylus check to verify WASM compilation
     cd "$CONTRACT_PATH"
     if ! cargo stylus check 2>&1; then
         echo -e "${RED}cargo stylus check failed for $NAME${NC}"
-        exit 1
+        return 1
     fi
     cd - > /dev/null
 
@@ -177,34 +176,53 @@ deploy_contract() {
     echo "Deploying $NAME"
     echo "-----------------------------------------------"
 
-    # Build WASM for the contract
     cd "$CONTRACT_PATH"
-    cargo build --target wasm32-unknown-unknown --release 2>&1
+    if ! cargo build --target wasm32-unknown-unknown --release 2>&1; then
+        echo -e "${RED}cargo build failed for $NAME${NC}"
+        cd - > /dev/null
+        return 1
+    fi
     cd - > /dev/null
 
-    # Find the WASM file in workspace target
     WASM_FILE=$(find target/wasm32-unknown-unknown/release -name "${KEY}.wasm" -not -path "*/deps/*" | head -1)
 
     if [ -z "$WASM_FILE" ]; then
         echo -e "${RED}WASM file not found for $NAME${NC}"
-        exit 1
+        return 1
     fi
+
+    echo "WASM: $WASM_FILE"
 
     START=$(date +%s)
 
-    RESULT=$(cd "$CONTRACT_PATH" && cargo stylus deploy \
+    echo "Running: cargo stylus deploy --endpoint ... --wasm-file ../$WASM_FILE --no-verify --max-fee-per-gas-gwei 0.1"
+    DEPLOY_OUTPUT=$(cd "$CONTRACT_PATH" && timeout 300 cargo stylus deploy \
         --endpoint "$RPC_URL" \
         --private-key-path "$KEY_FILE" \
         --wasm-file "../$WASM_FILE" \
         --no-verify \
-        --max-fee-per-gas-gwei 0.1 2>&1)
+        --max-fee-per-gas-gwei 0.1 2>&1) || {
+        echo -e "${RED}cargo stylus deploy failed for $NAME (exit code: $?)${NC}"
+        echo "Output:"
+        echo "$DEPLOY_OUTPUT"
+        cd - > /dev/null
+        return 1
+    }
+    cd - > /dev/null
 
-    ADDRESS=$(echo "$RESULT" | grep -oP 'deployed code at address: \K0x[a-fA-F0-9]{40}' | head -1)
+    echo "Deploy output:"
+    echo "$DEPLOY_OUTPUT"
+
+    ADDRESS=$(echo "$DEPLOY_OUTPUT" | grep -oP 'deployed code at address: \K0x[a-fA-F0-9]{40}' | head -1)
+
+    if [ -z "$ADDRESS" ]; then
+        ADDRESS=$(echo "$DEPLOY_OUTPUT" | grep -oP '0x[a-fA-F0-9]{40}' | head -1)
+    fi
 
     if [ -z "$ADDRESS" ]; then
         echo -e "${RED}Failed to extract deployed address from:${NC}"
-        echo "$RESULT"
-        exit 1
+        echo "$DEPLOY_OUTPUT"
+        return 1
     fi
 
     jq ".contracts.$KEY=\"$ADDRESS\"" "$CONFIG_FILE" > "$CONFIG_FILE.tmp"
@@ -222,17 +240,19 @@ deploy_contract() {
 # Deployment Order
 ###############################################################################
 
-deploy_contract "credit-manager" credit-manager
+DEPLOY_ERRORS=0
 
-deploy_contract "user-registry" user-registry
+deploy_contract "credit-manager" credit-manager || { echo -e "${RED}credit-manager deploy failed${NC}"; DEPLOY_ERRORS=$((DEPLOY_ERRORS + 1)); }
 
-deploy_contract "memory-registry" memory-registry
+deploy_contract "user-registry" user-registry || { echo -e "${RED}user-registry deploy failed${NC}"; DEPLOY_ERRORS=$((DEPLOY_ERRORS + 1)); }
 
-deploy_contract "agent-registry" agent-registry
+deploy_contract "memory-registry" memory-registry || { echo -e "${RED}memory-registry deploy failed${NC}"; DEPLOY_ERRORS=$((DEPLOY_ERRORS + 1)); }
 
-deploy_contract "context-registry" context-registry
+deploy_contract "agent-registry" agent-registry || { echo -e "${RED}agent-registry deploy failed${NC}"; DEPLOY_ERRORS=$((DEPLOY_ERRORS + 1)); }
 
-deploy_contract "audit-registry" audit-registry
+deploy_contract "context-registry" context-registry || { echo -e "${RED}context-registry deploy failed${NC}"; DEPLOY_ERRORS=$((DEPLOY_ERRORS + 1)); }
+
+deploy_contract "audit-registry" audit-registry || { echo -e "${RED}audit-registry deploy failed${NC}"; DEPLOY_ERRORS=$((DEPLOY_ERRORS + 1)); }
 
 ###############################################################################
 # Post-Deploy: Initialize All Contracts
@@ -380,7 +400,11 @@ mv "$CONFIG_FILE.tmp" "$CONFIG_FILE"
 
 echo
 echo "==============================================="
-echo "Deployment completed"
+if [ "$DEPLOY_ERRORS" -gt 0 ]; then
+    echo -e "${RED}Deployment completed with $DEPLOY_ERRORS error(s)${NC}"
+else
+    echo "Deployment completed"
+fi
 echo "==============================================="
 echo
 
