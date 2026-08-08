@@ -162,50 +162,6 @@ export interface ContextRegistryContract {
   ): Promise<ContractResult<ContextData[]>>;
 }
 
-export interface ChatData {
-  chatId: string;
-  owner: string;
-  name: string;
-  agentId: string;
-  cid: string;
-  hash: string;
-  status: number;
-  version: number;
-  createdAt: number;
-  updatedAt: number;
-}
-
-export interface ChatRegistryContract {
-  createChat(
-    owner: string,
-    name: string,
-    agentId: string,
-    cid: string,
-    hash: string,
-  ): Promise<ContractResult<string>>;
-
-  updateChat(
-    owner: string,
-    chatId: string,
-    cid: string,
-    hash: string,
-  ): Promise<ContractResult<void>>;
-
-  archiveChat(owner: string, chatId: string): Promise<ContractResult<void>>;
-
-  restoreChat(owner: string, chatId: string): Promise<ContractResult<void>>;
-
-  getChat(chatId: string): Promise<ContractResult<ChatData>>;
-
-  getChatCountByOwner(owner: string): Promise<ContractResult<number>>;
-
-  getChatsByOwner(
-    owner: string,
-    offset: number,
-    limit: number,
-  ): Promise<ContractResult<ChatData[]>>;
-}
-
 export interface CreditBalance {
   balance: number;
   purchased: number;
@@ -256,4 +212,26 @@ export interface UserRegistryContract {
   updateUsername(owner: string, username: string): Promise<ContractResult<void>>;
 
   getUser(owner: string): Promise<ContractResult<UserData>>;
+}
+
+export interface AuditEvent {
+  eventId: string;
+  actor: string;
+  entityType: number;
+  entityId: string;
+  action: number;
+  timestamp: number;
+}
+
+export interface AuditRegistryContract {
+  recordAudit(
+    actor: string,
+    entityType: number,
+    entityId: string,
+    action: number,
+  ): Promise<ContractResult<string>>;
+
+  getAuditEvent(eventId: string): Promise<ContractResult<AuditEvent>>;
+
+  getTotalEvents(): Promise<ContractResult<number>>;
 }

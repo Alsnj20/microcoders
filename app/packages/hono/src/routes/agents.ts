@@ -7,12 +7,12 @@ const CreateAgentSchema = z.object({
   name: z.string().min(1),
   description: z.string().min(1),
   cid: z.string().min(1),
-  hash: z.string().length(64),
+  hash: z.string().refine((v) => v.replace("0x", "").length === 64, "hash must be 64 hex chars"),
 });
 
 const UpdateAgentSchema = z.object({
   cid: z.string().min(1),
-  hash: z.string().length(64),
+  hash: z.string().refine((v) => v.replace("0x", "").length === 64, "hash must be 64 hex chars"),
 });
 
 function requireSession(c: { get: (key: string) => unknown; json: (body: unknown, status?: number) => Response }) {

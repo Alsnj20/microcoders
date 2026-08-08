@@ -23,6 +23,35 @@ AUD="0x..."  # Audit Log
 DEPLOYER="0x..."  # Deployer
 ```
 
+```bash
+# Variables de entorno
+export RPC_URL="https://sepolia-rollup.arbitrum.io/rpc"
+export PUBLIC_KEY="0x..."  # Admin wallet (tu public key)
+export PRIVATE_KEY="0x..."  # Admin wallet (tu private key)
+# Test del deplyer y admin wallet (no usar en producción)
+export PUBLIC_KEY="0x636b53B6DdA21FD7c953677ab1aA892A9957E97b"
+export PRIVATE_KEY="0x25be0bb2bfb958d3886fe66927f23f38859b40c5a5adfb61c9645993e3e495db"
+
+# Test wallet (para pruebas de usuario)
+export TEST_WALLET="0x873277138c99d3BA16237Cd79959fE22f6775314"
+export TEST_PRIVATE="0x685f18ce89289c67ab2598a9a746b0d933ea7346c2965d595f1e85bb4eccbfeb"
+
+export TEST2_WALLET="0xbb44e12e677a37ea1e7b2d12735b9f794580bed7"
+
+
+export TEST3_WALLET="0x52300b4d29e6f4d9a29172e49e1edf8603e3b7d5"
+export TEST3_PRIVATE="0xd83d3bd1c72f0e328d736a52558f868708371aac526d99d24dc5dd70f162194c"
+
+# Addresses (actualizar después de cada deploy)
+CM="0x065088a1f729af5361cfdd2db72f6a7fdcbaa999"
+UR="0x03b62193a5ea468f2130f378b4e79a26b8a39ace"
+MR="0x22f70c5666be8451e203d75aaebaec667f0b90eb"
+AR="0xc39bd249bd237e1306dbf197992ab13a210c61e1"
+CTX="0x3fb21783cedaddc73bba20bd4aa2dd9fd419344b"
+AUD="0x4bccf938c7121d608ebd55ce3786151e41ae8eeb"
+DEPLOYER="0x636b53B6DdA21FD7c953677ab1aA892A9957E97b"
+```
+
 **NOTA:** Stylus SDK usa **camelCase** para los selectores ABI. Ej: `totalUsers` no `total_users`.
 
 ---

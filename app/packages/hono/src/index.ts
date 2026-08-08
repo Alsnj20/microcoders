@@ -1,22 +1,25 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import { serve } from "@hono/node-server";
 import { createIpfsClient, type IpfsClient } from "./lib/ipfs.js";
+import { createAgentRegistryAdapter, createMemoryRegistryAdapter, createUserRegistryAdapter, createCreditManagerAdapter, createContextRegistryAdapter, createAuditRegistryAdapter } from "./lib/contracts.js";
 import { createIpfsRoutes } from "./routes/ipfs.js";
 import { createMemoryRoutes } from "./routes/memories.js";
 import { createAgentRoutes } from "./routes/agents.js";
 import { createContextRoutes } from "./routes/context.js";
-import { createChatRoutes } from "./routes/chats.js";
+
 import { createCreditRoutes } from "./routes/credits.js";
 import { createUserRoutes } from "./routes/user.js";
 import { createAuthRoutes } from "./routes/auth.js";
 import { createSessionKeyRoutes } from "./routes/session-keys.js";
+import { createAuditRoutes } from "./routes/audit.js";
 import type {
   MemoryRegistryContract,
   AgentRegistryContract,
   ContextRegistryContract,
-  ChatRegistryContract,
   CreditManagerContract,
   UserRegistryContract,
+  AuditRegistryContract,
 } from "./types/contracts.js";
 import type { SessionStore, SessionData, SessionKeyStore } from "./types/session.js";
 
@@ -33,32 +36,76 @@ export type AppDependencies = {
   memoryRegistry?: MemoryRegistryContract;
   agentRegistry?: AgentRegistryContract;
   contextRegistry?: ContextRegistryContract;
-  chatRegistry?: ChatRegistryContract;
   creditManager?: CreditManagerContract;
   userRegistry?: UserRegistryContract;
+  auditRegistry?: AuditRegistryContract;
   sessionStore?: SessionStore;
   sessionKeyStore?: SessionKeyStore;
   session?: SessionData | null;
 };
+
+function createMemorySessionStore(): SessionStore {
+  const store = new Map<string, { data: SessionData; expiresAt: number }>();
+  return {
+    async get(sessionId: string) {
+      const entry = store.get(sessionId);
+      if (!entry || entry.expiresAt < Date.now()) {
+        store.delete(sessionId);
+        return null;
+      }
+      return entry.data;
+    },
+    async set(sessionId: string, data: SessionData, ttlSeconds: number) {
+      store.set(sessionId, { data, expiresAt: Date.now() + ttlSeconds * 1000 });
+    },
+    async delete(sessionId: string) {
+      store.delete(sessionId);
+    },
+  };
+}
 
 export function createApp(deps: AppDependencies = {}): Hono<AppEnv> {
   const ipfs = deps.ipfs ?? createIpfsClient({ apiUrl: process.env.IPFS_API_URL ?? "http://localhost:5001" });
   const memoryRegistry = deps.memoryRegistry;
   const agentRegistry = deps.agentRegistry;
   const contextRegistry = deps.contextRegistry;
-  const chatRegistry = deps.chatRegistry;
+  const auditRegistry = deps.auditRegistry;
   const creditManager = deps.creditManager;
   const userRegistry = deps.userRegistry;
-  const sessionStore = deps.sessionStore;
+  const sessionStore = deps.sessionStore ?? createMemorySessionStore();
   const sessionKeyStore = deps.sessionKeyStore;
 
   const app = new Hono<AppEnv>();
 
-  app.use("*", cors({ origin: "http://localhost:3000", credentials: true }));
+  app.use("*", cors({
+    origin: process.env.CORS_ORIGIN || "http://localhost:3000",
+    credentials: true,
+  }));
 
-  // Session middleware
+  // Dev session middleware: auto-auth with wallet address from header
+  const isDev = process.env.NODE_ENV !== "production";
   app.use("*", async (c, next) => {
-    c.set("session", deps.session ?? null);
+    if (isDev) {
+      const devAddress = c.req.header("X-Dev-Wallet");
+      if (devAddress) {
+        c.set("session", { address: devAddress, chainId: 412346, username: "dev-user" });
+      }
+    }
+    await next();
+  });
+
+  // Request logging
+  app.use("*", async (c, next) => {
+    console.log(`→ ${c.req.method} ${c.req.url}`);
+    await next();
+    console.log(`← ${c.req.method} ${c.req.url} ${c.res.status}`);
+  });
+
+  // Session middleware (only set if not already set by dev middleware)
+  app.use("*", async (c, next) => {
+    if (!c.get("session")) {
+      c.set("session", deps.session ?? null);
+    }
     await next();
   });
 
@@ -67,18 +114,7 @@ export function createApp(deps: AppDependencies = {}): Hono<AppEnv> {
   });
 
   // Auth routes (session management)
-  if (sessionStore) {
-    app.route("/auth", createAuthRoutes(sessionStore));
-  } else {
-    // Fallback: session check endpoint without session store
-    app.get("/auth/session", (c) => {
-      const session = c.get("session");
-      if (!session) {
-        return c.json({ code: "AUTH_REQUIRED", message: "No valid session" }, 401);
-      }
-      return c.json(session);
-    });
-  }
+  app.route("/auth", createAuthRoutes(sessionStore));
 
   // Session key routes
   if (sessionKeyStore) {
@@ -99,10 +135,6 @@ export function createApp(deps: AppDependencies = {}): Hono<AppEnv> {
     app.route("/context", createContextRoutes(contextRegistry));
   }
 
-  if (chatRegistry) {
-    app.route("/chats", createChatRoutes(chatRegistry));
-  }
-
   if (creditManager) {
     app.route("/credits", createCreditRoutes(creditManager));
   }
@@ -111,5 +143,29 @@ export function createApp(deps: AppDependencies = {}): Hono<AppEnv> {
     app.route("/user", createUserRoutes(userRegistry));
   }
 
+  if (auditRegistry) {
+    app.route("/audit", createAuditRoutes(auditRegistry));
+  }
+
   return app;
 }
+
+const PORT = Number(process.env.PORT) || 3001;
+
+const isDev = process.env.NODE_ENV !== "production";
+const agentRegistry = isDev ? createAgentRegistryAdapter() : undefined;
+const memoryRegistry = isDev ? createMemoryRegistryAdapter() : undefined;
+const userRegistry = isDev ? createUserRegistryAdapter() : undefined;
+const creditManager = isDev ? createCreditManagerAdapter() : undefined;
+const contextRegistry = isDev ? createContextRegistryAdapter() : undefined;
+const auditRegistry = isDev ? createAuditRegistryAdapter() : undefined;
+
+serve({ fetch: createApp({ agentRegistry, memoryRegistry, userRegistry, creditManager, contextRegistry, auditRegistry }).fetch, port: PORT }, (info) => {
+  console.log(`🚀 Hono server running on http://localhost:${info.port}`);
+  if (agentRegistry) console.log(`⛓️  AgentRegistry connected`);
+  if (memoryRegistry) console.log(`⛓️  MemoryRegistry connected`);
+  if (userRegistry) console.log(`⛓️  UserRegistry connected`);
+  if (creditManager) console.log(`⛓️  CreditManager connected`);
+  if (contextRegistry) console.log(`⛓️  ContextRegistry connected`);
+  if (auditRegistry) console.log(`⛓️  AuditRegistry connected`);
+});

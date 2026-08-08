@@ -16,6 +16,7 @@ interface ChatSidebarProps {
   selectedConversationId: string;
   onSelectConversation: (id: string) => void;
   onCreateConversation: () => void;
+  onDeleteConversation?: (id: string) => void;
 }
 
 export function ChatSidebar({
@@ -25,6 +26,7 @@ export function ChatSidebar({
   selectedConversationId,
   onSelectConversation,
   onCreateConversation,
+  onDeleteConversation,
 }: ChatSidebarProps) {
   return (
     <LateralBar>
@@ -76,6 +78,18 @@ export function ChatSidebar({
                 {conv.lastMessage && <p className="text-xs text-muted-foreground break-words">{conv.lastMessage}</p>}
                 <p className="text-xs text-muted-foreground/60">{conv.timestamp}</p>
               </div>
+              {onDeleteConversation && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDeleteConversation(conv.id);
+                  }}
+                  className="shrink-0 p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+                >
+                  <span className="material-symbols-outlined text-sm">delete</span>
+                </button>
+              )}
             </LateralBarSectionButton>
           ))}
         </LateralBarSection>

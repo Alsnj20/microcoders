@@ -1,6 +1,7 @@
 "use client";
 
 import { SharedAppHeader } from "~~/components/shared/SharedAppHeader";
+import { ErrorBoundary } from "~~/components/shared/ErrorBoundary";
 import { AuthGate } from "~~/src/modules/auth/components/AuthGate";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
@@ -8,7 +9,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-background">
       <SharedAppHeader />
       <main className="">
-        <AuthGate>{children}</AuthGate>
+        <ErrorBoundary>
+          <AuthGate>{children}</AuthGate>
+        </ErrorBoundary>
       </main>
     </div>
   );

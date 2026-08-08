@@ -74,6 +74,16 @@ const CREDIT_MANAGER_ABI: AbiItem[] = [
   },
   {
     type: "function",
+    name: "consumeCreditsForOp",
+    inputs: [
+      { name: "user", type: "address" },
+      { name: "operation", type: "uint8" },
+    ],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
     name: "refundCredits",
     inputs: [
       { name: "user", type: "address" },
@@ -391,22 +401,7 @@ const MEMORY_REGISTRY_ABI: AbiItem[] = [
     ],
     stateMutability: "view",
   },
-  {
-    type: "function",
-    name: "getMemoryVersion",
-    inputs: [
-      { name: "memoryId", type: "bytes32" },
-      { name: "version", type: "uint32" },
-    ],
-    outputs: [
-      { type: "string" },
-      { type: "bytes32" },
-      { type: "uint64" },
-    ],
-    stateMutability: "view",
-  },
   { type: "function", name: "totalMemories", inputs: [], outputs: [{ type: "uint256" }], stateMutability: "view" },
-  { type: "function", name: "previewCreateCost", inputs: [], outputs: [{ type: "uint64" }], stateMutability: "view" },
   { type: "function", name: "creditManager", inputs: [], outputs: [{ type: "address" }], stateMutability: "view" },
   { type: "function", name: "admin", inputs: [], outputs: [{ type: "address" }], stateMutability: "view" },
   {
@@ -457,8 +452,6 @@ const AGENT_REGISTRY_ABI: AbiItem[] = [
     type: "function",
     name: "createAgent",
     inputs: [
-      { name: "name", type: "string" },
-      { name: "description", type: "string" },
       { name: "cid", type: "string" },
       { name: "hash", type: "bytes32" },
     ],
@@ -496,8 +489,6 @@ const AGENT_REGISTRY_ABI: AbiItem[] = [
     inputs: [{ name: "agentId", type: "bytes32" }],
     outputs: [
       { type: "address" },
-      { type: "string" },
-      { type: "string" },
       { type: "uint32" },
       { type: "string" },
       { type: "bytes32" },
@@ -507,22 +498,7 @@ const AGENT_REGISTRY_ABI: AbiItem[] = [
     ],
     stateMutability: "view",
   },
-  {
-    type: "function",
-    name: "getAgentVersion",
-    inputs: [
-      { name: "agentId", type: "bytes32" },
-      { name: "version", type: "uint32" },
-    ],
-    outputs: [
-      { type: "string" },
-      { type: "bytes32" },
-      { type: "uint64" },
-    ],
-    stateMutability: "view",
-  },
   { type: "function", name: "totalAgents", inputs: [], outputs: [{ type: "uint256" }], stateMutability: "view" },
-  { type: "function", name: "previewCreateCost", inputs: [], outputs: [{ type: "uint64" }], stateMutability: "view" },
   { type: "function", name: "admin", inputs: [], outputs: [{ type: "address" }], stateMutability: "view" },
   {
     type: "function",

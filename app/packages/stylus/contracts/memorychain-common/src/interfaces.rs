@@ -8,7 +8,7 @@ use stylus_sdk::prelude::*;
 sol_interface! {
     interface ICreditManager {
         function consumeCredits(address user, uint64 amount) external;
-        function consumeCreditsForOp(address user, uint8 operation) external returns (uint16);
+        function consumeCreditsForOp(address user, uint8 operation) external;
         function balanceOf(address user) external view returns (uint64);
         function hasSufficientCredits(address user, uint64 amount) external view returns (bool);
         function getFee(uint8 operation) external view returns (uint16);
@@ -28,7 +28,7 @@ sol_interface! {
 // Used by ContextRegistry to verify agent exists.
 sol_interface! {
     interface IAgentRegistry {
-        function getAgent(bytes32 agentId) external view returns (address, string, string, uint32, string, bytes32, uint8, uint64, uint64);
+        function getAgent(bytes32 agentId) external view returns (address, uint32, string, bytes32, uint8, uint64, uint64);
         function totalAgents() external view returns (uint256);
     }
 }

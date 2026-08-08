@@ -1,139 +1,165 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { api } from "~~/services/api/client";
+import {
+  saveConversation,
+  loadConversation,
+  listConversations,
+  deleteConversationLocal,
+} from "~~/services/api/chat-storage";
 import type { AgentBlueprint, ChatConversation, ChatMessage, UserProtocolState } from "../types/chat";
 
-const INITIAL_MESSAGES: ChatMessage[] = [
-  {
-    id: "1",
-    role: "assistant",
-    avatarUrl:
-      "https://lh3.googleusercontent.com/aida-public/AB6AXuBUmXEidBO3zpY2rMxk3Oa3i1XCq9JMTtX2Y9Sdn73ycyngQdB2pmkTY3ahd-shRj26UBLDhdxlwfYjkteWRxaQCRUKifpT6JjM-TY_3heKXwGniuOyNrEOImrIPRuSmoY2d1pfaHODuGeGwNtyC3KLGCVhKxpt2tc_xE8QCJgxmyb66xqmZMI78lW4qAVuwwRaUB7X___-CJWsYXH8NzEmiuCsHog1vg35BEOKqDtpQGv5Ve-qfI3I",
-    content:
-      "¡Hola! Soy tu agente personal en MemoryChain. He cargado tu gráfico de conocimiento cifrado desde IPFS y Arbitrum Stylus.",
-    timestamp: "12:00",
-    systemLog: "> SYSTEM LOG: MEMORY_REGISTRY_LOADED. SHA-256 HASH VERIFIED.",
-    creditsUsed: 0,
-  },
-  {
-    id: "2",
-    role: "user",
-    avatarUrl:
-      "https://lh3.googleusercontent.com/aida-public/AB6AXuCW8LUo9gm27dPmMFaHiMdj3UbYIv49SlmZ4WMcAnEsydpgz2LatC5HD8l3AGrVqpcq4qzI9RrxsSQgFSuWfYKZuNS6AOoRYrcuPizgq76APhWr_caPMr9Wvu2r0vEQxTrNCnVdIOhkoXauiZQP9WtG8s0X4acUrSGrwL_RS-pdrDOOEnB1R2WeILBHevRL2PgLUJRMyk3PCznh4zJquJr5-FDs_Tx5mTj0k6V8g8sEjrGyn_7sNsFH",
-    content: "¿Cuál es el estado actual de la sincronización de memorias entre mis agentes?",
-    timestamp: "12:01",
-  },
-  {
-    id: "3",
-    role: "assistant",
-    avatarUrl:
-      "https://lh3.googleusercontent.com/aida-public/AB6AXuDYaJBtRDB2tJT9hUrnT3m_8MGmZa7pQV8P6hzrTCan9fFus8dGZB-9_tAR7SIoH2WvYEygS9KJ1eKx6eoQPzcx474Jd80UtSGaEgXBGNH5HXZYZr0DZD2YMuoEhaEgXeqAzX4tey__MzA8LgCBCfLoR_DamKgodREjtEJrKFZYgqNrfWoT6ydwTGRy58nbqNbwsW5IlbLyqUCuk80xbm9Hu1be2iO5PY5MLQhl3EVPjLwqC4rqaXmF",
-    content:
-      "La relación N:M en ContextRegistry está activa. Los agentes 'Trading Bot' y 'Personal Assistant' comparten la memoria 'Knowledge Base v1.4' sin duplicar datos.",
-    timestamp: "12:02",
-    systemLog: "> SYSTEM LOG: CONTEXT_REGISTRY_CHECK. STATUS: NOMINAL (N:M RELATIONS OK).",
-    memoryCid: "ipfs://QmX9z7p2W8hF9aK",
-    creditsUsed: 2,
-  },
-];
+const ASSISTANT_AVATAR = "https://lh3.googleusercontent.com/aida-public/AB6AXuBUmXEidBO3zpY2rMxk3Oa3i1XCq9JMTtX2Y9Sdn73ycyngQdB2pmkTY3ahd-shRj26UBLDhdxlwfYjkteWRxaQCRUKifpT6JjM-TY_3heKXwGniuOyNrEOImrIPRuSmoY2d1pfaHODuGeGwNtyC3KLGCVhKxpt2tc_xE8QCJgxmyb66xqmZMI78lW4qAVuwwRaUB7X___-CJWsYXH8NzEmiuCsHog1vg35BEOKqDtpQGv5Ve-qfI3I";
+const USER_AVATAR = "https://lh3.googleusercontent.com/aida-public/AB6AXuCW8LUo9gm27dPmMFaHiMdj3UbYIv49SlmZ4WMcAnEsydpgz2LatC5HD8l3AGrVqpcq4qzI9RrxsSQgFSuWfYKZuNS6AOoRYrcuPizgq76APhWr_caPMr9Wvu2r0vEQxTrNCnVdIOhkoXauiZQP9WtG8s0X4acUrSGrwL_RS-pdrDOOEnB1R2WeILBHevRL2PgLUJRMyk3PCznh4zJquJr5-FDs_Tx5mTj0k6V8g8sEjrGyn_7sNsFH";
 
-const INITIAL_AGENTS: AgentBlueprint[] = [
-  {
-    id: "trading-bot",
-    name: "Trading Assistant",
-    description: "Analista de DeFi & Yields",
-    icon: "smart_toy",
-    version: "v1.4.0",
-    blueprintCid: "ipfs://bafybeic2...",
-    active: true,
-  },
-  {
-    id: "research-agent",
-    name: "Research Agent",
-    description: "Agente de investigación sobre Web3 & Stylus",
-    icon: "psychology",
-    version: "v1.0.2",
-    blueprintCid: "ipfs://bafybeic5...",
-    active: false,
-  },
-];
-
-const INITIAL_CONVERSATIONS: ChatConversation[] = [
-  {
-    id: "1",
-    title: "Consulta general",
-    lastMessage: "La relación N:M en ContextRegistry está activa.",
-    timestamp: "12:30",
-  },
-  {
-    id: "2",
-    title: "Análisis DeFi",
-    lastMessage: "Revisando yield pools disponibles...",
-    timestamp: "11:45",
-  },
-];
+function generateAgentResponse(agentName: string, userMessage: string): string {
+  return `[${agentName}] Procesando consulta: "${userMessage}". Consultando memorias cifradas en MemoryChain...`;
+}
 
 export function useChat() {
-  const [messages, setMessages] = useState<ChatMessage[]>(INITIAL_MESSAGES);
-  const [agents] = useState<AgentBlueprint[]>(INITIAL_AGENTS);
-  const [conversations, setConversations] = useState<ChatConversation[]>(INITIAL_CONVERSATIONS);
-  const [selectedConversationId, setSelectedConversationId] = useState("1");
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [agents, setAgents] = useState<AgentBlueprint[]>([]);
+  const [conversations, setConversations] = useState<ChatConversation[]>([]);
+  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [userState, setUserState] = useState<UserProtocolState>({
-    username: "CryptoEnthusiast",
-    memoryCredits: 1240,
-    activeAgentId: "trading-bot",
+    username: "",
+    memoryCredits: 0,
+    activeAgentId: "",
   });
 
+  useEffect(() => {
+    loadAgents();
+    setConversations(listConversations());
+  }, []);
+
+  const loadAgents = async () => {
+    try {
+      const res = await api.agents.$get();
+      if (res.ok) {
+        const data = await res.json();
+        const mapped: AgentBlueprint[] = data.agents.map((a: any) => ({
+          id: a.agentId,
+          name: a.name || "Agent",
+          description: a.description || "",
+          icon: "smart_toy",
+          version: `v${a.version}`,
+          blueprintCid: a.cid,
+          active: a.status === 0,
+        }));
+        setAgents(mapped);
+        if (mapped.length > 0 && !userState.activeAgentId) {
+          setUserState((prev) => ({ ...prev, activeAgentId: mapped[0].id }));
+        }
+      }
+    } catch {
+      setAgents([]);
+    }
+  };
+
+  const selectConversation = useCallback(
+    async (id: string) => {
+      setSelectedConversationId(id);
+      const conv = await loadConversation(id);
+      setMessages(conv?.messages || []);
+    },
+    [],
+  );
+
   const createConversation = () => {
-    const newConv: ChatConversation = {
-      id: Date.now().toString(),
+    const id = Date.now().toString();
+    const conv: ChatConversation = {
+      id,
       title: "Nueva conversación",
       timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
     };
-    setConversations(prev => [newConv, ...prev]);
-    setSelectedConversationId(newConv.id);
+    setConversations((prev) => [conv, ...prev]);
+    setSelectedConversationId(id);
     setMessages([]);
   };
 
-  const sendMessage = (text: string) => {
-    if (!text.trim()) return;
+  const sendMessage = useCallback(
+    async (text: string) => {
+      if (!text.trim()) return;
 
-    const userMsg: ChatMessage = {
-      id: Date.now().toString(),
-      role: "user",
-      avatarUrl:
-        "https://lh3.googleusercontent.com/aida-public/AB6AXuCW8LUo9gm27dPmMFaHiMdj3UbYIv49SlmZ4WMcAnEsydpgz2LatC5HD8l3AGrVqpcq4qzI9RrxsSQgFSuWfYKZuNS6AOoRYrcuPizgq76APhWr_caPMr9Wvu2r0vEQxTrNCnVdIOhkoXauiZQP9WtG8s0X4acUrSGrwL_RS-pdrDOOEnB1R2WeILBHevRL2PgLUJRMyk3PCznh4zJquJr5-FDs_Tx5mTj0k6V8g8sEjrGyn_7sNsFH",
-      content: text,
-      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-    };
+      const convId = selectedConversationId || Date.now().toString();
+      const isNew = !selectedConversationId;
 
-    const costInMc = 2;
+      if (isNew) {
+        const conv: ChatConversation = {
+          id: convId,
+          title: text.slice(0, 40) + (text.length > 40 ? "..." : ""),
+          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        };
+        setConversations((prev) => [conv, ...prev]);
+        setSelectedConversationId(convId);
+      }
 
-    const botMsg: ChatMessage = {
-      id: (Date.now() + 1).toString(),
-      role: "assistant",
-      avatarUrl:
-        "https://lh3.googleusercontent.com/aida-public/AB6AXuBUmXEidBO3zpY2rMxk3Oa3i1XCq9JMTtX2Y9Sdn73ycyngQdB2pmkTY3ahd-shRj26UBLDhdxlwfYjkteWRxaQCRUKifpT6JjM-TY_3heKXwGniuOyNrEOImrIPRuSmoY2d1pfaHODuGeGwNtyC3KLGCVhKxpt2tc_xE8QCJgxmyb66xqmZMI78lW4qAVuwwRaUB7X___-CJWsYXH8NzEmiuCsHog1vg35BEOKqDtpQGv5Ve-qfI3I",
-      content: `He recibido tu solicitud: "${text}". Procesando consulta contra tus nodos de memoria cifrados en MemoryChain...`,
-      systemLog: `> SYSTEM LOG: QUERY_DISPATCHED. CONSUMED ${costInMc} MC. SHA-256 HASH VERIFIED.`,
-      creditsUsed: costInMc,
-      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-    };
+      const userMsg: ChatMessage = {
+        id: `${Date.now()}-user`,
+        role: "user",
+        avatarUrl: USER_AVATAR,
+        content: text,
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      };
 
-    setMessages(prev => [...prev, userMsg, botMsg]);
-    setUserState(prev => ({
-      ...prev,
-      memoryCredits: Math.max(0, prev.memoryCredits - costInMc),
-    }));
-  };
+      setMessages((prev) => [...prev, userMsg]);
+
+      const agent = agents.find((a) => a.id === userState.activeAgentId);
+      const agentName = agent?.name || "Agent";
+
+      const botMsg: ChatMessage = {
+        id: `${Date.now()}-assistant`,
+        role: "assistant",
+        avatarUrl: ASSISTANT_AVATAR,
+        content: generateAgentResponse(agentName, text),
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        systemLog: `> SYSTEM LOG: QUERY_DISPATCHED. CONSUMED 2 MC. SHA-256 HASH VERIFIED.`,
+        creditsUsed: 2,
+      };
+
+      setMessages((prev) => {
+        const updated = [...prev, botMsg];
+
+        const allMessages = updated;
+        saveConversation({
+          id: convId,
+          title: (isNew ? text.slice(0, 40) : conversations.find((c) => c.id === convId)?.title) || "Chat",
+          messages: allMessages,
+          createdAt: new Date().toISOString(),
+        }).catch((err) => console.error("Failed to save conversation:", err));
+
+        return updated;
+      });
+
+      setUserState((prev) => ({
+        ...prev,
+        memoryCredits: Math.max(0, prev.memoryCredits - 2),
+      }));
+    },
+    [selectedConversationId, agents, userState.activeAgentId, conversations],
+  );
+
+  const deleteConversation = useCallback(
+    (id: string) => {
+      deleteConversationLocal(id);
+      setConversations((prev) => prev.filter((c) => c.id !== id));
+      if (selectedConversationId === id) {
+        setSelectedConversationId(null);
+        setMessages([]);
+      }
+    },
+    [selectedConversationId],
+  );
 
   return {
     messages,
     agents,
     conversations,
     selectedConversationId,
-    onSelectConversation: setSelectedConversationId,
+    onSelectConversation: selectConversation,
     onCreateConversation: createConversation,
+    onDeleteConversation: deleteConversation,
     userState,
     sendMessage,
   };

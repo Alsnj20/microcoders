@@ -280,13 +280,13 @@ impl CreditManager {
 
     /// Looks up the fee for an operation and consumes it in a single call.
     /// Reduces cross-contract overhead for create/update operations.
-    pub fn consume_credits_for_op(&mut self, user: Address, operation: u8) -> Result<u16, String> {
+    pub fn consume_credits_for_op(&mut self, user: Address, operation: u8) -> Result<(), String> {
         let fee = self.get_fee(operation);
         if fee == 0 {
-            return Ok(0);
+            return Ok(());
         }
         self.consume_credits(user, u64::from(fee))?;
-        Ok(fee)
+        Ok(())
     }
 
     /// Refunds credits to a user's account. Admin only.

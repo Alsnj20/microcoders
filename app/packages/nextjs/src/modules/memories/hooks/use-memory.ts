@@ -59,6 +59,23 @@ export function useMemory() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const FAVORITES_KEY = "mc_favorites";
+
+  const loadFavorites = useCallback((): Set<string> => {
+    if (typeof window === "undefined") return new Set();
+    try {
+      const raw = localStorage.getItem(FAVORITES_KEY);
+      return raw ? new Set(JSON.parse(raw)) : new Set();
+    } catch {
+      return new Set();
+    }
+  }, []);
+
+  const saveFavorites = useCallback((ids: Set<string>) => {
+    if (typeof window === "undefined") return;
+    localStorage.setItem(FAVORITES_KEY, JSON.stringify([...ids]));
+  }, []);
+
   const fetchMemories = useCallback(async () => {
     if (!session.isAuthenticated) return;
     setLoading(true);
@@ -68,13 +85,15 @@ export function useMemory() {
       if (!res.ok) throw new Error("Failed to fetch memories metadata");
       const data = (await res.json()) as any;
 
+      const favorites = loadFavorites();
+
       const mappedMemories: Memory[] = (data.memories || []).map((m: any) => ({
         id: m.memoryId,
         title: m.name,
         description: "",
         type: numToType(m.memoryType) as any,
         collectionId: "all",
-        isFavorite: false,
+        isFavorite: favorites.has(m.memoryId),
         cid: m.cid,
         hash: m.hash,
         createdAt: new Date(m.createdAt * 1000).toISOString().split("T")[0],
@@ -88,7 +107,7 @@ export function useMemory() {
     } finally {
       setLoading(false);
     }
-  }, [session.isAuthenticated]);
+  }, [session.isAuthenticated, loadFavorites]);
 
   useEffect(() => {
     fetchMemories();
@@ -96,12 +115,16 @@ export function useMemory() {
 
   const getMemory = useCallback(
     async (id: string): Promise<Memory | null> => {
-      // Find metadata locally first
       const localMeta = memories.find(m => m.id === id);
       if (!localMeta || !localMeta.cid) return null;
 
       try {
         if (localMeta.content) return localMeta; // already decrypted
+
+        // Dev mode: return without decrypting
+        if (!session.kWallet) {
+          return localMeta;
+        }
 
         // 1. Fetch IPFS envelope
         const base64Data = await retrieveFromIpfs(localMeta.cid);
@@ -109,9 +132,6 @@ export function useMemory() {
         const envelope = JSON.parse(jsonStr);
 
         // 2. Decrypt wallet envelope
-        if (!session.kWallet) {
-          throw new Error("Clave de wallet no disponible. Por favor, reautentíquese.");
-        }
         const kData = await decryptWalletEnvelope(base64ToArrayBuffer(envelope.walletEnvelope), session.kWallet);
 
         // 3. Decrypt content
@@ -123,7 +143,6 @@ export function useMemory() {
           description: localMeta.description || plaintext.slice(0, 100) + "...",
         };
 
-        // Cache decrypted content locally
         setMemories(prev => prev.map(m => (m.id === id ? decrypted : m)));
         return decrypted;
       } catch (err: any) {
@@ -136,35 +155,28 @@ export function useMemory() {
 
   const createMemory = useCallback(
     async (data: CreateMemory): Promise<Memory> => {
-      if (!session.kWallet) {
-        throw new Error("Clave de wallet no disponible. Inicie sesión de nuevo.");
-      }
-
       setLoading(true);
       setError(null);
 
       try {
-        // 1. Generate K_data key
-        const kData = generateKData();
+        let ipfsResult = { cid: `dev-${Date.now()}`, hash: "0x" + "00".repeat(32) };
 
-        // 2. Encrypt memory content
-        const ciphertext = await encryptData(data.content || "", kData);
+        if (session.kWallet) {
+          // Production: encrypt → IPFS → on-chain
+          const kData = generateKData();
+          const ciphertext = await encryptData(data.content || "", kData);
+          const walletEnvelope = await createWalletEnvelope(kData, session.kWallet);
 
-        // 3. Create envelope for user's wallet
-        const walletEnvelope = await createWalletEnvelope(kData, session.kWallet);
+          const ipfsPayload = {
+            ciphertext: arrayBufferToBase64(ciphertext),
+            walletEnvelope: arrayBufferToBase64(walletEnvelope),
+            recoveryEnvelope: "",
+          };
 
-        // 4. Standard JSON payload for IPFS
-        const ipfsPayload = {
-          ciphertext: arrayBufferToBase64(ciphertext),
-          walletEnvelope: arrayBufferToBase64(walletEnvelope),
-          recoveryEnvelope: "", // Setup later in recovery phase
-        };
-
-        const rawJsonBytes = new TextEncoder().encode(JSON.stringify(ipfsPayload));
-        const base64Payload = arrayBufferToBase64(rawJsonBytes);
-
-        // 5. Upload to IPFS
-        const ipfsResult = await pinToIpfs(base64Payload, data.title);
+          const rawJsonBytes = new TextEncoder().encode(JSON.stringify(ipfsPayload));
+          const base64Payload = arrayBufferToBase64(rawJsonBytes);
+          ipfsResult = await pinToIpfs(base64Payload, data.title);
+        }
 
         // 6. Write to Hono API (Smart contract execution proxy)
         const res = await api.memories.create.$post({
@@ -212,10 +224,6 @@ export function useMemory() {
 
   const updateMemory = useCallback(
     async (id: string, data: UpdateMemory) => {
-      if (!session.kWallet) {
-        throw new Error("Clave de wallet no disponible. Inicie sesión de nuevo.");
-      }
-
       setLoading(true);
       setError(null);
 
@@ -223,24 +231,28 @@ export function useMemory() {
         const localMeta = memories.find(m => m.id === id);
         if (!localMeta) throw new Error("Memory not found locally");
 
-        // 1. Generate K_data
-        const kData = generateKData();
-        // 2. Encrypt
-        const ciphertext = await encryptData(data.content || "", kData);
-        // 3. Envelope
-        const walletEnvelope = await createWalletEnvelope(kData, session.kWallet);
+        let ipfsResult = { cid: `dev-${Date.now()}`, hash: "0x" + "00".repeat(32) };
 
-        const ipfsPayload = {
-          ciphertext: arrayBufferToBase64(ciphertext),
-          walletEnvelope: arrayBufferToBase64(walletEnvelope),
-          recoveryEnvelope: "",
-        };
+        if (session.kWallet) {
+          const kData = generateKData();
+          const ciphertext = await encryptData(data.content || "", kData);
+          const walletEnvelope = await createWalletEnvelope(kData, session.kWallet);
 
-        const rawJsonBytes = new TextEncoder().encode(JSON.stringify(ipfsPayload));
-        const base64Payload = arrayBufferToBase64(rawJsonBytes);
+          const ipfsPayload = {
+            ciphertext: arrayBufferToBase64(ciphertext),
+            walletEnvelope: arrayBufferToBase64(walletEnvelope),
+            recoveryEnvelope: "",
+          };
 
-        // 4. Pin to IPFS
-        const ipfsResult = await pinToIpfs(base64Payload, data.title || localMeta.title);
+          const rawJsonBytes = new TextEncoder().encode(JSON.stringify(ipfsPayload));
+          const base64Payload = arrayBufferToBase64(rawJsonBytes);
+          ipfsResult = await pinToIpfs(base64Payload, data.title || localMeta.title);
+        }
+
+        // 4. Pin to IPFS (if not already pinned with encryption)
+        if (!session.kWallet) {
+          ipfsResult = await pinToIpfs(JSON.stringify(data), data.title || localMeta.title);
+        }
 
         // 5. Update on Hono API
         const res = await api.memories[":id"].$put({
@@ -302,8 +314,13 @@ export function useMemory() {
   }, []);
 
   const toggleFavorite = useCallback((id: string) => {
-    setMemories(prev => prev.map(m => (m.id === id ? { ...m, isFavorite: !m.isFavorite } : m)));
-  }, []);
+    setMemories(prev => {
+      const updated = prev.map(m => (m.id === id ? { ...m, isFavorite: !m.isFavorite } : m));
+      const favorites = new Set(updated.filter(m => m.isFavorite).map(m => m.id));
+      saveFavorites(favorites);
+      return updated;
+    });
+  }, [saveFavorites]);
 
   const getMemoriesFiltered = useCallback(() => {
     let filtered = [...memories];

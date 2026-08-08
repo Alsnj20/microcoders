@@ -84,10 +84,21 @@ export function useAgent() {
       // Already fully loaded
       if (localMeta.personality || !(localMeta as any).cid) return localMeta;
 
+      // Dev mode: return defaults without decrypting
+      if (!session.kWallet) {
+        const fullAgent: Agent = {
+          ...localMeta,
+          icon: "🤖",
+          model: "gpt-5.5" as any,
+          personality: "",
+          tools: [],
+          persistentMemory: true,
+        };
+        setAgents(prev => prev.map(a => (a.id === id ? fullAgent : a)));
+        return fullAgent;
+      }
+
       try {
-        if (!session.kWallet) {
-          throw new Error("Clave de wallet no disponible. Por favor, reautentíquese.");
-        }
 
         const base64Data = await retrieveFromIpfs((localMeta as any).cid);
         const jsonStr = new TextDecoder().decode(base64ToArrayBuffer(base64Data));
@@ -120,14 +131,12 @@ export function useAgent() {
   // ─── Create agent (encrypt blueprint → IPFS → on-chain) ───────────────────
   const createAgent = useCallback(
     async (data: CreateAgent): Promise<Agent> => {
-      if (!session.kWallet) {
-        throw new Error("Clave de wallet no disponible. Inicie sesión de nuevo.");
-      }
-
       setLoading(true);
       setError(null);
 
       try {
+        let ipfsResult = { cid: `dev-${Date.now()}`, hash: "0x" + "00".repeat(32) };
+
         const blueprint: AgentBlueprint = {
           personality: data.personality || "",
           model: data.model || "gpt-5.5",
@@ -136,22 +145,22 @@ export function useAgent() {
           persistentMemory: data.persistentMemory ?? true,
         };
 
-        // 1. Encrypt blueprint
-        const kData = generateKData();
-        const ciphertext = await encryptData(JSON.stringify(blueprint), kData);
-        const walletEnvelope = await createWalletEnvelope(kData, session.kWallet);
+        if (session.kWallet) {
+          // Production: encrypt blueprint → IPFS → on-chain
+          const kData = generateKData();
+          const ciphertext = await encryptData(JSON.stringify(blueprint), kData);
+          const walletEnvelope = await createWalletEnvelope(kData, session.kWallet);
 
-        const ipfsPayload = {
-          ciphertext: arrayBufferToBase64(ciphertext),
-          walletEnvelope: arrayBufferToBase64(walletEnvelope),
-          recoveryEnvelope: "",
-        };
+          const ipfsPayload = {
+            ciphertext: arrayBufferToBase64(ciphertext),
+            walletEnvelope: arrayBufferToBase64(walletEnvelope),
+            recoveryEnvelope: "",
+          };
 
-        const rawBytes = new TextEncoder().encode(JSON.stringify(ipfsPayload));
-        const base64Payload = arrayBufferToBase64(rawBytes);
-
-        // 2. Pin to IPFS
-        const ipfsResult = await pinToIpfs(base64Payload, data.name);
+          const rawBytes = new TextEncoder().encode(JSON.stringify(ipfsPayload));
+          const base64Payload = arrayBufferToBase64(rawBytes);
+          ipfsResult = await pinToIpfs(base64Payload, data.name);
+        }
 
         // 3. Register on-chain via Hono API
         const res = await api.agents.create.$post({
@@ -200,16 +209,14 @@ export function useAgent() {
   // ─── Update agent (re-encrypt blueprint → IPFS → on-chain) ────────────────
   const updateAgent = useCallback(
     async (id: string, data: UpdateAgent) => {
-      if (!session.kWallet) {
-        throw new Error("Clave de wallet no disponible. Inicie sesión de nuevo.");
-      }
-
       setLoading(true);
       setError(null);
 
       try {
         const localAgent = agents.find(a => a.id === id);
         if (!localAgent) throw new Error("Agent not found locally");
+
+        let ipfsResult = { cid: `dev-${Date.now()}`, hash: "0x" + "00".repeat(32) };
 
         const blueprint: AgentBlueprint = {
           personality: data.personality ?? localAgent.personality ?? "",
@@ -219,19 +226,21 @@ export function useAgent() {
           persistentMemory: data.persistentMemory ?? localAgent.persistentMemory ?? true,
         };
 
-        const kData = generateKData();
-        const ciphertext = await encryptData(JSON.stringify(blueprint), kData);
-        const walletEnvelope = await createWalletEnvelope(kData, session.kWallet);
+        if (session.kWallet) {
+          const kData = generateKData();
+          const ciphertext = await encryptData(JSON.stringify(blueprint), kData);
+          const walletEnvelope = await createWalletEnvelope(kData, session.kWallet);
 
-        const ipfsPayload = {
-          ciphertext: arrayBufferToBase64(ciphertext),
-          walletEnvelope: arrayBufferToBase64(walletEnvelope),
-          recoveryEnvelope: "",
-        };
+          const ipfsPayload = {
+            ciphertext: arrayBufferToBase64(ciphertext),
+            walletEnvelope: arrayBufferToBase64(walletEnvelope),
+            recoveryEnvelope: "",
+          };
 
-        const rawBytes = new TextEncoder().encode(JSON.stringify(ipfsPayload));
-        const base64Payload = arrayBufferToBase64(rawBytes);
-        const ipfsResult = await pinToIpfs(base64Payload, data.name || localAgent.name);
+          const rawBytes = new TextEncoder().encode(JSON.stringify(ipfsPayload));
+          const base64Payload = arrayBufferToBase64(rawBytes);
+          ipfsResult = await pinToIpfs(base64Payload, data.name || localAgent.name);
+        }
 
         const res = await api.agents[":id"].$put({
           param: { id },

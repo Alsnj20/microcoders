@@ -12,8 +12,6 @@ export default function E2EFlowPage() {
   const [memoryHash, setMemoryHash] = useState("0x0000000000000000000000000000000000000000000000000000000000000001");
   const [memoryType, setMemoryType] = useState("1");
   const [memoryVis, setMemoryVis] = useState("0");
-  const [agentName, setAgentName] = useState("");
-  const [agentDesc, setAgentDesc] = useState("");
   const [agentCid, setAgentCid] = useState("");
   const [agentHash, setAgentHash] = useState("0x0000000000000000000000000000000000000000000000000000000000000002");
 
@@ -56,16 +54,6 @@ export default function E2EFlowPage() {
     contractName: "AgentRegistry",
     functionName: "getAgentCountByOwner",
     args: [address],
-  });
-
-  const { data: memoryCost } = useScaffoldReadContract({
-    contractName: "MemoryRegistry",
-    functionName: "previewCreateCost",
-  });
-
-  const { data: agentCost } = useScaffoldReadContract({
-    contractName: "AgentRegistry",
-    functionName: "previewCreateCost",
   });
 
   // Write contracts
@@ -123,11 +111,11 @@ export default function E2EFlowPage() {
   };
 
   const handleCreateAgent = async () => {
-    if (!agentName || !agentCid) return;
+    if (!agentCid) return;
     try {
       await createAgent({
         functionName: "createAgent",
-        args: [agentName, agentDesc, agentCid, agentHash as `0x${string}`],
+        args: [agentCid, agentHash as `0x${string}`],
       });
     } catch (e) {
       console.error("Error creating agent:", e);
@@ -233,7 +221,7 @@ export default function E2EFlowPage() {
         {/* Step 3: Create Memory */}
         <div className="bg-gray-800 p-6 rounded-lg">
           <h2 className="text-xl font-bold mb-4">3. Create Memory</h2>
-          <p className="text-gray-400 mb-4">Cost: {memoryCost?.toString() || "1"} MC</p>
+          <p className="text-gray-400 mb-4">Fee: 1 MC per memory</p>
           <div className="space-y-3">
             <input
               type="text"
@@ -260,8 +248,8 @@ export default function E2EFlowPage() {
                 className="bg-gray-700 px-4 py-2 rounded-lg"
               >
                 <option value="0">Private</option>
-                <option value="1">Shared</option>
-                <option value="2">Public</option>
+                <option value="1">Public</option>
+                <option value="2">Restricted</option>
               </select>
             </div>
             <button
@@ -278,22 +266,8 @@ export default function E2EFlowPage() {
         {/* Step 4: Create Agent */}
         <div className="bg-gray-800 p-6 rounded-lg">
           <h2 className="text-xl font-bold mb-4">4. Create Agent</h2>
-          <p className="text-gray-400 mb-4">Cost: {agentCost?.toString() || "5"} MC</p>
+          <p className="text-gray-400 mb-4">Fee: 5 MC per agent</p>
           <div className="space-y-3">
-            <input
-              type="text"
-              value={agentName}
-              onChange={e => setAgentName(e.target.value)}
-              placeholder="Agent Name"
-              className="w-full bg-gray-700 px-4 py-2 rounded-lg"
-            />
-            <input
-              type="text"
-              value={agentDesc}
-              onChange={e => setAgentDesc(e.target.value)}
-              placeholder="Description"
-              className="w-full bg-gray-700 px-4 py-2 rounded-lg"
-            />
             <input
               type="text"
               value={agentCid}
@@ -304,7 +278,7 @@ export default function E2EFlowPage() {
             <button
               type="button"
               onClick={handleCreateAgent}
-              disabled={isCreatingAgent || !agentName || !agentCid}
+              disabled={isCreatingAgent || !agentCid}
               className="w-full bg-orange-600 hover:bg-orange-700 px-6 py-2 rounded-lg font-bold disabled:opacity-50"
             >
               {isCreatingAgent ? "Creating..." : "Create Agent"}

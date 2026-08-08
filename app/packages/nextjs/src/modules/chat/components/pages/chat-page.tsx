@@ -14,6 +14,7 @@ export function ChatPage() {
     selectedConversationId,
     onSelectConversation,
     onCreateConversation,
+    onDeleteConversation,
     userState,
     sendMessage,
   } = useChat();
@@ -30,6 +31,7 @@ export function ChatPage() {
         selectedConversationId={selectedConversationId}
         onSelectConversation={onSelectConversation}
         onCreateConversation={onCreateConversation}
+        onDeleteConversation={onDeleteConversation}
       />
 
       <main className="flex-1 flex flex-col h-full bg-background relative">

@@ -6,14 +6,14 @@ import type { AppEnv } from "../index.js";
 const CreateMemorySchema = z.object({
   name: z.string().min(1),
   cid: z.string().min(1),
-  hash: z.string().length(64),
+  hash: z.string().refine((v) => v.replace("0x", "").length === 64, "hash must be 64 hex chars"),
   memoryType: z.number().int().min(0).max(4),
   visibility: z.number().int().min(0).max(2),
 });
 
 const UpdateMemorySchema = z.object({
   cid: z.string().min(1),
-  hash: z.string().length(64),
+  hash: z.string().refine((v) => v.replace("0x", "").length === 64, "hash must be 64 hex chars"),
 });
 
 function requireSession(c: { get: (key: string) => unknown; json: (body: unknown, status?: number) => Response }) {
