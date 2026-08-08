@@ -3,8 +3,8 @@ export interface ChatMessage {
   role: "user" | "assistant";
   avatarUrl: string;
   content: string;
+  timestamp: string;
   systemLog?: string;
-  timestamp?: string;
   memoryCid?: string;
   creditsUsed?: number;
 }
@@ -25,6 +25,13 @@ export interface MemoryNode {
   hash: string;
   cid: string;
   version: number;
+}
+
+export interface ChatConversation {
+  id: string;
+  title: string;
+  lastMessage?: string;
+  timestamp: string;
 }
 
 export interface UserProtocolState {

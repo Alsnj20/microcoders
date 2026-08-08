@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { ChatMessage, AgentBlueprint, UserProtocolState } from "../types/chat";
+import type { ChatConversation, ChatMessage, AgentBlueprint, UserProtocolState } from "../types/chat";
 
 const INITIAL_MESSAGES: ChatMessage[] = [
   {
@@ -9,6 +9,7 @@ const INITIAL_MESSAGES: ChatMessage[] = [
     role: "assistant",
     avatarUrl: "https://lh3.googleusercontent.com/aida-public/AB6AXuBUmXEidBO3zpY2rMxk3Oa3i1XCq9JMTtX2Y9Sdn73ycyngQdB2pmkTY3ahd-shRj26UBLDhdxlwfYjkteWRxaQCRUKifpT6JjM-TY_3heKXwGniuOyNrEOImrIPRuSmoY2d1pfaHODuGeGwNtyC3KLGCVhKxpt2tc_xE8QCJgxmyb66xqmZMI78lW4qAVuwwRaUB7X___-CJWsYXH8NzEmiuCsHog1vg35BEOKqDtpQGv5Ve-qfI3I",
     content: "¡Hola! Soy tu agente personal en MemoryChain. He cargado tu gráfico de conocimiento cifrado desde IPFS y Arbitrum Stylus.",
+    timestamp: "12:00",
     systemLog: "> SYSTEM LOG: MEMORY_REGISTRY_LOADED. SHA-256 HASH VERIFIED.",
     creditsUsed: 0,
   },
@@ -17,12 +18,14 @@ const INITIAL_MESSAGES: ChatMessage[] = [
     role: "user",
     avatarUrl: "https://lh3.googleusercontent.com/aida-public/AB6AXuCW8LUo9gm27dPmMFaHiMdj3UbYIv49SlmZ4WMcAnEsydpgz2LatC5HD8l3AGrVqpcq4qzI9RrxsSQgFSuWfYKZuNS6AOoRYrcuPizgq76APhWr_caPMr9Wvu2r0vEQxTrNCnVdIOhkoXauiZQP9WtG8s0X4acUrSGrwL_RS-pdrDOOEnB1R2WeILBHevRL2PgLUJRMyk3PCznh4zJquJr5-FDs_Tx5mTj0k6V8g8sEjrGyn_7sNsFH",
     content: "¿Cuál es el estado actual de la sincronización de memorias entre mis agentes?",
+    timestamp: "12:01",
   },
   {
     id: "3",
     role: "assistant",
     avatarUrl: "https://lh3.googleusercontent.com/aida-public/AB6AXuDYaJBtRDB2tJT9hUrnT3m_8MGmZa7pQV8P6hzrTCan9fFus8dGZB-9_tAR7SIoH2WvYEygS9KJ1eKx6eoQPzcx474Jd80UtSGaEgXBGNH5HXZYZr0DZD2YMuoEhaEgXeqAzX4tey__MzA8LgCBCfLoR_DamKgodREjtEJrKFZYgqNrfWoT6ydwTGRy58nbqNbwsW5IlbLyqUCuk80xbm9Hu1be2iO5PY5MLQhl3EVPjLwqC4rqaXmF",
     content: "La relación N:M en ContextRegistry está activa. Los agentes 'Trading Bot' y 'Personal Assistant' comparten la memoria 'Knowledge Base v1.4' sin duplicar datos.",
+    timestamp: "12:02",
     systemLog: "> SYSTEM LOG: CONTEXT_REGISTRY_CHECK. STATUS: NOMINAL (N:M RELATIONS OK).",
     memoryCid: "ipfs://QmX9z7p2W8hF9aK",
     creditsUsed: 2,
@@ -50,14 +53,42 @@ const INITIAL_AGENTS: AgentBlueprint[] = [
   },
 ];
 
+const INITIAL_CONVERSATIONS: ChatConversation[] = [
+  {
+    id: "1",
+    title: "Consulta general",
+    lastMessage: "La relación N:M en ContextRegistry está activa.",
+    timestamp: "12:30",
+  },
+  {
+    id: "2",
+    title: "Análisis DeFi",
+    lastMessage: "Revisando yield pools disponibles...",
+    timestamp: "11:45",
+  },
+];
+
 export function useChat() {
   const [messages, setMessages] = useState<ChatMessage[]>(INITIAL_MESSAGES);
   const [agents] = useState<AgentBlueprint[]>(INITIAL_AGENTS);
+  const [conversations, setConversations] = useState<ChatConversation[]>(INITIAL_CONVERSATIONS);
+  const [selectedConversationId, setSelectedConversationId] = useState("1");
   const [userState, setUserState] = useState<UserProtocolState>({
     username: "CryptoEnthusiast",
     memoryCredits: 1240,
     activeAgentId: "trading-bot",
   });
+
+  const createConversation = () => {
+    const newConv: ChatConversation = {
+      id: Date.now().toString(),
+      title: "Nueva conversación",
+      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+    };
+    setConversations((prev) => [newConv, ...prev]);
+    setSelectedConversationId(newConv.id);
+    setMessages([]);
+  };
 
   const sendMessage = (text: string) => {
     if (!text.trim()) return;
@@ -92,6 +123,10 @@ export function useChat() {
   return {
     messages,
     agents,
+    conversations,
+    selectedConversationId,
+    onSelectConversation: setSelectedConversationId,
+    onCreateConversation: createConversation,
     userState,
     sendMessage,
   };

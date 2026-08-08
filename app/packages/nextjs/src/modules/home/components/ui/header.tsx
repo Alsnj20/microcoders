@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { PetAvatar } from "~~/src/modules/pet/components/pet-avatar";
 import { usePet } from "~~/src/modules/pet/hooks/use-pet";
@@ -8,36 +8,14 @@ import { usePet } from "~~/src/modules/pet/hooks/use-pet";
 const PET_SIZE = 32;
 const SPRITE_SCALE = PET_SIZE / 16;
 
-
-function randomBetween(min: number, max: number): number {
-  return Math.random() * (max - min) + min;
-}
-
 export const Header = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const pet = usePet({ spritesheet: "/sprites/pet.png" });
-
-  useEffect(() => {
-    const scheduleJump = () => {
-      const delay = randomBetween(2000, 8000);
-      return setTimeout(() => {
-        if (Math.random() > 0.5) {
-          pet.jump();
-        } else {
-          pet.blink();
-        }
-        timerId = scheduleJump();
-      }, delay);
-    };
-
-    let timerId = scheduleJump();
-    return () => clearTimeout(timerId);
-  }, [pet.jump, pet.blink]);
+  const pet = usePet({ spritesheet: "/sprites/pet.png", autoBlink: true, blinkInterval: [4000, 8000] });
 
   const navLinks = [
     { name: "Inicio", href: "#hero" },
-    { name: "Arquitectura", href: "#architecture" },
     { name: "Características", href: "#features" },
+    { name: "Debug", href: "/debug" },
   ];
 
   return (

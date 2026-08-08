@@ -111,6 +111,9 @@ importers:
       '@heroicons/react':
         specifier: ^2.2.0
         version: 2.2.0(react@19.2.8)
+      '@hookform/resolvers':
+        specifier: ^3.9.0
+        version: 3.10.0(react-hook-form@7.84.0(react@19.2.8))
       '@radix-ui/react-accordion':
         specifier: ^1.2.20
         version: 1.2.20(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -216,6 +219,9 @@ importers:
       react-dom:
         specifier: ^19.2.5
         version: 19.2.8(react@19.2.8)
+      react-hook-form:
+        specifier: ^7.54.0
+        version: 7.84.0(react@19.2.8)
       react-hot-toast:
         specifier: ^2.6.0
         version: 2.6.0(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -237,6 +243,9 @@ importers:
       wagmi:
         specifier: 2.19.5
         version: 2.19.5(@tanstack/query-core@5.101.4)(@tanstack/react-query@5.101.4(react@19.2.8))(@types/react@19.2.18)(@vercel/blob@2.3.0)(@x402/core@2.21.0)(@x402/evm@2.21.0(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10))(@x402/svm@2.21.0(@solana/kit@5.5.1(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10))(@solana/sysvars@5.5.1(typescript@5.9.3)))(bufferutil@4.1.0)(encoding@0.1.13)(react-native@0.86.2(@babel/core@7.29.7)(@types/react@19.2.18)(bufferutil@4.1.0)(react@19.2.8)(utf-8-validate@5.0.10))(react@19.2.8)(typescript@5.9.3)(utf-8-validate@5.0.10)(viem@2.39.0(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@3.25.76))(zod@3.25.76)
+      zod:
+        specifier: ^3.23.0
+        version: 3.25.76
       zustand:
         specifier: ^5.0.12
         version: 5.0.14(@types/react@19.2.18)(react@19.2.8)(use-sync-external-store@1.4.0(react@19.2.8))
@@ -1345,6 +1354,11 @@ packages:
     peerDependencies:
       hono: '>=4.11.2'
       zod: ^3.25.0 || ^4.0.0
+
+  '@hookform/resolvers@3.10.0':
+    resolution: {integrity: sha512-79Dv+3mDF7i+2ajj7SkypSKHhl1cbln1OGavqrsF7p6mbUv11xpqpacPsGDCTRvCSjEEIez2ef1NveSVL3b0Ag==}
+    peerDependencies:
+      react-hook-form: ^7.0.0
 
   '@img/colour@1.1.0':
     resolution: {integrity: sha512-Td76q7j57o/tLVdgS746cYARfSyxk8iEfRxewL9h4OMzYhbW4TAcppl0mT4eyqXddh6L/jwoM75mo7ixa/pCeQ==}
@@ -7962,6 +7976,12 @@ packages:
     peerDependencies:
       react: ^19.2.8
 
+  react-hook-form@7.84.0:
+    resolution: {integrity: sha512-+hWvQP6GLco56mDwrbU4XnHix8t1z90ltZsDIrREl+jnQFQxYLX8oAzqe/Xn8nHpmoXTY5M6oEXrAhbP1qevNQ==}
+    engines: {node: '>=18.0.0'}
+    peerDependencies:
+      react: ^16.8.0 || ^17 || ^18 || ^19
+
   react-hot-toast@2.6.0:
     resolution: {integrity: sha512-bH+2EBMZ4sdyou/DPrfgIouFpcRLCJ+HoCA32UoAYHn6T3Ur5yfcDCeSr5mwldl6pFOsiocmrXMuoCJ1vV8bWg==}
     engines: {node: '>=10'}
@@ -10924,6 +10944,10 @@ snapshots:
     dependencies:
       hono: 4.13.0
       zod: 4.4.3
+
+  '@hookform/resolvers@3.10.0(react-hook-form@7.84.0(react@19.2.8))':
+    dependencies:
+      react-hook-form: 7.84.0(react@19.2.8)
 
   '@img/colour@1.1.0':
     optional: true
@@ -20077,6 +20101,10 @@ snapshots:
     dependencies:
       react: 19.2.8
       scheduler: 0.27.0
+
+  react-hook-form@7.84.0(react@19.2.8):
+    dependencies:
+      react: 19.2.8
 
   react-hot-toast@2.6.0(react-dom@19.2.8(react@19.2.8))(react@19.2.8):
     dependencies:
