@@ -1,34 +1,50 @@
 "use client";
 
 import { useChat } from "../../hooks/use-chat";
-import { ChatHeader } from "../ui/chat-header";
 import { ChatInput } from "../ui/chat-input";
 import { ChatMessage } from "../ui/chat-message";
 import { ChatSidebar } from "../ui/chat-sidebar";
+import { ChatMessages, ChatEmptyState } from "../../../../../components/ui/chat";
 
 export function ChatPage() {
-  const { messages, agents, userState, sendMessage } = useChat();
+  const {
+    messages,
+    agents,
+    conversations,
+    selectedConversationId,
+    onSelectConversation,
+    onCreateConversation,
+    userState,
+    sendMessage,
+  } = useChat();
 
   const activeAgent = agents.find((a) => a.id === userState.activeAgentId);
 
   return (
-    <div className="flex h-screen overflow-hidden text-foreground bg-background">
+    <div className="flex h-[calc(100vh-4rem)] overflow-hidden text-foreground bg-background">
       {/* Side Navigation Bar */}
-      <ChatSidebar userState={userState} agents={agents} />
+      <ChatSidebar
+        userState={userState}
+        agents={agents}
+        conversations={conversations}
+        selectedConversationId={selectedConversationId}
+        onSelectConversation={onSelectConversation}
+        onCreateConversation={onCreateConversation}
+      />
 
-      {/* Main Content Workspace */}
-      <main className="lg:ml-70 flex-1 flex flex-col h-full bg-background relative">
-        {/* Top App Bar Header */}
-        <ChatHeader activeAgentName={activeAgent?.name} />
-
+      <main className="flex-1 flex flex-col h-full bg-background relative">
         {/* Chat Scroll Area */}
-        <div className="flex-1 overflow-y-auto p-6 scrollbar-hide flex flex-col items-center">
-          <div className="w-full max-w-4xl flex flex-col gap-6 pt-4 pb-28">
-            {messages.map((msg) => (
+        <ChatMessages empty={messages.length === 0}>
+          {messages.length === 0 ? (
+            <ChatEmptyState
+              description={activeAgent?.description || "Selecciona un agente o inicia una nueva conversación."}
+            />
+          ) : (
+            messages.map((msg) => (
               <ChatMessage key={msg.id} {...msg} />
-            ))}
-          </div>
-        </div>
+            ))
+          )}
+        </ChatMessages>
 
         {/* Bottom Input Composer */}
         <ChatInput onSendMessage={sendMessage} />
