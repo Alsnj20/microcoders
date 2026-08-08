@@ -1,15 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useDisconnect } from "wagmi";
+import { useGlobalState } from "~~/services/store/store";
+import { useSiwe } from "~~/src/modules/auth/hooks/useSiwe";
 import {
   LateralBar,
   LateralBarContent,
+  LateralBarFooter,
   LateralBarSection,
   LateralBarSectionButton,
-  LateralBarFooter,
 } from "../../../../../components/ui/lateral-bar";
-import { useGlobalState } from "~~/services/store/store";
 import type { AgentBlueprint, ChatConversation, UserProtocolState } from "../../types/chat";
 
 interface ChatSidebarProps {
@@ -46,7 +46,7 @@ export function ChatSidebar({
   onDeleteConversation,
 }: ChatSidebarProps) {
   const { creditBalance, session } = useGlobalState();
-  const { disconnect } = useDisconnect();
+  const { logout } = useSiwe();
   const planName = getPlanName(creditBalance);
   const planMax = getPlanMax(creditBalance);
   const barPercent = Math.min(100, (creditBalance / planMax) * 100);
@@ -80,20 +80,19 @@ export function ChatSidebar({
                   <p className="text-sm font-medium text-foreground break-words">{conv.title}</p>
                   <p className="text-xs text-muted-foreground/60">{conv.timestamp}</p>
                 </div>
-              {onDeleteConversation && (
-                <div
-                  role="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onDeleteConversation(conv.id);
-                  }}
-                  className="shrink-0 p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive text-xs transition-colors cursor-pointer"
-                >
-                  <span className="material-symbols-outlined text-sm">delete</span>
-                </div>
-              )}
+                {onDeleteConversation && (
+                  <div
+                    role="button"
+                    onClick={e => {
+                      e.stopPropagation();
+                      onDeleteConversation(conv.id);
+                    }}
+                    className="shrink-0 p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive text-xs transition-colors cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-sm">delete</span>
+                  </div>
+                )}
               </div>
-
             </LateralBarSectionButton>
           ))}
         </LateralBarSection>
@@ -108,20 +107,14 @@ export function ChatSidebar({
               <span className="material-symbols-outlined text-sm text-primary">person</span>
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-foreground truncate">
-                {userState.username || "Usuario"}
-              </p>
+              <p className="text-sm font-medium text-foreground truncate">{userState.username || "Usuario"}</p>
               <p className="text-xs text-muted-foreground font-mono truncate">
                 {session.address ? `${session.address.slice(0, 6)}…${session.address.slice(-4)}` : "—"}
               </p>
             </div>
           </div>
           <button
-            onClick={() => {
-              localStorage.clear();
-              disconnect();
-              window.location.reload();
-            }}
+            onClick={() => logout()}
             className="w-full mt-2 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
           >
             Desconectar wallet
@@ -146,13 +139,15 @@ export function ChatSidebar({
             />
           </div>
           <div className="flex items-center justify-between">
-            <p className="text-xs text-muted-foreground">Plan actual: <span className="font-medium text-foreground">{planName}</span></p>
+            <p className="text-xs text-muted-foreground">
+              Plan actual: <span className="font-medium text-foreground">{planName}</span>
+            </p>
             <Link href="/credits" className="text-xs font-medium text-primary hover:text-primary/80">
               Ver planes
             </Link>
           </div>
         </div>
       </LateralBarFooter>
-    </LateralBar >
+    </LateralBar>
   );
 }

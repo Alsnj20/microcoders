@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useAccount } from "wagmi";
-import { useGlobalState } from "~~/services/store/store";
+import { useScaffoldReadContract } from "~~/hooks/scaffold-eth";
 import { api, setWalletAddress } from "~~/services/api/client";
+import { useGlobalState } from "~~/services/store/store";
 import { OnboardingFlow } from "./OnboardingFlow";
 
 interface AuthGateProps {
@@ -15,10 +16,16 @@ export function AuthGate({ children }: AuthGateProps) {
   const { address, isConnected } = useAccount();
   const [ready, setReady] = useState(false);
 
+  // Check on-chain registration status
+  const { data: isRegistered } = useScaffoldReadContract({
+    contractName: "UserRegistry",
+    functionName: "isRegistered",
+    args: [address],
+  });
+
   // Read onboarding status synchronously on mount
   useEffect(() => {
-    const done = localStorage.getItem("mc_onboarding_done") === "true";
-    console.log("[Auth] Onboarding:", done ? "done" : "pending");
+    console.log("[Auth] Mounted");
     setReady(true);
   }, []);
 
@@ -32,16 +39,16 @@ export function AuthGate({ children }: AuthGateProps) {
     }
   }, [isConnected, address]);
 
-  // Register user when wallet connects after onboarding
+  // Register user when wallet connects and user is registered on-chain
   useEffect(() => {
-    if (!ready || !isConnected || !address) return;
+    if (!ready || !isConnected || !address || isRegistered === undefined) return;
 
-    const onboardingDone = localStorage.getItem("mc_onboarding_done") === "true";
-    if (!onboardingDone) return;
+    // If not registered on-chain, OnboardingFlow handles registration
+    if (!isRegistered) return;
 
     const username = localStorage.getItem("mc_username") || "user";
 
-    // Always update session with current wallet address
+    // Update session with current wallet address
     if (session.address !== address) {
       console.log("[Auth] Session:", { address, username });
       setSession({
@@ -53,18 +60,15 @@ export function AuthGate({ children }: AuthGateProps) {
         kRecovery: null,
       });
 
-      // Register + buy credits
+      // Buy credits if pack was selected during onboarding
       const setup = async () => {
         try {
-          console.log("[Auth] Registering...");
-          await api.user.register.$post({ json: { username } });
-          console.log("[Auth] Registered");
-
           const pack = localStorage.getItem("mc_selected_pack");
           if (pack && pack !== "0") {
             console.log("[Auth] Buying", pack, "MC...");
             await api.credits.buy.$post({ json: { amount: Number(pack) } });
             console.log("[Auth] Credits bought");
+            localStorage.removeItem("mc_selected_pack");
           }
 
           const balRes = await api.credits.balance.$get();
@@ -79,7 +83,7 @@ export function AuthGate({ children }: AuthGateProps) {
       };
       setup();
     }
-  }, [ready, isConnected, address, session.address]);
+  }, [ready, isConnected, address, isRegistered, session.address]);
 
   // Sync balance
   useEffect(() => {
@@ -100,20 +104,21 @@ export function AuthGate({ children }: AuthGateProps) {
 
   if (!ready) return null;
 
-  const onboardingDone = localStorage.getItem("mc_onboarding_done") === "true";
-
-  // Not done onboarding → show it
-  if (!onboardingDone) {
+  // Wallet not connected → show onboarding (full flow including connect step)
+  if (!isConnected) {
     return <OnboardingFlow />;
   }
 
-  // Done but no wallet
-  if (!isConnected) {
+  // Wallet connected but not registered on-chain → show onboarding (skip connect step)
+  if (isRegistered === false) {
+    return <OnboardingFlow startStep="credits" />;
+  }
+
+  // Loading on-chain state
+  if (isRegistered === undefined) {
     return (
       <div className="flex-1 flex items-center justify-center min-h-[calc(100vh-5rem)] px-4">
-        <div className="w-full max-w-md text-center text-muted-foreground">
-          Conecta tu wallet para continuar
-        </div>
+        <div className="w-full max-w-md text-center text-muted-foreground">Cargando...</div>
       </div>
     );
   }

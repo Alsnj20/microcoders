@@ -1,8 +1,9 @@
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { useAccount, useDisconnect, useSignMessage } from "wagmi";
 import { api } from "~~/services/api/client";
-import { useGlobalState } from "~~/services/store/store";
 import { deriveKWallet } from "~~/services/crypto/keys";
+import { useGlobalState } from "~~/services/store/store";
 
 export function useSiwe() {
   const { address, isConnected } = useAccount();
@@ -11,6 +12,7 @@ export function useSiwe() {
   const { session, setSession } = useGlobalState();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
 
   // Check current session on mount or when address changes
   const checkSession = useCallback(async () => {
@@ -120,8 +122,28 @@ export function useSiwe() {
   const logout = async () => {
     setLoading(true);
     try {
+      // Revoke all active session keys
+      try {
+        const keysRes = await api["session-keys"].$get();
+        if (keysRes.ok) {
+          const { keys } = (await keysRes.json()) as any;
+          for (const key of keys) {
+            if (key.isActive) {
+              await api["session-keys"][key.keyId].$delete();
+            }
+          }
+        }
+      } catch (e) {
+        console.error("Failed to revoke session keys:", e);
+      }
+
+      // Delete backend session and clear cookie
       await api.auth.session.$delete();
+
+      // Disconnect wallet via wagmi
       disconnect();
+
+      // Clear frontend session state
       setSession({
         address: null,
         chainId: null,
@@ -130,6 +152,9 @@ export function useSiwe() {
         kWallet: null,
         kRecovery: null,
       });
+
+      // Navigate to home
+      router.push("/");
     } catch (err: unknown) {
       console.error("Logout error:", err);
     } finally {
