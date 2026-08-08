@@ -85,10 +85,7 @@ export const RainbowKitCustomConnectButton = () => {
                       isOpen={isQRModalOpen}
                       onClose={() => setIsQRModalOpen(false)}
                     />
-                    <RevealBurnerPKModal
-                      isOpen={isRevealPKModalOpen}
-                      onClose={() => setIsRevealPKModalOpen(false)}
-                    />
+                    <RevealBurnerPKModal isOpen={isRevealPKModalOpen} onClose={() => setIsRevealPKModalOpen(false)} />
                   </>
                 );
               })()}

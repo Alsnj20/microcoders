@@ -19,11 +19,7 @@ const widthMap = {
   xl: "w-80",
 };
 
-export function LateralBar({
-  children,
-  className = "",
-  width = "md",
-}: LateralBarProps) {
+export function LateralBar({ children, className = "", width = "md" }: LateralBarProps) {
   return (
     <aside
       className={`hidden lg:flex flex-col h-full ${widthMap[width]} bg-muted border-r border-border shrink-0 ${className}`}
@@ -42,15 +38,8 @@ interface LateralBarHeaderProps {
   className?: string;
 }
 
-export function LateralBarHeader({
-  children,
-  className = "",
-}: LateralBarHeaderProps) {
-  return (
-    <div className={`px-6 py-6 border-b border-border/40 ${className}`}>
-      {children}
-    </div>
-  );
+export function LateralBarHeader({ children, className = "" }: LateralBarHeaderProps) {
+  return <div className={`px-6 py-6 border-b border-border/40 ${className}`}>{children}</div>;
 }
 
 // ============================================================
@@ -62,13 +51,8 @@ interface LateralBarFooterProps {
   className?: string;
 }
 
-export function LateralBarFooter({
-  children,
-  className = "",
-}: LateralBarFooterProps) {
-  return (
-    <div className={`px-4 mt-auto py-4 ${className}`}>{children}</div>
-  );
+export function LateralBarFooter({ children, className = "" }: LateralBarFooterProps) {
+  return <div className={`px-4 mt-auto py-4 ${className}`}>{children}</div>;
 }
 
 // ============================================================
@@ -81,16 +65,10 @@ interface LateralBarSectionProps {
   className?: string;
 }
 
-export function LateralBarSection({
-  title,
-  children,
-  className = "",
-}: LateralBarSectionProps) {
+export function LateralBarSection({ title, children, className = "" }: LateralBarSectionProps) {
   return (
     <div className={`px-2 space-y-1 ${className}`}>
-      <h3 className="px-4 mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-        {title}
-      </h3>
+      <h3 className="px-4 mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{title}</h3>
       <div className="space-y-1">{children}</div>
     </div>
   );
@@ -188,13 +166,6 @@ interface LateralBarContentProps {
   className?: string;
 }
 
-export function LateralBarContent({
-  children,
-  className = "",
-}: LateralBarContentProps) {
-  return (
-    <div className={`flex-1 overflow-y-auto px-2 py-6 space-y-6 scrollbar-hide ${className}`}>
-      {children}
-    </div>
-  );
+export function LateralBarContent({ children, className = "" }: LateralBarContentProps) {
+  return <div className={`flex-1 overflow-y-auto px-2 py-6 space-y-6 scrollbar-hide ${className}`}>{children}</div>;
 }

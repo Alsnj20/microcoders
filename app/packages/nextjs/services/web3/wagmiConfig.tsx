@@ -26,7 +26,7 @@ export const wagmiConfig = createConfig({
   client({ chain }) {
     let rpcFallbacks = [http()];
 
-    const rpcOverrideUrl = (scaffoldConfig.rpcOverrides as ScaffoldConfig["rpcOverrides"])?.[chain.id];
+    const rpcOverrideUrl = scaffoldConfig.rpcOverrides?.[chain.id as keyof typeof scaffoldConfig.rpcOverrides];
     if (rpcOverrideUrl) {
       rpcFallbacks = [http(rpcOverrideUrl), http()];
     } else {
@@ -41,7 +41,7 @@ export const wagmiConfig = createConfig({
     return createClient({
       chain,
       transport: fallback(rpcFallbacks),
-      ...(chain.id !== (arbitrumNitro as Chain).id
+      ...(chain.id !== arbitrumNitro.id
         ? {
             pollingInterval: scaffoldConfig.pollingInterval,
           }

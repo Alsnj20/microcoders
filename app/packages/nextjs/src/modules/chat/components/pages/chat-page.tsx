@@ -1,10 +1,10 @@
 "use client";
 
+import { ChatEmptyState, ChatMessages } from "../../../../../components/ui/chat";
 import { useChat } from "../../hooks/use-chat";
 import { ChatInput } from "../ui/chat-input";
 import { ChatMessage } from "../ui/chat-message";
 import { ChatSidebar } from "../ui/chat-sidebar";
-import { ChatMessages, ChatEmptyState } from "../../../../../components/ui/chat";
 
 export function ChatPage() {
   const {
@@ -18,7 +18,7 @@ export function ChatPage() {
     sendMessage,
   } = useChat();
 
-  const activeAgent = agents.find((a) => a.id === userState.activeAgentId);
+  const activeAgent = agents.find(a => a.id === userState.activeAgentId);
 
   return (
     <div className="flex h-[calc(100vh-4rem)] overflow-hidden text-foreground bg-background">
@@ -40,9 +40,7 @@ export function ChatPage() {
               description={activeAgent?.description || "Selecciona un agente o inicia una nueva conversación."}
             />
           ) : (
-            messages.map((msg) => (
-              <ChatMessage key={msg.id} {...msg} />
-            ))
+            messages.map(msg => <ChatMessage key={msg.id} {...msg} />)
           )}
         </ChatMessages>
 

@@ -100,14 +100,18 @@ body {
 }
 
 /* Headings use Source Serif 4 for editorial feel */
-h1, h2, h3 {
+h1,
+h2,
+h3 {
   font-family: var(--font-source-serif), Georgia, serif;
   margin-bottom: 0.5rem;
   line-height: 1.15;
 }
 
 /* h4 and smaller stay in sans for UI contexts */
-h4, h5, h6 {
+h4,
+h5,
+h6 {
   font-family: var(--font-hanken-grotesk), system-ui, sans-serif;
   margin-bottom: 0.5rem;
   line-height: 1.25;
@@ -356,29 +360,57 @@ h4, h5, h6 {
 
 @theme inline {
   @keyframes collapsible-down {
-    from { height: 0; }
-    to { height: var(--radix-collapsible-content-height, var(--collapsible-panel-height, auto)); }
+    from {
+      height: 0;
+    }
+    to {
+      height: var(--radix-collapsible-content-height, var(--collapsible-panel-height, auto));
+    }
   }
   @keyframes collapsible-up {
-    from { height: var(--radix-collapsible-content-height, var(--collapsible-panel-height, auto)); }
-    to { height: 0; }
+    from {
+      height: var(--radix-collapsible-content-height, var(--collapsible-panel-height, auto));
+    }
+    to {
+      height: 0;
+    }
   }
 
   /* Infinite marquee scroll */
   @keyframes marquee {
-    from { transform: translateX(0); }
-    to   { transform: translateX(-50%); }
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(-50%);
+    }
   }
   --animate-marquee: marquee 30s linear infinite;
 
   /* Page fade-in/out via View Transitions API */
   @keyframes vt-fade-in {
-    from { opacity: 0; transform: translateY(6px); filter: blur(2px); }
-    to   { opacity: 1; transform: translateY(0);  filter: blur(0);  }
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+      filter: blur(2px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+      filter: blur(0);
+    }
   }
   @keyframes vt-fade-out {
-    from { opacity: 1; transform: translateY(0);  filter: blur(0);  }
-    to   { opacity: 0; transform: translateY(-6px); filter: blur(2px); }
+    from {
+      opacity: 1;
+      transform: translateY(0);
+      filter: blur(0);
+    }
+    to {
+      opacity: 0;
+      transform: translateY(-6px);
+      filter: blur(2px);
+    }
   }
 }
 

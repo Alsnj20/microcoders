@@ -5,1669 +5,1669 @@
 import type { GenericContractsDeclaration } from "../utils/scaffold-eth/contract";
 const deployedContracts = {
   "412346": {
-    "CreditManager": {
-      "address": "0x75e0e92a79880bd81a69f72983d03c75e2b33dc8",
-      "abi": [
+    CreditManager: {
+      address: "0x75e0e92a79880bd81a69f72983d03c75e2b33dc8",
+      abi: [
         {
-          "type": "function",
-          "name": "initialize",
-          "inputs": [],
-          "outputs": [],
-          "stateMutability": "nonpayable"
+          type: "function",
+          name: "initialize",
+          inputs: [],
+          outputs: [],
+          stateMutability: "nonpayable",
         },
         {
-          "type": "function",
-          "name": "pause",
-          "inputs": [],
-          "outputs": [],
-          "stateMutability": "nonpayable"
+          type: "function",
+          name: "pause",
+          inputs: [],
+          outputs: [],
+          stateMutability: "nonpayable",
         },
         {
-          "type": "function",
-          "name": "unpause",
-          "inputs": [],
-          "outputs": [],
-          "stateMutability": "nonpayable"
+          type: "function",
+          name: "unpause",
+          inputs: [],
+          outputs: [],
+          stateMutability: "nonpayable",
         },
         {
-          "type": "function",
-          "name": "isPaused",
-          "inputs": [],
-          "outputs": [
+          type: "function",
+          name: "isPaused",
+          inputs: [],
+          outputs: [
             {
-              "type": "bool"
-            }
+              type: "bool",
+            },
           ],
-          "stateMutability": "view"
+          stateMutability: "view",
         },
         {
-          "type": "function",
-          "name": "proposeAdmin",
-          "inputs": [
+          type: "function",
+          name: "proposeAdmin",
+          inputs: [
             {
-              "name": "newAdmin",
-              "type": "address"
-            }
+              name: "newAdmin",
+              type: "address",
+            },
           ],
-          "outputs": [],
-          "stateMutability": "nonpayable"
+          outputs: [],
+          stateMutability: "nonpayable",
         },
         {
-          "type": "function",
-          "name": "acceptAdmin",
-          "inputs": [],
-          "outputs": [],
-          "stateMutability": "nonpayable"
+          type: "function",
+          name: "acceptAdmin",
+          inputs: [],
+          outputs: [],
+          stateMutability: "nonpayable",
         },
         {
-          "type": "function",
-          "name": "pendingAdmin",
-          "inputs": [],
-          "outputs": [
+          type: "function",
+          name: "pendingAdmin",
+          inputs: [],
+          outputs: [
             {
-              "type": "address"
-            }
+              type: "address",
+            },
           ],
-          "stateMutability": "view"
+          stateMutability: "view",
         },
         {
-          "type": "function",
-          "name": "initializeNetwork",
-          "inputs": [
+          type: "function",
+          name: "initializeNetwork",
+          inputs: [
             {
-              "name": "isTestnet",
-              "type": "bool"
+              name: "isTestnet",
+              type: "bool",
             },
             {
-              "name": "treasury",
-              "type": "address"
+              name: "treasury",
+              type: "address",
             },
             {
-              "name": "pricePerCredit",
-              "type": "uint256"
-            }
+              name: "pricePerCredit",
+              type: "uint256",
+            },
           ],
-          "outputs": [],
-          "stateMutability": "nonpayable"
+          outputs: [],
+          stateMutability: "nonpayable",
         },
         {
-          "type": "function",
-          "name": "buyCredits",
-          "inputs": [
+          type: "function",
+          name: "buyCredits",
+          inputs: [
             {
-              "name": "amount",
-              "type": "uint64"
-            }
+              name: "amount",
+              type: "uint64",
+            },
           ],
-          "outputs": [],
-          "stateMutability": "payable"
+          outputs: [],
+          stateMutability: "payable",
         },
         {
-          "type": "function",
-          "name": "consumeCredits",
-          "inputs": [
+          type: "function",
+          name: "consumeCredits",
+          inputs: [
             {
-              "name": "user",
-              "type": "address"
+              name: "user",
+              type: "address",
             },
             {
-              "name": "amount",
-              "type": "uint64"
-            }
+              name: "amount",
+              type: "uint64",
+            },
           ],
-          "outputs": [],
-          "stateMutability": "nonpayable"
+          outputs: [],
+          stateMutability: "nonpayable",
         },
         {
-          "type": "function",
-          "name": "refundCredits",
-          "inputs": [
+          type: "function",
+          name: "refundCredits",
+          inputs: [
             {
-              "name": "user",
-              "type": "address"
+              name: "user",
+              type: "address",
             },
             {
-              "name": "amount",
-              "type": "uint64"
-            }
+              name: "amount",
+              type: "uint64",
+            },
           ],
-          "outputs": [],
-          "stateMutability": "nonpayable"
+          outputs: [],
+          stateMutability: "nonpayable",
         },
         {
-          "type": "function",
-          "name": "setFee",
-          "inputs": [
+          type: "function",
+          name: "setFee",
+          inputs: [
             {
-              "name": "operation",
-              "type": "uint8"
+              name: "operation",
+              type: "uint8",
             },
             {
-              "name": "fee",
-              "type": "uint16"
-            }
+              name: "fee",
+              type: "uint16",
+            },
           ],
-          "outputs": [],
-          "stateMutability": "nonpayable"
+          outputs: [],
+          stateMutability: "nonpayable",
         },
         {
-          "type": "function",
-          "name": "setPricePerCredit",
-          "inputs": [
+          type: "function",
+          name: "setPricePerCredit",
+          inputs: [
             {
-              "name": "priceWei",
-              "type": "uint256"
-            }
+              name: "priceWei",
+              type: "uint256",
+            },
           ],
-          "outputs": [],
-          "stateMutability": "nonpayable"
+          outputs: [],
+          stateMutability: "nonpayable",
         },
         {
-          "type": "function",
-          "name": "setTreasury",
-          "inputs": [
+          type: "function",
+          name: "setTreasury",
+          inputs: [
             {
-              "name": "treasury",
-              "type": "address"
-            }
+              name: "treasury",
+              type: "address",
+            },
           ],
-          "outputs": [],
-          "stateMutability": "nonpayable"
+          outputs: [],
+          stateMutability: "nonpayable",
         },
         {
-          "type": "function",
-          "name": "setPurchaseLimits",
-          "inputs": [
+          type: "function",
+          name: "setPurchaseLimits",
+          inputs: [
             {
-              "name": "min",
-              "type": "uint64"
+              name: "min",
+              type: "uint64",
             },
             {
-              "name": "max",
-              "type": "uint64"
-            }
+              name: "max",
+              type: "uint64",
+            },
           ],
-          "outputs": [],
-          "stateMutability": "nonpayable"
+          outputs: [],
+          stateMutability: "nonpayable",
         },
         {
-          "type": "function",
-          "name": "setTestnetMode",
-          "inputs": [
+          type: "function",
+          name: "setTestnetMode",
+          inputs: [
             {
-              "name": "isTestnet",
-              "type": "bool"
-            }
+              name: "isTestnet",
+              type: "bool",
+            },
           ],
-          "outputs": [],
-          "stateMutability": "nonpayable"
+          outputs: [],
+          stateMutability: "nonpayable",
         },
         {
-          "type": "function",
-          "name": "authorizeConsumer",
-          "inputs": [
+          type: "function",
+          name: "authorizeConsumer",
+          inputs: [
             {
-              "name": "consumer",
-              "type": "address"
-            }
+              name: "consumer",
+              type: "address",
+            },
           ],
-          "outputs": [],
-          "stateMutability": "nonpayable"
+          outputs: [],
+          stateMutability: "nonpayable",
         },
         {
-          "type": "function",
-          "name": "revokeConsumer",
-          "inputs": [
+          type: "function",
+          name: "revokeConsumer",
+          inputs: [
             {
-              "name": "consumer",
-              "type": "address"
-            }
+              name: "consumer",
+              type: "address",
+            },
           ],
-          "outputs": [],
-          "stateMutability": "nonpayable"
+          outputs: [],
+          stateMutability: "nonpayable",
         },
         {
-          "type": "function",
-          "name": "balanceOf",
-          "inputs": [
+          type: "function",
+          name: "balanceOf",
+          inputs: [
             {
-              "name": "user",
-              "type": "address"
-            }
+              name: "user",
+              type: "address",
+            },
           ],
-          "outputs": [
+          outputs: [
             {
-              "type": "uint64"
-            }
+              type: "uint64",
+            },
           ],
-          "stateMutability": "view"
+          stateMutability: "view",
         },
         {
-          "type": "function",
-          "name": "totalPurchased",
-          "inputs": [
+          type: "function",
+          name: "totalPurchased",
+          inputs: [
             {
-              "name": "user",
-              "type": "address"
-            }
+              name: "user",
+              type: "address",
+            },
           ],
-          "outputs": [
+          outputs: [
             {
-              "type": "uint64"
-            }
+              type: "uint64",
+            },
           ],
-          "stateMutability": "view"
+          stateMutability: "view",
         },
         {
-          "type": "function",
-          "name": "totalSpent",
-          "inputs": [
+          type: "function",
+          name: "totalSpent",
+          inputs: [
             {
-              "name": "user",
-              "type": "address"
-            }
+              name: "user",
+              type: "address",
+            },
           ],
-          "outputs": [
+          outputs: [
             {
-              "type": "uint64"
-            }
+              type: "uint64",
+            },
           ],
-          "stateMutability": "view"
+          stateMutability: "view",
         },
         {
-          "type": "function",
-          "name": "hasSufficientCredits",
-          "inputs": [
+          type: "function",
+          name: "hasSufficientCredits",
+          inputs: [
             {
-              "name": "user",
-              "type": "address"
+              name: "user",
+              type: "address",
             },
             {
-              "name": "amount",
-              "type": "uint64"
-            }
+              name: "amount",
+              type: "uint64",
+            },
           ],
-          "outputs": [
+          outputs: [
             {
-              "type": "bool"
-            }
+              type: "bool",
+            },
           ],
-          "stateMutability": "view"
+          stateMutability: "view",
         },
         {
-          "type": "function",
-          "name": "getFee",
-          "inputs": [
+          type: "function",
+          name: "getFee",
+          inputs: [
             {
-              "name": "operation",
-              "type": "uint8"
-            }
+              name: "operation",
+              type: "uint8",
+            },
           ],
-          "outputs": [
+          outputs: [
             {
-              "type": "uint16"
-            }
+              type: "uint16",
+            },
           ],
-          "stateMutability": "view"
+          stateMutability: "view",
         },
         {
-          "type": "function",
-          "name": "getFees",
-          "inputs": [],
-          "outputs": [
+          type: "function",
+          name: "getFees",
+          inputs: [],
+          outputs: [
             {
-              "type": "uint16"
+              type: "uint16",
             },
             {
-              "type": "uint16"
+              type: "uint16",
             },
             {
-              "type": "uint16"
+              type: "uint16",
             },
             {
-              "type": "uint16"
+              type: "uint16",
             },
             {
-              "type": "uint16"
+              type: "uint16",
             },
             {
-              "type": "uint16"
+              type: "uint16",
             },
             {
-              "type": "uint16"
-            }
+              type: "uint16",
+            },
           ],
-          "stateMutability": "view"
+          stateMutability: "view",
         },
         {
-          "type": "function",
-          "name": "getPricing",
-          "inputs": [],
-          "outputs": [
+          type: "function",
+          name: "getPricing",
+          inputs: [],
+          outputs: [
             {
-              "type": "bool"
+              type: "bool",
             },
             {
-              "type": "address"
+              type: "address",
             },
             {
-              "type": "uint256"
+              type: "uint256",
             },
             {
-              "type": "uint256"
+              type: "uint256",
             },
             {
-              "type": "uint256"
-            }
+              type: "uint256",
+            },
           ],
-          "stateMutability": "view"
+          stateMutability: "view",
         },
         {
-          "type": "function",
-          "name": "isTestnet",
-          "inputs": [],
-          "outputs": [
+          type: "function",
+          name: "isTestnet",
+          inputs: [],
+          outputs: [
             {
-              "type": "bool"
-            }
+              type: "bool",
+            },
           ],
-          "stateMutability": "view"
+          stateMutability: "view",
         },
         {
-          "type": "function",
-          "name": "getTreasury",
-          "inputs": [],
-          "outputs": [
+          type: "function",
+          name: "getTreasury",
+          inputs: [],
+          outputs: [
             {
-              "type": "address"
-            }
+              type: "address",
+            },
           ],
-          "stateMutability": "view"
+          stateMutability: "view",
         },
         {
-          "type": "function",
-          "name": "getPricePerCredit",
-          "inputs": [],
-          "outputs": [
+          type: "function",
+          name: "getPricePerCredit",
+          inputs: [],
+          outputs: [
             {
-              "type": "uint256"
-            }
+              type: "uint256",
+            },
           ],
-          "stateMutability": "view"
+          stateMutability: "view",
         },
         {
-          "type": "function",
-          "name": "admin",
-          "inputs": [],
-          "outputs": [
+          type: "function",
+          name: "admin",
+          inputs: [],
+          outputs: [
             {
-              "type": "address"
-            }
+              type: "address",
+            },
           ],
-          "stateMutability": "view"
-        }
-      ]
+          stateMutability: "view",
+        },
+      ],
     },
-    "UserRegistry": {
-      "address": "0xa39ffa43eba037d67a0f4fe91956038aba0ca386",
-      "abi": [
+    UserRegistry: {
+      address: "0xa39ffa43eba037d67a0f4fe91956038aba0ca386",
+      abi: [
         {
-          "type": "function",
-          "name": "initialize",
-          "inputs": [],
-          "outputs": [],
-          "stateMutability": "nonpayable"
+          type: "function",
+          name: "initialize",
+          inputs: [],
+          outputs: [],
+          stateMutability: "nonpayable",
         },
         {
-          "type": "function",
-          "name": "pause",
-          "inputs": [],
-          "outputs": [],
-          "stateMutability": "nonpayable"
+          type: "function",
+          name: "pause",
+          inputs: [],
+          outputs: [],
+          stateMutability: "nonpayable",
         },
         {
-          "type": "function",
-          "name": "unpause",
-          "inputs": [],
-          "outputs": [],
-          "stateMutability": "nonpayable"
+          type: "function",
+          name: "unpause",
+          inputs: [],
+          outputs: [],
+          stateMutability: "nonpayable",
         },
         {
-          "type": "function",
-          "name": "isPaused",
-          "inputs": [],
-          "outputs": [
+          type: "function",
+          name: "isPaused",
+          inputs: [],
+          outputs: [
             {
-              "type": "bool"
-            }
+              type: "bool",
+            },
           ],
-          "stateMutability": "view"
+          stateMutability: "view",
         },
         {
-          "type": "function",
-          "name": "proposeAdmin",
-          "inputs": [
+          type: "function",
+          name: "proposeAdmin",
+          inputs: [
             {
-              "name": "newAdmin",
-              "type": "address"
-            }
+              name: "newAdmin",
+              type: "address",
+            },
           ],
-          "outputs": [],
-          "stateMutability": "nonpayable"
+          outputs: [],
+          stateMutability: "nonpayable",
         },
         {
-          "type": "function",
-          "name": "acceptAdmin",
-          "inputs": [],
-          "outputs": [],
-          "stateMutability": "nonpayable"
+          type: "function",
+          name: "acceptAdmin",
+          inputs: [],
+          outputs: [],
+          stateMutability: "nonpayable",
         },
         {
-          "type": "function",
-          "name": "pendingAdmin",
-          "inputs": [],
-          "outputs": [
+          type: "function",
+          name: "pendingAdmin",
+          inputs: [],
+          outputs: [
             {
-              "type": "address"
-            }
+              type: "address",
+            },
           ],
-          "stateMutability": "view"
+          stateMutability: "view",
         },
         {
-          "type": "function",
-          "name": "registerUser",
-          "inputs": [
+          type: "function",
+          name: "registerUser",
+          inputs: [
             {
-              "name": "username",
-              "type": "string"
-            }
+              name: "username",
+              type: "string",
+            },
           ],
-          "outputs": [],
-          "stateMutability": "nonpayable"
+          outputs: [],
+          stateMutability: "nonpayable",
         },
         {
-          "type": "function",
-          "name": "updateUsername",
-          "inputs": [
+          type: "function",
+          name: "updateUsername",
+          inputs: [
             {
-              "name": "newUsername",
-              "type": "string"
-            }
+              name: "newUsername",
+              type: "string",
+            },
           ],
-          "outputs": [],
-          "stateMutability": "nonpayable"
+          outputs: [],
+          stateMutability: "nonpayable",
         },
         {
-          "type": "function",
-          "name": "deactivateUser",
-          "inputs": [],
-          "outputs": [],
-          "stateMutability": "nonpayable"
+          type: "function",
+          name: "deactivateUser",
+          inputs: [],
+          outputs: [],
+          stateMutability: "nonpayable",
         },
         {
-          "type": "function",
-          "name": "incrementAgents",
-          "inputs": [
+          type: "function",
+          name: "incrementAgents",
+          inputs: [
             {
-              "name": "owner",
-              "type": "address"
-            }
+              name: "owner",
+              type: "address",
+            },
           ],
-          "outputs": [],
-          "stateMutability": "nonpayable"
+          outputs: [],
+          stateMutability: "nonpayable",
         },
         {
-          "type": "function",
-          "name": "incrementMemories",
-          "inputs": [
+          type: "function",
+          name: "incrementMemories",
+          inputs: [
             {
-              "name": "owner",
-              "type": "address"
-            }
+              name: "owner",
+              type: "address",
+            },
           ],
-          "outputs": [],
-          "stateMutability": "nonpayable"
+          outputs: [],
+          stateMutability: "nonpayable",
         },
         {
-          "type": "function",
-          "name": "authorizeUpdater",
-          "inputs": [
+          type: "function",
+          name: "authorizeUpdater",
+          inputs: [
             {
-              "name": "updater",
-              "type": "address"
-            }
+              name: "updater",
+              type: "address",
+            },
           ],
-          "outputs": [],
-          "stateMutability": "nonpayable"
+          outputs: [],
+          stateMutability: "nonpayable",
         },
         {
-          "type": "function",
-          "name": "revokeUpdater",
-          "inputs": [
+          type: "function",
+          name: "revokeUpdater",
+          inputs: [
             {
-              "name": "updater",
-              "type": "address"
-            }
+              name: "updater",
+              type: "address",
+            },
           ],
-          "outputs": [],
-          "stateMutability": "nonpayable"
+          outputs: [],
+          stateMutability: "nonpayable",
         },
         {
-          "type": "function",
-          "name": "exists",
-          "inputs": [
+          type: "function",
+          name: "exists",
+          inputs: [
             {
-              "name": "owner",
-              "type": "address"
-            }
+              name: "owner",
+              type: "address",
+            },
           ],
-          "outputs": [
+          outputs: [
             {
-              "type": "bool"
-            }
+              type: "bool",
+            },
           ],
-          "stateMutability": "view"
+          stateMutability: "view",
         },
         {
-          "type": "function",
-          "name": "isRegistered",
-          "inputs": [
+          type: "function",
+          name: "isRegistered",
+          inputs: [
             {
-              "name": "owner",
-              "type": "address"
-            }
+              name: "owner",
+              type: "address",
+            },
           ],
-          "outputs": [
+          outputs: [
             {
-              "type": "bool"
-            }
+              type: "bool",
+            },
           ],
-          "stateMutability": "view"
+          stateMutability: "view",
         },
         {
-          "type": "function",
-          "name": "getUsername",
-          "inputs": [
+          type: "function",
+          name: "getUsername",
+          inputs: [
             {
-              "name": "owner",
-              "type": "address"
-            }
+              name: "owner",
+              type: "address",
+            },
           ],
-          "outputs": [
+          outputs: [
             {
-              "type": "string"
-            }
+              type: "string",
+            },
           ],
-          "stateMutability": "view"
+          stateMutability: "view",
         },
         {
-          "type": "function",
-          "name": "isActive",
-          "inputs": [
+          type: "function",
+          name: "isActive",
+          inputs: [
             {
-              "name": "owner",
-              "type": "address"
-            }
+              name: "owner",
+              type: "address",
+            },
           ],
-          "outputs": [
+          outputs: [
             {
-              "type": "bool"
-            }
+              type: "bool",
+            },
           ],
-          "stateMutability": "view"
+          stateMutability: "view",
         },
         {
-          "type": "function",
-          "name": "totalUsers",
-          "inputs": [],
-          "outputs": [
+          type: "function",
+          name: "totalUsers",
+          inputs: [],
+          outputs: [
             {
-              "type": "uint256"
-            }
+              type: "uint256",
+            },
           ],
-          "stateMutability": "view"
+          stateMutability: "view",
         },
         {
-          "type": "function",
-          "name": "getAgentCount",
-          "inputs": [
+          type: "function",
+          name: "getAgentCount",
+          inputs: [
             {
-              "name": "owner",
-              "type": "address"
-            }
+              name: "owner",
+              type: "address",
+            },
           ],
-          "outputs": [
+          outputs: [
             {
-              "type": "uint32"
-            }
+              type: "uint32",
+            },
           ],
-          "stateMutability": "view"
+          stateMutability: "view",
         },
         {
-          "type": "function",
-          "name": "getMemoryCount",
-          "inputs": [
+          type: "function",
+          name: "getMemoryCount",
+          inputs: [
             {
-              "name": "owner",
-              "type": "address"
-            }
+              name: "owner",
+              type: "address",
+            },
           ],
-          "outputs": [
+          outputs: [
             {
-              "type": "uint32"
-            }
+              type: "uint32",
+            },
           ],
-          "stateMutability": "view"
+          stateMutability: "view",
         },
         {
-          "type": "function",
-          "name": "admin",
-          "inputs": [],
-          "outputs": [
+          type: "function",
+          name: "admin",
+          inputs: [],
+          outputs: [
             {
-              "type": "address"
-            }
+              type: "address",
+            },
           ],
-          "stateMutability": "view"
-        }
-      ]
+          stateMutability: "view",
+        },
+      ],
     },
-    "MemoryRegistry": {
-      "address": "0x841118047f42754332d0ad4db8a2893761dd7f5d",
-      "abi": [
+    MemoryRegistry: {
+      address: "0x841118047f42754332d0ad4db8a2893761dd7f5d",
+      abi: [
         {
-          "type": "function",
-          "name": "initialize",
-          "inputs": [
+          type: "function",
+          name: "initialize",
+          inputs: [
             {
-              "name": "creditManager",
-              "type": "address"
+              name: "creditManager",
+              type: "address",
             },
             {
-              "name": "userRegistry",
-              "type": "address"
-            }
+              name: "userRegistry",
+              type: "address",
+            },
           ],
-          "outputs": [],
-          "stateMutability": "nonpayable"
+          outputs: [],
+          stateMutability: "nonpayable",
         },
         {
-          "type": "function",
-          "name": "pause",
-          "inputs": [],
-          "outputs": [],
-          "stateMutability": "nonpayable"
+          type: "function",
+          name: "pause",
+          inputs: [],
+          outputs: [],
+          stateMutability: "nonpayable",
         },
         {
-          "type": "function",
-          "name": "unpause",
-          "inputs": [],
-          "outputs": [],
-          "stateMutability": "nonpayable"
+          type: "function",
+          name: "unpause",
+          inputs: [],
+          outputs: [],
+          stateMutability: "nonpayable",
         },
         {
-          "type": "function",
-          "name": "isPaused",
-          "inputs": [],
-          "outputs": [
+          type: "function",
+          name: "isPaused",
+          inputs: [],
+          outputs: [
             {
-              "type": "bool"
-            }
+              type: "bool",
+            },
           ],
-          "stateMutability": "view"
+          stateMutability: "view",
         },
         {
-          "type": "function",
-          "name": "proposeAdmin",
-          "inputs": [
+          type: "function",
+          name: "proposeAdmin",
+          inputs: [
             {
-              "name": "newAdmin",
-              "type": "address"
-            }
+              name: "newAdmin",
+              type: "address",
+            },
           ],
-          "outputs": [],
-          "stateMutability": "nonpayable"
+          outputs: [],
+          stateMutability: "nonpayable",
         },
         {
-          "type": "function",
-          "name": "acceptAdmin",
-          "inputs": [],
-          "outputs": [],
-          "stateMutability": "nonpayable"
+          type: "function",
+          name: "acceptAdmin",
+          inputs: [],
+          outputs: [],
+          stateMutability: "nonpayable",
         },
         {
-          "type": "function",
-          "name": "pendingAdmin",
-          "inputs": [],
-          "outputs": [
+          type: "function",
+          name: "pendingAdmin",
+          inputs: [],
+          outputs: [
             {
-              "type": "address"
-            }
+              type: "address",
+            },
           ],
-          "stateMutability": "view"
+          stateMutability: "view",
         },
         {
-          "type": "function",
-          "name": "createMemory",
-          "inputs": [
+          type: "function",
+          name: "createMemory",
+          inputs: [
             {
-              "name": "cid",
-              "type": "string"
+              name: "cid",
+              type: "string",
             },
             {
-              "name": "hash",
-              "type": "bytes32"
+              name: "hash",
+              type: "bytes32",
             },
             {
-              "name": "memoryType",
-              "type": "uint8"
+              name: "memoryType",
+              type: "uint8",
             },
             {
-              "name": "vis",
-              "type": "uint8"
-            }
+              name: "vis",
+              type: "uint8",
+            },
           ],
-          "outputs": [
+          outputs: [
             {
-              "type": "bytes32"
-            }
+              type: "bytes32",
+            },
           ],
-          "stateMutability": "nonpayable"
+          stateMutability: "nonpayable",
         },
         {
-          "type": "function",
-          "name": "updateMemory",
-          "inputs": [
+          type: "function",
+          name: "updateMemory",
+          inputs: [
             {
-              "name": "memoryId",
-              "type": "bytes32"
+              name: "memoryId",
+              type: "bytes32",
             },
             {
-              "name": "newCid",
-              "type": "string"
+              name: "newCid",
+              type: "string",
             },
             {
-              "name": "newHash",
-              "type": "bytes32"
-            }
+              name: "newHash",
+              type: "bytes32",
+            },
           ],
-          "outputs": [],
-          "stateMutability": "nonpayable"
+          outputs: [],
+          stateMutability: "nonpayable",
         },
         {
-          "type": "function",
-          "name": "archiveMemory",
-          "inputs": [
+          type: "function",
+          name: "archiveMemory",
+          inputs: [
             {
-              "name": "memoryId",
-              "type": "bytes32"
-            }
+              name: "memoryId",
+              type: "bytes32",
+            },
           ],
-          "outputs": [],
-          "stateMutability": "nonpayable"
+          outputs: [],
+          stateMutability: "nonpayable",
         },
         {
-          "type": "function",
-          "name": "restoreMemory",
-          "inputs": [
+          type: "function",
+          name: "restoreMemory",
+          inputs: [
             {
-              "name": "memoryId",
-              "type": "bytes32"
-            }
+              name: "memoryId",
+              type: "bytes32",
+            },
           ],
-          "outputs": [],
-          "stateMutability": "nonpayable"
+          outputs: [],
+          stateMutability: "nonpayable",
         },
         {
-          "type": "function",
-          "name": "getMemory",
-          "inputs": [
+          type: "function",
+          name: "getMemory",
+          inputs: [
             {
-              "name": "memoryId",
-              "type": "bytes32"
-            }
+              name: "memoryId",
+              type: "bytes32",
+            },
           ],
-          "outputs": [
+          outputs: [
             {
-              "type": "address"
+              type: "address",
             },
             {
-              "type": "uint32"
+              type: "uint32",
             },
             {
-              "type": "string"
+              type: "string",
             },
             {
-              "type": "bytes32"
+              type: "bytes32",
             },
             {
-              "type": "uint8"
+              type: "uint8",
             },
             {
-              "type": "uint8"
+              type: "uint8",
             },
             {
-              "type": "uint8"
-            }
+              type: "uint8",
+            },
           ],
-          "stateMutability": "view"
+          stateMutability: "view",
         },
         {
-          "type": "function",
-          "name": "getMemoryVersion",
-          "inputs": [
+          type: "function",
+          name: "getMemoryVersion",
+          inputs: [
             {
-              "name": "memoryId",
-              "type": "bytes32"
+              name: "memoryId",
+              type: "bytes32",
             },
             {
-              "name": "version",
-              "type": "uint32"
-            }
+              name: "version",
+              type: "uint32",
+            },
           ],
-          "outputs": [
+          outputs: [
             {
-              "type": "string"
+              type: "string",
             },
             {
-              "type": "bytes32"
+              type: "bytes32",
             },
             {
-              "type": "uint64"
-            }
+              type: "uint64",
+            },
           ],
-          "stateMutability": "view"
+          stateMutability: "view",
         },
         {
-          "type": "function",
-          "name": "totalMemories",
-          "inputs": [],
-          "outputs": [
+          type: "function",
+          name: "totalMemories",
+          inputs: [],
+          outputs: [
             {
-              "type": "uint256"
-            }
+              type: "uint256",
+            },
           ],
-          "stateMutability": "view"
+          stateMutability: "view",
         },
         {
-          "type": "function",
-          "name": "previewCreateCost",
-          "inputs": [],
-          "outputs": [
+          type: "function",
+          name: "previewCreateCost",
+          inputs: [],
+          outputs: [
             {
-              "type": "uint64"
-            }
+              type: "uint64",
+            },
           ],
-          "stateMutability": "view"
+          stateMutability: "view",
         },
         {
-          "type": "function",
-          "name": "creditManager",
-          "inputs": [],
-          "outputs": [
+          type: "function",
+          name: "creditManager",
+          inputs: [],
+          outputs: [
             {
-              "type": "address"
-            }
+              type: "address",
+            },
           ],
-          "stateMutability": "view"
+          stateMutability: "view",
         },
         {
-          "type": "function",
-          "name": "admin",
-          "inputs": [],
-          "outputs": [
+          type: "function",
+          name: "admin",
+          inputs: [],
+          outputs: [
             {
-              "type": "address"
-            }
+              type: "address",
+            },
           ],
-          "stateMutability": "view"
+          stateMutability: "view",
         },
         {
-          "type": "function",
-          "name": "getMemoryCountByOwner",
-          "inputs": [
+          type: "function",
+          name: "getMemoryCountByOwner",
+          inputs: [
             {
-              "name": "owner",
-              "type": "address"
-            }
+              name: "owner",
+              type: "address",
+            },
           ],
-          "outputs": [
+          outputs: [
             {
-              "type": "uint256"
-            }
+              type: "uint256",
+            },
           ],
-          "stateMutability": "view"
+          stateMutability: "view",
         },
         {
-          "type": "function",
-          "name": "getMemoryByOwnerIndex",
-          "inputs": [
+          type: "function",
+          name: "getMemoryByOwnerIndex",
+          inputs: [
             {
-              "name": "owner",
-              "type": "address"
+              name: "owner",
+              type: "address",
             },
             {
-              "name": "index",
-              "type": "uint256"
-            }
+              name: "index",
+              type: "uint256",
+            },
           ],
-          "outputs": [
+          outputs: [
             {
-              "type": "bytes32"
-            }
+              type: "bytes32",
+            },
           ],
-          "stateMutability": "view"
-        }
-      ]
+          stateMutability: "view",
+        },
+      ],
     },
-    "AgentRegistry": {
-      "address": "0x84401cd7abbebb22acb7af2becfd9be56c30bcf1",
-      "abi": [
+    AgentRegistry: {
+      address: "0x84401cd7abbebb22acb7af2becfd9be56c30bcf1",
+      abi: [
         {
-          "type": "function",
-          "name": "initialize",
-          "inputs": [
+          type: "function",
+          name: "initialize",
+          inputs: [
             {
-              "name": "creditManager",
-              "type": "address"
+              name: "creditManager",
+              type: "address",
             },
             {
-              "name": "userRegistry",
-              "type": "address"
-            }
+              name: "userRegistry",
+              type: "address",
+            },
           ],
-          "outputs": [],
-          "stateMutability": "nonpayable"
+          outputs: [],
+          stateMutability: "nonpayable",
         },
         {
-          "type": "function",
-          "name": "pause",
-          "inputs": [],
-          "outputs": [],
-          "stateMutability": "nonpayable"
+          type: "function",
+          name: "pause",
+          inputs: [],
+          outputs: [],
+          stateMutability: "nonpayable",
         },
         {
-          "type": "function",
-          "name": "unpause",
-          "inputs": [],
-          "outputs": [],
-          "stateMutability": "nonpayable"
+          type: "function",
+          name: "unpause",
+          inputs: [],
+          outputs: [],
+          stateMutability: "nonpayable",
         },
         {
-          "type": "function",
-          "name": "isPaused",
-          "inputs": [],
-          "outputs": [
+          type: "function",
+          name: "isPaused",
+          inputs: [],
+          outputs: [
             {
-              "type": "bool"
-            }
+              type: "bool",
+            },
           ],
-          "stateMutability": "view"
+          stateMutability: "view",
         },
         {
-          "type": "function",
-          "name": "proposeAdmin",
-          "inputs": [
+          type: "function",
+          name: "proposeAdmin",
+          inputs: [
             {
-              "name": "newAdmin",
-              "type": "address"
-            }
+              name: "newAdmin",
+              type: "address",
+            },
           ],
-          "outputs": [],
-          "stateMutability": "nonpayable"
+          outputs: [],
+          stateMutability: "nonpayable",
         },
         {
-          "type": "function",
-          "name": "acceptAdmin",
-          "inputs": [],
-          "outputs": [],
-          "stateMutability": "nonpayable"
+          type: "function",
+          name: "acceptAdmin",
+          inputs: [],
+          outputs: [],
+          stateMutability: "nonpayable",
         },
         {
-          "type": "function",
-          "name": "pendingAdmin",
-          "inputs": [],
-          "outputs": [
+          type: "function",
+          name: "pendingAdmin",
+          inputs: [],
+          outputs: [
             {
-              "type": "address"
-            }
+              type: "address",
+            },
           ],
-          "stateMutability": "view"
+          stateMutability: "view",
         },
         {
-          "type": "function",
-          "name": "createAgent",
-          "inputs": [
+          type: "function",
+          name: "createAgent",
+          inputs: [
             {
-              "name": "name",
-              "type": "string"
+              name: "name",
+              type: "string",
             },
             {
-              "name": "description",
-              "type": "string"
+              name: "description",
+              type: "string",
             },
             {
-              "name": "cid",
-              "type": "string"
+              name: "cid",
+              type: "string",
             },
             {
-              "name": "hash",
-              "type": "bytes32"
-            }
+              name: "hash",
+              type: "bytes32",
+            },
           ],
-          "outputs": [
+          outputs: [
             {
-              "type": "bytes32"
-            }
+              type: "bytes32",
+            },
           ],
-          "stateMutability": "nonpayable"
+          stateMutability: "nonpayable",
         },
         {
-          "type": "function",
-          "name": "updateAgent",
-          "inputs": [
+          type: "function",
+          name: "updateAgent",
+          inputs: [
             {
-              "name": "agentId",
-              "type": "bytes32"
+              name: "agentId",
+              type: "bytes32",
             },
             {
-              "name": "newCid",
-              "type": "string"
+              name: "newCid",
+              type: "string",
             },
             {
-              "name": "newHash",
-              "type": "bytes32"
-            }
+              name: "newHash",
+              type: "bytes32",
+            },
           ],
-          "outputs": [],
-          "stateMutability": "nonpayable"
+          outputs: [],
+          stateMutability: "nonpayable",
         },
         {
-          "type": "function",
-          "name": "archiveAgent",
-          "inputs": [
+          type: "function",
+          name: "archiveAgent",
+          inputs: [
             {
-              "name": "agentId",
-              "type": "bytes32"
-            }
+              name: "agentId",
+              type: "bytes32",
+            },
           ],
-          "outputs": [],
-          "stateMutability": "nonpayable"
+          outputs: [],
+          stateMutability: "nonpayable",
         },
         {
-          "type": "function",
-          "name": "restoreAgent",
-          "inputs": [
+          type: "function",
+          name: "restoreAgent",
+          inputs: [
             {
-              "name": "agentId",
-              "type": "bytes32"
-            }
+              name: "agentId",
+              type: "bytes32",
+            },
           ],
-          "outputs": [],
-          "stateMutability": "nonpayable"
+          outputs: [],
+          stateMutability: "nonpayable",
         },
         {
-          "type": "function",
-          "name": "getAgent",
-          "inputs": [
+          type: "function",
+          name: "getAgent",
+          inputs: [
             {
-              "name": "agentId",
-              "type": "bytes32"
-            }
+              name: "agentId",
+              type: "bytes32",
+            },
           ],
-          "outputs": [
+          outputs: [
             {
-              "type": "address"
+              type: "address",
             },
             {
-              "type": "string"
+              type: "string",
             },
             {
-              "type": "string"
+              type: "string",
             },
             {
-              "type": "uint32"
+              type: "uint32",
             },
             {
-              "type": "string"
+              type: "string",
             },
             {
-              "type": "bytes32"
+              type: "bytes32",
             },
             {
-              "type": "uint8"
+              type: "uint8",
             },
             {
-              "type": "uint64"
+              type: "uint64",
             },
             {
-              "type": "uint64"
-            }
+              type: "uint64",
+            },
           ],
-          "stateMutability": "view"
+          stateMutability: "view",
         },
         {
-          "type": "function",
-          "name": "getAgentVersion",
-          "inputs": [
+          type: "function",
+          name: "getAgentVersion",
+          inputs: [
             {
-              "name": "agentId",
-              "type": "bytes32"
+              name: "agentId",
+              type: "bytes32",
             },
             {
-              "name": "version",
-              "type": "uint32"
-            }
+              name: "version",
+              type: "uint32",
+            },
           ],
-          "outputs": [
+          outputs: [
             {
-              "type": "string"
+              type: "string",
             },
             {
-              "type": "bytes32"
+              type: "bytes32",
             },
             {
-              "type": "uint64"
-            }
+              type: "uint64",
+            },
           ],
-          "stateMutability": "view"
+          stateMutability: "view",
         },
         {
-          "type": "function",
-          "name": "totalAgents",
-          "inputs": [],
-          "outputs": [
+          type: "function",
+          name: "totalAgents",
+          inputs: [],
+          outputs: [
             {
-              "type": "uint256"
-            }
+              type: "uint256",
+            },
           ],
-          "stateMutability": "view"
+          stateMutability: "view",
         },
         {
-          "type": "function",
-          "name": "previewCreateCost",
-          "inputs": [],
-          "outputs": [
+          type: "function",
+          name: "previewCreateCost",
+          inputs: [],
+          outputs: [
             {
-              "type": "uint64"
-            }
+              type: "uint64",
+            },
           ],
-          "stateMutability": "view"
+          stateMutability: "view",
         },
         {
-          "type": "function",
-          "name": "admin",
-          "inputs": [],
-          "outputs": [
+          type: "function",
+          name: "admin",
+          inputs: [],
+          outputs: [
             {
-              "type": "address"
-            }
+              type: "address",
+            },
           ],
-          "stateMutability": "view"
+          stateMutability: "view",
         },
         {
-          "type": "function",
-          "name": "getAgentCountByOwner",
-          "inputs": [
+          type: "function",
+          name: "getAgentCountByOwner",
+          inputs: [
             {
-              "name": "owner",
-              "type": "address"
-            }
+              name: "owner",
+              type: "address",
+            },
           ],
-          "outputs": [
+          outputs: [
             {
-              "type": "uint256"
-            }
+              type: "uint256",
+            },
           ],
-          "stateMutability": "view"
+          stateMutability: "view",
         },
         {
-          "type": "function",
-          "name": "getAgentByOwnerIndex",
-          "inputs": [
+          type: "function",
+          name: "getAgentByOwnerIndex",
+          inputs: [
             {
-              "name": "owner",
-              "type": "address"
+              name: "owner",
+              type: "address",
             },
             {
-              "name": "index",
-              "type": "uint256"
-            }
+              name: "index",
+              type: "uint256",
+            },
           ],
-          "outputs": [
+          outputs: [
             {
-              "type": "bytes32"
-            }
+              type: "bytes32",
+            },
           ],
-          "stateMutability": "view"
-        }
-      ]
+          stateMutability: "view",
+        },
+      ],
     },
-    "ContextRegistry": {
-      "address": "0xd92773693917f0ff664f85c3cb698c33420947ff",
-      "abi": [
+    ContextRegistry: {
+      address: "0xd92773693917f0ff664f85c3cb698c33420947ff",
+      abi: [
         {
-          "type": "function",
-          "name": "initialize",
-          "inputs": [
+          type: "function",
+          name: "initialize",
+          inputs: [
             {
-              "name": "memoryRegistry",
-              "type": "address"
+              name: "memoryRegistry",
+              type: "address",
             },
             {
-              "name": "agentRegistry",
-              "type": "address"
+              name: "agentRegistry",
+              type: "address",
             },
             {
-              "name": "creditManager",
-              "type": "address"
-            }
+              name: "creditManager",
+              type: "address",
+            },
           ],
-          "outputs": [],
-          "stateMutability": "nonpayable"
+          outputs: [],
+          stateMutability: "nonpayable",
         },
         {
-          "type": "function",
-          "name": "pause",
-          "inputs": [],
-          "outputs": [],
-          "stateMutability": "nonpayable"
+          type: "function",
+          name: "pause",
+          inputs: [],
+          outputs: [],
+          stateMutability: "nonpayable",
         },
         {
-          "type": "function",
-          "name": "unpause",
-          "inputs": [],
-          "outputs": [],
-          "stateMutability": "nonpayable"
+          type: "function",
+          name: "unpause",
+          inputs: [],
+          outputs: [],
+          stateMutability: "nonpayable",
         },
         {
-          "type": "function",
-          "name": "isPaused",
-          "inputs": [],
-          "outputs": [
+          type: "function",
+          name: "isPaused",
+          inputs: [],
+          outputs: [
             {
-              "type": "bool"
-            }
+              type: "bool",
+            },
           ],
-          "stateMutability": "view"
+          stateMutability: "view",
         },
         {
-          "type": "function",
-          "name": "proposeAdmin",
-          "inputs": [
+          type: "function",
+          name: "proposeAdmin",
+          inputs: [
             {
-              "name": "newAdmin",
-              "type": "address"
-            }
+              name: "newAdmin",
+              type: "address",
+            },
           ],
-          "outputs": [],
-          "stateMutability": "nonpayable"
+          outputs: [],
+          stateMutability: "nonpayable",
         },
         {
-          "type": "function",
-          "name": "acceptAdmin",
-          "inputs": [],
-          "outputs": [],
-          "stateMutability": "nonpayable"
+          type: "function",
+          name: "acceptAdmin",
+          inputs: [],
+          outputs: [],
+          stateMutability: "nonpayable",
         },
         {
-          "type": "function",
-          "name": "pendingAdmin",
-          "inputs": [],
-          "outputs": [
+          type: "function",
+          name: "pendingAdmin",
+          inputs: [],
+          outputs: [
             {
-              "type": "address"
-            }
+              type: "address",
+            },
           ],
-          "stateMutability": "view"
+          stateMutability: "view",
         },
         {
-          "type": "function",
-          "name": "linkMemory",
-          "inputs": [
+          type: "function",
+          name: "linkMemory",
+          inputs: [
             {
-              "name": "agentId",
-              "type": "bytes32"
+              name: "agentId",
+              type: "bytes32",
             },
             {
-              "name": "memoryId",
-              "type": "bytes32"
+              name: "memoryId",
+              type: "bytes32",
             },
             {
-              "name": "priority",
-              "type": "uint8"
-            }
+              name: "priority",
+              type: "uint8",
+            },
           ],
-          "outputs": [
+          outputs: [
             {
-              "type": "bytes32"
-            }
+              type: "bytes32",
+            },
           ],
-          "stateMutability": "nonpayable"
+          stateMutability: "nonpayable",
         },
         {
-          "type": "function",
-          "name": "unlinkMemory",
-          "inputs": [
+          type: "function",
+          name: "unlinkMemory",
+          inputs: [
             {
-              "name": "agentId",
-              "type": "bytes32"
+              name: "agentId",
+              type: "bytes32",
             },
             {
-              "name": "memoryId",
-              "type": "bytes32"
-            }
+              name: "memoryId",
+              type: "bytes32",
+            },
           ],
-          "outputs": [],
-          "stateMutability": "nonpayable"
+          outputs: [],
+          stateMutability: "nonpayable",
         },
         {
-          "type": "function",
-          "name": "changePriority",
-          "inputs": [
+          type: "function",
+          name: "changePriority",
+          inputs: [
             {
-              "name": "contextId",
-              "type": "bytes32"
+              name: "contextId",
+              type: "bytes32",
             },
             {
-              "name": "newPriority",
-              "type": "uint8"
-            }
+              name: "newPriority",
+              type: "uint8",
+            },
           ],
-          "outputs": [],
-          "stateMutability": "nonpayable"
+          outputs: [],
+          stateMutability: "nonpayable",
         },
         {
-          "type": "function",
-          "name": "disableLink",
-          "inputs": [
+          type: "function",
+          name: "disableLink",
+          inputs: [
             {
-              "name": "contextId",
-              "type": "bytes32"
-            }
+              name: "contextId",
+              type: "bytes32",
+            },
           ],
-          "outputs": [],
-          "stateMutability": "nonpayable"
+          outputs: [],
+          stateMutability: "nonpayable",
         },
         {
-          "type": "function",
-          "name": "enableLink",
-          "inputs": [
+          type: "function",
+          name: "enableLink",
+          inputs: [
             {
-              "name": "contextId",
-              "type": "bytes32"
-            }
+              name: "contextId",
+              type: "bytes32",
+            },
           ],
-          "outputs": [],
-          "stateMutability": "nonpayable"
+          outputs: [],
+          stateMutability: "nonpayable",
         },
         {
-          "type": "function",
-          "name": "getLink",
-          "inputs": [
+          type: "function",
+          name: "getLink",
+          inputs: [
             {
-              "name": "agentId",
-              "type": "bytes32"
+              name: "agentId",
+              type: "bytes32",
             },
             {
-              "name": "memoryId",
-              "type": "bytes32"
-            }
+              name: "memoryId",
+              type: "bytes32",
+            },
           ],
-          "outputs": [
+          outputs: [
             {
-              "type": "bytes32"
-            }
+              type: "bytes32",
+            },
           ],
-          "stateMutability": "view"
+          stateMutability: "view",
         },
         {
-          "type": "function",
-          "name": "getContext",
-          "inputs": [
+          type: "function",
+          name: "getContext",
+          inputs: [
             {
-              "name": "contextId",
-              "type": "bytes32"
-            }
+              name: "contextId",
+              type: "bytes32",
+            },
           ],
-          "outputs": [
+          outputs: [
             {
-              "type": "bytes32"
+              type: "bytes32",
             },
             {
-              "type": "bytes32"
+              type: "bytes32",
             },
             {
-              "type": "uint8"
+              type: "uint8",
             },
             {
-              "type": "bool"
+              type: "bool",
             },
             {
-              "type": "uint64"
-            }
+              type: "uint64",
+            },
           ],
-          "stateMutability": "view"
+          stateMutability: "view",
         },
         {
-          "type": "function",
-          "name": "admin",
-          "inputs": [],
-          "outputs": [
+          type: "function",
+          name: "admin",
+          inputs: [],
+          outputs: [
             {
-              "type": "address"
-            }
+              type: "address",
+            },
           ],
-          "stateMutability": "view"
+          stateMutability: "view",
         },
         {
-          "type": "function",
-          "name": "getAgentContextCount",
-          "inputs": [
+          type: "function",
+          name: "getAgentContextCount",
+          inputs: [
             {
-              "name": "agentId",
-              "type": "bytes32"
-            }
+              name: "agentId",
+              type: "bytes32",
+            },
           ],
-          "outputs": [
+          outputs: [
             {
-              "type": "uint256"
-            }
+              type: "uint256",
+            },
           ],
-          "stateMutability": "view"
+          stateMutability: "view",
         },
         {
-          "type": "function",
-          "name": "getAgentContextByIndex",
-          "inputs": [
+          type: "function",
+          name: "getAgentContextByIndex",
+          inputs: [
             {
-              "name": "agentId",
-              "type": "bytes32"
+              name: "agentId",
+              type: "bytes32",
             },
             {
-              "name": "index",
-              "type": "uint256"
-            }
+              name: "index",
+              type: "uint256",
+            },
           ],
-          "outputs": [
+          outputs: [
             {
-              "type": "bytes32"
-            }
+              type: "bytes32",
+            },
           ],
-          "stateMutability": "view"
-        }
-      ]
+          stateMutability: "view",
+        },
+      ],
     },
-    "AuditRegistry": {
-      "address": "0x7af2571dc86b7608ddc6acfbf01b2be6f0efc244",
-      "abi": [
+    AuditRegistry: {
+      address: "0x7af2571dc86b7608ddc6acfbf01b2be6f0efc244",
+      abi: [
         {
-          "type": "function",
-          "name": "initialize",
-          "inputs": [],
-          "outputs": [],
-          "stateMutability": "nonpayable"
+          type: "function",
+          name: "initialize",
+          inputs: [],
+          outputs: [],
+          stateMutability: "nonpayable",
         },
         {
-          "type": "function",
-          "name": "pause",
-          "inputs": [],
-          "outputs": [],
-          "stateMutability": "nonpayable"
+          type: "function",
+          name: "pause",
+          inputs: [],
+          outputs: [],
+          stateMutability: "nonpayable",
         },
         {
-          "type": "function",
-          "name": "unpause",
-          "inputs": [],
-          "outputs": [],
-          "stateMutability": "nonpayable"
+          type: "function",
+          name: "unpause",
+          inputs: [],
+          outputs: [],
+          stateMutability: "nonpayable",
         },
         {
-          "type": "function",
-          "name": "isPaused",
-          "inputs": [],
-          "outputs": [
+          type: "function",
+          name: "isPaused",
+          inputs: [],
+          outputs: [
             {
-              "type": "bool"
-            }
+              type: "bool",
+            },
           ],
-          "stateMutability": "view"
+          stateMutability: "view",
         },
         {
-          "type": "function",
-          "name": "proposeAdmin",
-          "inputs": [
+          type: "function",
+          name: "proposeAdmin",
+          inputs: [
             {
-              "name": "newAdmin",
-              "type": "address"
-            }
+              name: "newAdmin",
+              type: "address",
+            },
           ],
-          "outputs": [],
-          "stateMutability": "nonpayable"
+          outputs: [],
+          stateMutability: "nonpayable",
         },
         {
-          "type": "function",
-          "name": "acceptAdmin",
-          "inputs": [],
-          "outputs": [],
-          "stateMutability": "nonpayable"
+          type: "function",
+          name: "acceptAdmin",
+          inputs: [],
+          outputs: [],
+          stateMutability: "nonpayable",
         },
         {
-          "type": "function",
-          "name": "pendingAdmin",
-          "inputs": [],
-          "outputs": [
+          type: "function",
+          name: "pendingAdmin",
+          inputs: [],
+          outputs: [
             {
-              "type": "address"
-            }
+              type: "address",
+            },
           ],
-          "stateMutability": "view"
+          stateMutability: "view",
         },
         {
-          "type": "function",
-          "name": "recordAudit",
-          "inputs": [
+          type: "function",
+          name: "recordAudit",
+          inputs: [
             {
-              "name": "actor",
-              "type": "address"
+              name: "actor",
+              type: "address",
             },
             {
-              "name": "entityType",
-              "type": "uint8"
+              name: "entityType",
+              type: "uint8",
             },
             {
-              "name": "entityId",
-              "type": "bytes32"
+              name: "entityId",
+              type: "bytes32",
             },
             {
-              "name": "action",
-              "type": "uint8"
-            }
+              name: "action",
+              type: "uint8",
+            },
           ],
-          "outputs": [
+          outputs: [
             {
-              "type": "bytes32"
-            }
+              type: "bytes32",
+            },
           ],
-          "stateMutability": "nonpayable"
+          stateMutability: "nonpayable",
         },
         {
-          "type": "function",
-          "name": "getAuditEvent",
-          "inputs": [
+          type: "function",
+          name: "getAuditEvent",
+          inputs: [
             {
-              "name": "eventId",
-              "type": "bytes32"
-            }
+              name: "eventId",
+              type: "bytes32",
+            },
           ],
-          "outputs": [
+          outputs: [
             {
-              "type": "address"
+              type: "address",
             },
             {
-              "type": "uint8"
+              type: "uint8",
             },
             {
-              "type": "bytes32"
+              type: "bytes32",
             },
             {
-              "type": "uint8"
+              type: "uint8",
             },
             {
-              "type": "uint64"
-            }
+              type: "uint64",
+            },
           ],
-          "stateMutability": "view"
+          stateMutability: "view",
         },
         {
-          "type": "function",
-          "name": "totalEvents",
-          "inputs": [],
-          "outputs": [
+          type: "function",
+          name: "totalEvents",
+          inputs: [],
+          outputs: [
             {
-              "type": "uint256"
-            }
+              type: "uint256",
+            },
           ],
-          "stateMutability": "view"
+          stateMutability: "view",
         },
         {
-          "type": "function",
-          "name": "authorizeRecorder",
-          "inputs": [
+          type: "function",
+          name: "authorizeRecorder",
+          inputs: [
             {
-              "name": "recorder",
-              "type": "address"
-            }
+              name: "recorder",
+              type: "address",
+            },
           ],
-          "outputs": [],
-          "stateMutability": "nonpayable"
+          outputs: [],
+          stateMutability: "nonpayable",
         },
         {
-          "type": "function",
-          "name": "revokeRecorder",
-          "inputs": [
+          type: "function",
+          name: "revokeRecorder",
+          inputs: [
             {
-              "name": "recorder",
-              "type": "address"
-            }
+              name: "recorder",
+              type: "address",
+            },
           ],
-          "outputs": [],
-          "stateMutability": "nonpayable"
+          outputs: [],
+          stateMutability: "nonpayable",
         },
         {
-          "type": "function",
-          "name": "admin",
-          "inputs": [],
-          "outputs": [
+          type: "function",
+          name: "admin",
+          inputs: [],
+          outputs: [
             {
-              "type": "address"
-            }
+              type: "address",
+            },
           ],
-          "stateMutability": "view"
-        }
-      ]
-    }
-  }
+          stateMutability: "view",
+        },
+      ],
+    },
+  },
 } as const;
 
 export default deployedContracts satisfies GenericContractsDeclaration;

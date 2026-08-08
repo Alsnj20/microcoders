@@ -4,9 +4,9 @@ import { useState } from "react";
 import { useMemory } from "../../hooks/use-memory";
 import type { Memory } from "../../types/memory";
 import { MemoryCard } from "../ui/memory-card";
-import { MemorySidebar } from "../ui/memory-sidebar";
-import { MemoryHeader } from "../ui/memory-header";
 import { MemoryForm } from "../ui/memory-form";
+import { MemoryHeader } from "../ui/memory-header";
+import { MemorySidebar } from "../ui/memory-sidebar";
 
 export function MemoriesPage() {
   const {
@@ -18,6 +18,7 @@ export function MemoriesPage() {
     setSearchQuery,
     sortBy,
     setSortBy,
+    getMemory,
     createMemory,
     updateMemory,
     deleteMemory,
@@ -33,16 +34,33 @@ export function MemoriesPage() {
     setIsFormOpen(true);
   };
 
-  const handleEditMemory = (memory: Memory) => {
-    setEditingMemory(memory);
-    setIsFormOpen(true);
+  const handleEditMemory = async (memory: Memory) => {
+    try {
+      const fullMemory = await getMemory(memory.id);
+      setEditingMemory(fullMemory);
+      setIsFormOpen(true);
+    } catch (e) {
+      alert("Error al descifrar el contenido de la memoria.");
+    }
   };
 
-  const handleFormSubmit = (data: { title: string; description?: string; type: "documento" | "texto" | "codigo" | "pdf" | "enlace" | "imagen"; content?: string; collectionId?: string }) => {
-    if (editingMemory) {
-      updateMemory(editingMemory.id, data);
-    } else {
-      createMemory({ ...data, isFavorite: false });
+  const handleFormSubmit = async (data: {
+    title: string;
+    description?: string;
+    type: "documento" | "texto" | "codigo" | "pdf" | "enlace" | "imagen";
+    content?: string;
+    collectionId?: string;
+  }) => {
+    try {
+      if (editingMemory) {
+        await updateMemory(editingMemory.id, data);
+      } else {
+        await createMemory({ ...data, isFavorite: false });
+      }
+      setIsFormOpen(false);
+      setEditingMemory(null);
+    } catch (e) {
+      // Error is handled by hook
     }
   };
 
@@ -74,7 +92,7 @@ export function MemoriesPage() {
 
           {/* Memory Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {memories.map((memory) => (
+            {memories.map(memory => (
               <MemoryCard
                 key={memory.id}
                 memory={memory}
@@ -90,9 +108,7 @@ export function MemoriesPage() {
               onClick={handleCreateMemory}
               className="p-5 rounded-2xl border-2 border-dashed border-border/60 bg-card/50 hover:border-primary/40 hover:bg-muted/20 transition-all duration-200 flex flex-col items-center justify-center min-h-[200px] text-center"
             >
-              <span className="material-symbols-outlined text-4xl text-muted-foreground mb-2">
-                add
-              </span>
+              <span className="material-symbols-outlined text-4xl text-muted-foreground mb-2">add</span>
               <span className="font-semibold text-foreground mb-1">Nueva memoria</span>
               <span className="text-sm text-muted-foreground">
                 Guarda cualquier tipo de información en tu cadena de memoria.

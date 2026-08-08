@@ -52,10 +52,7 @@ export const IntegerInput = ({
         suffix={
           !inputError &&
           !disableMultiplyBy1e18 && (
-            <div
-              className="space-x-4 flex group relative"
-              data-tip="Multiply by 1e18 (wei)"
-            >
+            <div className="space-x-4 flex group relative" data-tip="Multiply by 1e18 (wei)">
               <span className="absolute bottom-full right-0 mb-2 px-2 py-1 text-xs text-secondary-foreground bg-secondary rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
                 Multiply by 1e18 (wei)
               </span>

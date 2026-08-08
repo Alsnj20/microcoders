@@ -16,13 +16,11 @@ export const ClientsSection = () => {
         <span className="text-xs font-mono font-bold tracking-widest text-primary uppercase">
           🌐 INFRAESTRUCTURA OFF-CHAIN & ECOSISTEMA
         </span>
-        <h3 className="text-2xl md:text-4xl font-bold text-foreground">
-          Tecnología Híbrida de Grado Empresarial
-        </h3>
+        <h3 className="text-2xl md:text-4xl font-bold text-foreground">Tecnología Híbrida de Grado Empresarial</h3>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        {stack.map((item) => (
+        {stack.map(item => (
           <div
             key={item.name}
             className="p-5 rounded-2xl bg-card border border-border/60 text-center hover:border-primary/40 transition-all duration-200 flex flex-col items-center justify-center gap-2"

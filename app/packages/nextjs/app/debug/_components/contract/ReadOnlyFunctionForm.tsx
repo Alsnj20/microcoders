@@ -102,7 +102,9 @@ export const ReadOnlyFunctionForm = ({
           }}
           disabled={isFetching}
         >
-          {isFetching && <span className="animate-spin border-2 border-current border-t-transparent rounded-full h-3 w-3" />}
+          {isFetching && (
+            <span className="animate-spin border-2 border-current border-t-transparent rounded-full h-3 w-3" />
+          )}
           Read
         </button>
       </div>

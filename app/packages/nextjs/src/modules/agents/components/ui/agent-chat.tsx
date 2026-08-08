@@ -1,14 +1,14 @@
 "use client";
 
 import {
-  ChatContainer,
-  ChatMessages,
-  ChatBubble,
-  ChatEmptyState,
-  ChatInput,
   ChatAttachButton,
-  ChatInsertMedia,
+  ChatBubble,
+  ChatContainer,
+  ChatEmptyState,
   ChatHelperText,
+  ChatInput,
+  ChatInsertMedia,
+  ChatMessages,
 } from "../../../../../components/ui/chat";
 import type { Agent, AgentChatMessage } from "../../types/agent";
 
@@ -28,28 +28,18 @@ export function AgentChat({ agent, messages, onSendMessage }: AgentChatProps) {
             tools={agent?.tools}
           />
         ) : (
-          messages.map((msg) => (
-            <ChatBubble
-              key={msg.id}
-              role={msg.role}
-              content={msg.content}
-              timestamp={msg.timestamp}
-            />
+          messages.map(msg => (
+            <ChatBubble key={msg.id} role={msg.role} content={msg.content} timestamp={msg.timestamp} />
           ))
         )}
       </ChatMessages>
 
-      <ChatInput
-        onSendMessage={onSendMessage}
-        placeholder="Ask MemoryChain agent or request analysis..."
-      >
+      <ChatInput onSendMessage={onSendMessage} placeholder="Ask MemoryChain agent or request analysis...">
         <ChatAttachButton />
         <ChatInsertMedia />
       </ChatInput>
       <div className="bg-background/95 backdrop-blur-sm px-4 pb-4">
-        <ChatHelperText>
-          Tus mensajes y memorias están cifrados de extremo a extremo.
-        </ChatHelperText>
+        <ChatHelperText>Tus mensajes y memorias están cifrados de extremo a extremo.</ChatHelperText>
       </div>
     </ChatContainer>
   );

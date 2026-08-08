@@ -30,8 +30,16 @@ export const RevealBurnerPKModal = ({ isOpen, onClose }: RevealBurnerPKModalProp
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
-      <div className="bg-card rounded-xl p-6 shadow-xl max-w-md w-full" onClick={e => e.stopPropagation()}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+      onClick={onClose}
+      onKeyDown={e => e.key === "Escape" && onClose()}
+    >
+      <div
+        className="bg-card rounded-xl p-6 shadow-xl max-w-md w-full"
+        onClick={e => e.stopPropagation()}
+        onKeyDown={e => e.stopPropagation()}
+      >
         <button
           type="button"
           className="inline-flex items-center justify-center rounded-lg font-medium transition-colors h-8 px-3 text-xs hover:bg-muted absolute right-3 top-3"
@@ -48,8 +56,8 @@ export const RevealBurnerPKModal = ({ isOpen, onClose }: RevealBurnerPKModalProp
             </span>
           </div>
           <p>
-            Your Private Key provides <strong>full access</strong> to your entire wallet and funds. This is
-            currently stored <strong>temporarily</strong> in your browser.
+            Your Private Key provides <strong>full access</strong> to your entire wallet and funds. This is currently
+            stored <strong>temporarily</strong> in your browser.
           </p>
           <button
             type="button"

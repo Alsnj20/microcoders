@@ -1,8 +1,8 @@
 "use client";
 
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import type { Memory, MemoryType } from "../../types/memory";
 
@@ -71,14 +71,8 @@ export function MemoryForm({ memory, onSubmit, onClose }: MemoryFormProps) {
       <div className="w-full max-w-lg mx-4 bg-card rounded-2xl border border-border/60 shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border/40">
-          <h2 className="text-lg font-bold text-foreground">
-            {memory ? "Editar memoria" : "Nueva memoria"}
-          </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-2 rounded-lg hover:bg-muted/50 transition-colors"
-          >
+          <h2 className="text-lg font-bold text-foreground">{memory ? "Editar memoria" : "Nueva memoria"}</h2>
+          <button type="button" onClick={onClose} className="p-2 rounded-lg hover:bg-muted/50 transition-colors">
             <span className="material-symbols-outlined text-lg text-muted-foreground">close</span>
           </button>
         </div>
@@ -97,9 +91,7 @@ export function MemoryForm({ memory, onSubmit, onClose }: MemoryFormProps) {
               className="w-full px-4 py-2.5 rounded-xl border border-border/60 bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all"
               placeholder="Nombre de la memoria"
             />
-            {errors.title && (
-              <p className="mt-1 text-xs text-destructive">{errors.title.message}</p>
-            )}
+            {errors.title && <p className="mt-1 text-xs text-destructive">{errors.title.message}</p>}
           </div>
 
           {/* Description */}
@@ -126,7 +118,7 @@ export function MemoryForm({ memory, onSubmit, onClose }: MemoryFormProps) {
               {...register("type")}
               className="w-full px-4 py-2.5 rounded-xl border border-border/60 bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
             >
-              {MEMORY_TYPES.map((t) => (
+              {MEMORY_TYPES.map(t => (
                 <option key={t.value} value={t.value}>
                   {t.label}
                 </option>

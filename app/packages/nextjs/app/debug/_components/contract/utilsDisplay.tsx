@@ -61,11 +61,12 @@ const NumberDisplay = ({ value }: { value: bigint }) => {
   return (
     <div className="flex items-baseline">
       {isEther ? `Ξ${formatEther(value)}` : String(value)}
-      <span
-        className="group relative font-sans ml-2"
-        data-tip={isEther ? "Multiply by 1e18" : "Divide by 1e18"}
-      >
-        <button type="button" className="hover:bg-muted rounded-full h-6 px-2 text-xs cursor-pointer" onClick={() => setIsEther(!isEther)}>
+      <span className="group relative font-sans ml-2" data-tip={isEther ? "Multiply by 1e18" : "Divide by 1e18"}>
+        <button
+          type="button"
+          className="hover:bg-muted rounded-full h-6 px-2 text-xs cursor-pointer"
+          onClick={() => setIsEther(!isEther)}
+        >
           <ArrowsRightLeftIcon className="h-3 w-3 opacity-65" />
         </button>
         <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs text-primary-foreground bg-primary rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">

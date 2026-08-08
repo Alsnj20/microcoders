@@ -1,13 +1,6 @@
 import { z } from "zod";
 
-export const MemoryTypeSchema = z.enum([
-  "documento",
-  "texto",
-  "codigo",
-  "pdf",
-  "enlace",
-  "imagen",
-]);
+export const MemoryTypeSchema = z.enum(["documento", "texto", "codigo", "pdf", "enlace", "imagen"]);
 
 export const CollectionSchema = z.object({
   id: z.string(),

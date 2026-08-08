@@ -13,9 +13,9 @@ export function generateStaticParams() {
 }
 const TransactionPage: NextPage<PageProps> = async (props: PageProps) => {
   const params = await props.params;
-  const txHash = params?.txHash as Hash;
+  const txHash = params?.txHash;
 
-  if (isZeroAddress(txHash)) return null;
+  if (!txHash || isZeroAddress(txHash)) return null;
 
   return <TransactionComp txHash={txHash} />;
 };

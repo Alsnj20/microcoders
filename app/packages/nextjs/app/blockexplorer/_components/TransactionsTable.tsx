@@ -1,9 +1,12 @@
-import { formatEther } from "viem";
+import { formatEther, type Hash } from "viem";
 import { Address } from "~~/components/scaffold-eth";
 import { useTargetNetwork } from "~~/hooks/scaffold-eth/useTargetNetwork";
 import type { TransactionWithFunction } from "~~/utils/scaffold-eth";
 import type { TransactionsTableProps } from "~~/utils/scaffold-eth/";
 import { TransactionHash } from "./TransactionHash";
+
+const isFullTransaction = (tx: unknown): tx is TransactionWithFunction =>
+  typeof tx === "object" && tx !== null && "from" in tx;
 
 export const TransactionsTable = ({ blocks, transactionReceipts }: TransactionsTableProps) => {
   const { targetNetwork } = useTargetNetwork();
@@ -29,7 +32,7 @@ export const TransactionsTable = ({ blocks, transactionReceipts }: TransactionsT
             </thead>
             <tbody>
               {blocks.map(block =>
-                (block.transactions as TransactionWithFunction[]).map(tx => {
+                block.transactions.filter(isFullTransaction).map(tx => {
                   const receipt = transactionReceipts[tx.hash];
                   const timeMined = new Date(Number(block.timestamp) * 1000).toLocaleString();
                   const functionCalled = tx.input.substring(0, 10);

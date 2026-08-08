@@ -22,6 +22,9 @@ export function SharedBotAvatar({ size = "md" }: SharedBotAvatarProps) {
       className="shrink-0 cursor-pointer overflow-hidden"
       onMouseEnter={pet.blink}
       onClick={pet.jump}
+      onKeyDown={e => e.key === "Enter" && pet.jump()}
+      role="button"
+      tabIndex={0}
     >
       <PetAvatar
         spritesheet="/sprites/pet.png"

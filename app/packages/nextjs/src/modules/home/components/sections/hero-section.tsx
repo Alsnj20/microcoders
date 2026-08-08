@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
 import Link from "next/link";
+import { useEffect } from "react";
 import { PetAvatar } from "~~/src/modules/pet/components/pet-avatar";
 import { usePet } from "~~/src/modules/pet/hooks/use-pet";
 
@@ -51,7 +51,8 @@ export const HeroSection = () => {
 
           {/* Subtitle */}
           <p className="text-lg md:text-xl leading-relaxed text-muted-foreground max-w-xl mb-10">
-            MemoryChain devuelve el control a los usuarios. Almacena, conecta y protege tus memorias con tecnología descentralizada.
+            MemoryChain devuelve el control a los usuarios. Almacena, conecta y protege tus memorias con tecnología
+            descentralizada.
           </p>
 
           {/* Actions */}
@@ -95,10 +96,13 @@ export const HeroSection = () => {
           <div className="relative w-full max-w-lg aspect-square flex items-center justify-center">
             {/* Decorative Grid Background */}
             <div className="absolute inset-0 opacity-20">
-              <div className="absolute inset-0" style={{
-                backgroundImage: 'radial-gradient(circle, var(--primary) 1px, transparent 1px)',
-                backgroundSize: '24px 24px'
-              }} />
+              <div
+                className="absolute inset-0"
+                style={{
+                  backgroundImage: "radial-gradient(circle, var(--primary) 1px, transparent 1px)",
+                  backgroundSize: "24px 24px",
+                }}
+              />
             </div>
 
             {/* Main Pet Illustration */}
@@ -118,15 +122,24 @@ export const HeroSection = () => {
             </div>
 
             {/* Floating Elements */}
-            <div className="absolute top-10 left-10 w-16 h-16 rounded-2xl bg-card border border-border shadow-lg flex items-center justify-center animate-bounce" style={{ animationDuration: '3s' }}>
+            <div
+              className="absolute top-10 left-10 w-16 h-16 rounded-2xl bg-card border border-border shadow-lg flex items-center justify-center animate-bounce"
+              style={{ animationDuration: "3s" }}
+            >
               <span className="material-symbols-outlined text-2xl text-primary">lock</span>
             </div>
 
-            <div className="absolute bottom-10 right-10 w-16 h-16 rounded-2xl bg-card border border-border shadow-lg flex items-center justify-center animate-bounce" style={{ animationDuration: '4s', animationDelay: '1s' }}>
+            <div
+              className="absolute bottom-10 right-10 w-16 h-16 rounded-2xl bg-card border border-border shadow-lg flex items-center justify-center animate-bounce"
+              style={{ animationDuration: "4s", animationDelay: "1s" }}
+            >
               <span className="material-symbols-outlined text-2xl text-primary">document_scanner</span>
             </div>
 
-            <div className="absolute top-1/2 -right-4 w-12 h-12 rounded-xl bg-card border border-border shadow-lg flex items-center justify-center animate-bounce" style={{ animationDuration: '3.5s', animationDelay: '0.5s' }}>
+            <div
+              className="absolute top-1/2 -right-4 w-12 h-12 rounded-xl bg-card border border-border shadow-lg flex items-center justify-center animate-bounce"
+              style={{ animationDuration: "3.5s", animationDelay: "0.5s" }}
+            >
               <span className="material-symbols-outlined text-xl text-primary">currency_bitcoin</span>
             </div>
           </div>

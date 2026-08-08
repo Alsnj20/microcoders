@@ -71,7 +71,11 @@ export const DisplayVariable = ({
         >
           {abiFunction.name}
         </h3>
-        <button type="button" className="hover:bg-muted h-6 px-2 text-xs cursor-pointer" onClick={async () => await refetch()}>
+        <button
+          type="button"
+          className="hover:bg-muted h-6 px-2 text-xs cursor-pointer"
+          onClick={async () => await refetch()}
+        >
           {isFetching ? (
             <span className="animate-spin border-2 border-current border-t-transparent rounded-full h-3 w-3" />
           ) : (

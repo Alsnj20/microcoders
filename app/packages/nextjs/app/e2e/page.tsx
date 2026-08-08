@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useAccount } from "wagmi";
 import { parseEther } from "viem";
+import { useAccount } from "wagmi";
 import { useScaffoldReadContract, useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
 
 export default function E2EFlowPage() {
@@ -115,7 +115,7 @@ export default function E2EFlowPage() {
     try {
       await createMemory({
         functionName: "createMemory",
-        args: [memoryCid, memoryHash as `0x${string}`, parseInt(memoryType), parseInt(memoryVis)],
+        args: [memoryCid, memoryHash as `0x${string}`, Number.parseInt(memoryType), Number.parseInt(memoryVis)],
       });
     } catch (e) {
       console.error("Error creating memory:", e);
@@ -176,6 +176,7 @@ export default function E2EFlowPage() {
           <p className="text-gray-400 mb-4">Price: 0.000001 ETH per credit</p>
           <div className="flex gap-4">
             <button
+              type="button"
               onClick={() => handleBuyCredits(10)}
               disabled={isBuying}
               className="bg-blue-600 hover:bg-blue-700 px-6 py-3 rounded-lg font-bold disabled:opacity-50"
@@ -183,6 +184,7 @@ export default function E2EFlowPage() {
               {isBuying ? "Buying..." : "10 MC"}
             </button>
             <button
+              type="button"
               onClick={() => handleBuyCredits(50)}
               disabled={isBuying}
               className="bg-blue-600 hover:bg-blue-700 px-6 py-3 rounded-lg font-bold disabled:opacity-50"
@@ -190,6 +192,7 @@ export default function E2EFlowPage() {
               {isBuying ? "Buying..." : "50 MC"}
             </button>
             <button
+              type="button"
               onClick={() => handleBuyCredits(100)}
               disabled={isBuying}
               className="bg-blue-600 hover:bg-blue-700 px-6 py-3 rounded-lg font-bold disabled:opacity-50"
@@ -211,11 +214,12 @@ export default function E2EFlowPage() {
               <input
                 type="text"
                 value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                onChange={e => setUsername(e.target.value)}
                 placeholder="Username"
                 className="bg-gray-700 px-4 py-2 rounded-lg flex-1"
               />
               <button
+                type="button"
                 onClick={handleRegister}
                 disabled={isRegistering || !username}
                 className="bg-green-600 hover:bg-green-700 px-6 py-2 rounded-lg font-bold disabled:opacity-50"
@@ -234,14 +238,14 @@ export default function E2EFlowPage() {
             <input
               type="text"
               value={memoryCid}
-              onChange={(e) => setMemoryCid(e.target.value)}
+              onChange={e => setMemoryCid(e.target.value)}
               placeholder="IPFS CID (e.g., QmTest123)"
               className="w-full bg-gray-700 px-4 py-2 rounded-lg"
             />
             <div className="flex gap-4">
               <select
                 value={memoryType}
-                onChange={(e) => setMemoryType(e.target.value)}
+                onChange={e => setMemoryType(e.target.value)}
                 className="bg-gray-700 px-4 py-2 rounded-lg"
               >
                 <option value="0">Preference</option>
@@ -252,7 +256,7 @@ export default function E2EFlowPage() {
               </select>
               <select
                 value={memoryVis}
-                onChange={(e) => setMemoryVis(e.target.value)}
+                onChange={e => setMemoryVis(e.target.value)}
                 className="bg-gray-700 px-4 py-2 rounded-lg"
               >
                 <option value="0">Private</option>
@@ -261,6 +265,7 @@ export default function E2EFlowPage() {
               </select>
             </div>
             <button
+              type="button"
               onClick={handleCreateMemory}
               disabled={isCreatingMemory || !memoryCid}
               className="w-full bg-purple-600 hover:bg-purple-700 px-6 py-2 rounded-lg font-bold disabled:opacity-50"
@@ -278,25 +283,26 @@ export default function E2EFlowPage() {
             <input
               type="text"
               value={agentName}
-              onChange={(e) => setAgentName(e.target.value)}
+              onChange={e => setAgentName(e.target.value)}
               placeholder="Agent Name"
               className="w-full bg-gray-700 px-4 py-2 rounded-lg"
             />
             <input
               type="text"
               value={agentDesc}
-              onChange={(e) => setAgentDesc(e.target.value)}
+              onChange={e => setAgentDesc(e.target.value)}
               placeholder="Description"
               className="w-full bg-gray-700 px-4 py-2 rounded-lg"
             />
             <input
               type="text"
               value={agentCid}
-              onChange={(e) => setAgentCid(e.target.value)}
+              onChange={e => setAgentCid(e.target.value)}
               placeholder="IPFS CID"
               className="w-full bg-gray-700 px-4 py-2 rounded-lg"
             />
             <button
+              type="button"
               onClick={handleCreateAgent}
               disabled={isCreatingAgent || !agentName || !agentCid}
               className="w-full bg-orange-600 hover:bg-orange-700 px-6 py-2 rounded-lg font-bold disabled:opacity-50"

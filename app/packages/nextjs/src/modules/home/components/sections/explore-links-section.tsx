@@ -35,7 +35,7 @@ export const ExploreLinksSection = () => {
               title: "Interoperabilidad Multi-Modelo",
               desc: "Conecta tus conocimientos con OpenAI GPT-4o, Claude o flujos personalizados en Flowise sin perder datos.",
             },
-          ].map((feature) => (
+          ].map(feature => (
             <div
               key={feature.title}
               className="p-8 rounded-2xl bg-muted/30 border border-border/60 hover:border-primary/50 transition-all duration-200"
@@ -51,11 +51,10 @@ export const ExploreLinksSection = () => {
 
         {/* Call to action card */}
         <div className="p-10 rounded-3xl bg-primary text-primary-foreground text-center space-y-6 shadow-xl">
-          <h3 className="text-3xl md:text-4xl font-extrabold">
-            ¿Listo para tomar el control de tu conocimiento?
-          </h3>
+          <h3 className="text-3xl md:text-4xl font-extrabold">¿Listo para tomar el control de tu conocimiento?</h3>
           <p className="text-base md:text-lg opacity-90 max-w-2xl mx-auto">
-            Únete a la red de desarrolladores que construyen agentes de IA verdaderamente interoperables y soberanos sobre Arbitrum Stylus.
+            Únete a la red de desarrolladores que construyen agentes de IA verdaderamente interoperables y soberanos
+            sobre Arbitrum Stylus.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center pt-2">
             <Link

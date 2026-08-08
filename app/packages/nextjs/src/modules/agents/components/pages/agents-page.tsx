@@ -3,10 +3,10 @@
 import { useState } from "react";
 import { useAgent } from "../../hooks/use-agent";
 import type { Agent } from "../../types/agent";
-import { AgentSidebar } from "../ui/agent-sidebar";
 import { AgentChat } from "../ui/agent-chat";
-import { AgentInfoPanel } from "../ui/agent-info-panel";
 import { AgentForm } from "../ui/agent-form";
+import { AgentInfoPanel } from "../ui/agent-info-panel";
+import { AgentSidebar } from "../ui/agent-sidebar";
 
 export function AgentsPage() {
   const {
@@ -18,8 +18,11 @@ export function AgentsPage() {
     setSelectedConversationId,
     agentConversations,
     currentMessages,
+    loading,
+    getAgent,
     createAgent,
     updateAgent,
+    deleteAgent,
     createConversation,
     sendMessage,
   } = useAgent();
@@ -32,54 +35,71 @@ export function AgentsPage() {
     setIsFormOpen(true);
   };
 
-  const handleEditAgent = (agent: Agent) => {
-    setEditingAgent(agent);
-    setIsFormOpen(true);
+  const handleEditAgent = async (agent: Agent) => {
+    try {
+      const fullAgent = await getAgent(agent.id);
+      setEditingAgent(fullAgent);
+      setIsFormOpen(true);
+    } catch {
+      alert("Error al descifrar el blueprint del agente.");
+    }
   };
 
-  const handleFormSubmit = (data: { name: string; description?: string; icon: string; model: "gpt-5.5" | "claude" | "gemini" | "llama3"; personality?: string; tools: string[]; persistentMemory: boolean }) => {
-    if (editingAgent) {
-      updateAgent(editingAgent.id, data);
-    } else {
-      createAgent({ ...data, connectedMemories: [] });
+  const handleFormSubmit = async (data: {
+    name: string;
+    description?: string;
+    icon: string;
+    model: "gpt-5.5" | "claude" | "gemini" | "llama3";
+    personality?: string;
+    tools: string[];
+    persistentMemory: boolean;
+  }) => {
+    try {
+      if (editingAgent) {
+        await updateAgent(editingAgent.id, data);
+      } else {
+        await createAgent({ ...data, connectedMemories: [] });
+      }
+      setIsFormOpen(false);
+      setEditingAgent(null);
+    } catch {
+      // Error is surfaced by the hook
+    }
+  };
+
+  const handleDeleteAgent = async (id: string) => {
+    if (!confirm("¿Estás seguro de eliminar este agente?")) return;
+    try {
+      await deleteAgent(id);
+    } catch {
+      alert("Error al eliminar el agente.");
     }
   };
 
   const handleCreateConversation = () => {
-    if (selectedAgentId) {
-      createConversation(selectedAgentId);
-    }
+    if (selectedAgentId) createConversation(selectedAgentId);
   };
 
   const handleSendMessage = (content: string) => {
-    if (selectedConversationId) {
-      sendMessage(selectedConversationId, content);
-    }
+    if (selectedConversationId) sendMessage(selectedConversationId, content);
   };
 
   return (
     <div className="flex h-[calc(100vh-4rem)]">
-      {/* Left Sidebar - Agent Selection + Conversations */}
+      {/* Left Sidebar — Agent Selection + Conversations */}
       <AgentSidebar
         agent={selectedAgent}
         conversations={agentConversations}
-        selectedConversationId={selectedConversationId}
+        selectedConversationId={selectedConversationId ?? ""}
         onSelectConversation={setSelectedConversationId}
         onCreateConversation={handleCreateConversation}
       />
 
-      {/* Center - Chat */}
-      <AgentChat
-        agent={selectedAgent}
-        messages={currentMessages}
-        onSendMessage={handleSendMessage}
-      />
+      {/* Center — Chat */}
+      <AgentChat agent={selectedAgent} messages={currentMessages} onSendMessage={handleSendMessage} />
 
-      {/* Right Panel - Agent Info */}
-      <AgentInfoPanel
-        agent={selectedAgent}
-        onEdit={handleEditAgent}
-      />
+      {/* Right Panel — Agent Info */}
+      <AgentInfoPanel agent={selectedAgent} onEdit={handleEditAgent} />
 
       {/* Form Modal */}
       {isFormOpen && (
@@ -97,7 +117,8 @@ export function AgentsPage() {
       <button
         type="button"
         onClick={handleCreateAgent}
-        className="fixed bottom-20 right-6 lg:hidden w-14 h-14 bg-primary text-primary-foreground rounded-full shadow-lg flex items-center justify-center hover:opacity-90 transition-all z-40"
+        disabled={loading}
+        className="fixed bottom-20 right-6 lg:hidden w-14 h-14 bg-primary text-primary-foreground rounded-full shadow-lg flex items-center justify-center hover:opacity-90 transition-all z-40 disabled:opacity-50"
       >
         <span className="material-symbols-outlined text-2xl">add</span>
       </button>

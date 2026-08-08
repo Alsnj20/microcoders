@@ -2,9 +2,9 @@
 
 import {
   LateralBar,
-  LateralBarHeader,
-  LateralBarFooter,
   LateralBarContent,
+  LateralBarFooter,
+  LateralBarHeader,
   LateralBarSection,
   LateralBarSectionButton,
 } from "../../../../../components/ui/lateral-bar";
@@ -54,7 +54,7 @@ export function AgentSidebar({
       <LateralBarContent>
         {/* Conversations List */}
         <LateralBarSection title="CONVERSACIONES">
-          {conversations.map((conv) => (
+          {conversations.map(conv => (
             <LateralBarSectionButton
               key={conv.id}
               onClick={() => onSelectConversation(conv.id)}

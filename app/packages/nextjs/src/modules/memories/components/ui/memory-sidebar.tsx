@@ -2,8 +2,8 @@
 
 import {
   LateralBar,
-  LateralBarFooter,
   LateralBarContent,
+  LateralBarFooter,
   LateralBarSection,
   LateralBarSectionButton,
 } from "../../../../../components/ui/lateral-bar";
@@ -41,7 +41,7 @@ export function MemorySidebar({
       <LateralBarContent>
         {/* Collections List */}
         <LateralBarSection title="MIS COLECCIONES">
-          {collections.map((col) => (
+          {collections.map(col => (
             <LateralBarSectionButton
               key={col.id}
               onClick={() => onSelectCollection(col.id)}

@@ -1,10 +1,10 @@
 "use client";
 
 import {
-  ChatInput as ChatInputBase,
-  ChatAttachButton,
   ChatAgentBadge,
+  ChatAttachButton,
   ChatHelperText,
+  ChatInput as ChatInputBase,
 } from "../../../../../components/ui/chat";
 
 interface ChatInputProps {
@@ -24,9 +24,7 @@ export function ChatInput({ onSendMessage, disabled }: ChatInputProps) {
         <ChatAgentBadge agentName="Agent-v1.4" />
       </ChatInputBase>
       <div className="bg-background/95 backdrop-blur-sm px-4 pb-4">
-        <ChatHelperText>
-          Tus mensajes y memorias están cifrados de extremo a extremo.
-        </ChatHelperText>
+        <ChatHelperText>Tus mensajes y memorias están cifrados de extremo a extremo.</ChatHelperText>
       </div>
     </div>
   );

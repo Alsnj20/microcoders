@@ -31,16 +31,16 @@ export function MemoryCard({ memory, onToggleFavorite, onEdit, onDelete }: Memor
   return (
     <div className="group p-5 rounded-2xl border border-border/60 bg-card hover:border-primary/40 hover:shadow-lg transition-all duration-200">
       <div className="flex items-start justify-between mb-3">
-        <span className={`text-xs font-bold px-2.5 py-1 rounded-md ${typeInfo.color}`}>
-          {typeInfo.label}
-        </span>
+        <span className={`text-xs font-bold px-2.5 py-1 rounded-md ${typeInfo.color}`}>{typeInfo.label}</span>
         <div className="flex items-center gap-1">
           <button
             type="button"
             onClick={() => onToggleFavorite(memory.id)}
             className="p-1 rounded-lg hover:bg-muted/50 transition-colors"
           >
-            <span className={`material-symbols-outlined text-lg ${memory.isFavorite ? "text-yellow-500 fill-yellow-500" : "text-muted-foreground"}`}>
+            <span
+              className={`material-symbols-outlined text-lg ${memory.isFavorite ? "text-yellow-500 fill-yellow-500" : "text-muted-foreground"}`}
+            >
               {memory.isFavorite ? "star" : "star_border"}
             </span>
           </button>

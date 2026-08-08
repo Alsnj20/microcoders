@@ -32,7 +32,14 @@ type AddressInfoDropdownProps = {
   onRevealPK: () => void;
 };
 
-export const AddressInfoDropdown = ({ address, ensAvatar, displayName, onSwitchAccount, onShowQRCode, onRevealPK }: AddressInfoDropdownProps) => {
+export const AddressInfoDropdown = ({
+  address,
+  ensAvatar,
+  displayName,
+  onSwitchAccount,
+  onShowQRCode,
+  onRevealPK,
+}: AddressInfoDropdownProps) => {
   const { disconnect } = useDisconnect();
   const { connector } = useAccount();
   const checkSumAddress = getAddress(address);
@@ -178,7 +185,10 @@ export const AddressInfoDropdown = ({ address, ensAvatar, displayName, onSwitchA
               <button
                 type="button"
                 className="flex gap-3 py-3 px-3 cursor-pointer rounded-lg transition-all duration-200 hover:bg-gradient-to-r hover:from-[rgba(48,180,237,0.16)] hover:to-[rgba(227,6,110,0.16)]"
-                onClick={() => { onShowQRCode(); closeDropdown(); }}
+                onClick={() => {
+                  onShowQRCode();
+                  closeDropdown();
+                }}
               >
                 <QrCodeIcon className="h-5 w-5" style={{ color: isDarkMode ? "white" : "black" }} />
                 <span className="whitespace-nowrap" style={{ color: isDarkMode ? "white" : "black" }}>
@@ -219,7 +229,10 @@ export const AddressInfoDropdown = ({ address, ensAvatar, displayName, onSwitchA
                 <button
                   className="flex gap-3 py-3 px-3 cursor-pointer rounded-lg transition-all duration-200 hover:bg-gradient-to-r hover:from-[rgba(48,180,237,0.16)] hover:to-[rgba(227,6,110,0.16)]"
                   type="button"
-                  onClick={() => { onRevealPK(); closeDropdown(); }}
+                  onClick={() => {
+                    onRevealPK();
+                    closeDropdown();
+                  }}
                 >
                   <EyeIcon className="h-5 w-5" style={{ color: isDarkMode ? "white" : "black" }} />
                   <span style={{ color: isDarkMode ? "white" : "black" }}>Reveal Private Key</span>

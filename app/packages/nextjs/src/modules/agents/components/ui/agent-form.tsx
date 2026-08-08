@@ -1,8 +1,8 @@
 "use client";
 
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import type { Agent, AgentModel } from "../../types/agent";
 
@@ -74,8 +74,8 @@ export function AgentForm({ agent, onSubmit, onClose }: AgentFormProps) {
   };
 
   const toggleTool = (tool: string) => {
-    setSelectedTools((prev) => {
-      const newTools = prev.includes(tool) ? prev.filter((t) => t !== tool) : [...prev, tool];
+    setSelectedTools(prev => {
+      const newTools = prev.includes(tool) ? prev.filter(t => t !== tool) : [...prev, tool];
       setValue("tools", newTools);
       return newTools;
     });
@@ -86,14 +86,8 @@ export function AgentForm({ agent, onSubmit, onClose }: AgentFormProps) {
       <div className="w-full max-w-2xl mx-4 bg-card rounded-2xl border border-border/60 shadow-2xl max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="sticky top-0 flex items-center justify-between px-6 py-4 border-b border-border/40 bg-card z-10">
-          <h2 className="text-lg font-bold text-foreground">
-            {agent ? "Editar Agente" : "Crear Nuevo Agente"}
-          </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-2 rounded-lg hover:bg-muted/50 transition-colors"
-          >
+          <h2 className="text-lg font-bold text-foreground">{agent ? "Editar Agente" : "Crear Nuevo Agente"}</h2>
+          <button type="button" onClick={onClose} className="p-2 rounded-lg hover:bg-muted/50 transition-colors">
             <span className="material-symbols-outlined text-lg text-muted-foreground">close</span>
           </button>
         </div>
@@ -103,9 +97,11 @@ export function AgentForm({ agent, onSubmit, onClose }: AgentFormProps) {
           {/* Icon + Name */}
           <div className="flex items-start gap-4">
             <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Icono</label>
-              <div className="grid grid-cols-5 gap-2">
-                {AGENT_ICONS.map((icon) => (
+              <label id="icon-label" className="block text-sm font-medium text-foreground mb-2">
+                Icono
+              </label>
+              <div className="grid grid-cols-5 gap-2" role="group" aria-labelledby="icon-label">
+                {AGENT_ICONS.map(icon => (
                   <button
                     key={icon}
                     type="button"
@@ -132,9 +128,7 @@ export function AgentForm({ agent, onSubmit, onClose }: AgentFormProps) {
                 className="w-full px-4 py-2.5 rounded-xl border border-border/60 bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all"
                 placeholder="Nombre..."
               />
-              {errors.name && (
-                <p className="mt-1 text-xs text-destructive">{errors.name.message}</p>
-              )}
+              {errors.name && <p className="mt-1 text-xs text-destructive">{errors.name.message}</p>}
             </div>
           </div>
 
@@ -185,11 +179,11 @@ export function AgentForm({ agent, onSubmit, onClose }: AgentFormProps) {
 
           {/* Tools */}
           <div>
-            <label className="block text-sm font-medium text-foreground mb-2">
+            <label id="tools-label" className="block text-sm font-medium text-foreground mb-2">
               Herramientas Permitidas
             </label>
-            <div className="flex flex-wrap gap-2">
-              {AVAILABLE_TOOLS.map((tool) => (
+            <div className="flex flex-wrap gap-2" role="group" aria-labelledby="tools-label">
+              {AVAILABLE_TOOLS.map(tool => (
                 <button
                   key={tool}
                   type="button"
@@ -201,9 +195,7 @@ export function AgentForm({ agent, onSubmit, onClose }: AgentFormProps) {
                   }`}
                 >
                   {tool}
-                  {selectedTools.includes(tool) && (
-                    <span className="ml-1.5">×</span>
-                  )}
+                  {selectedTools.includes(tool) && <span className="ml-1.5">×</span>}
                 </button>
               ))}
             </div>
@@ -219,11 +211,7 @@ export function AgentForm({ agent, onSubmit, onClose }: AgentFormProps) {
               <p className="text-xs text-muted-foreground">Recordar contexto entre sesiones</p>
             </div>
             <label className="relative inline-flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                {...register("persistentMemory")}
-                className="sr-only peer"
-              />
+              <input type="checkbox" {...register("persistentMemory")} className="sr-only peer" />
               <div className="w-10 h-6 bg-muted rounded-full peer peer-checked:bg-primary peer-checked:after:translate-x-5 after:content-[''] after:absolute after:top-0.5 after:left-1 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all shadow-inner" />
             </label>
           </div>

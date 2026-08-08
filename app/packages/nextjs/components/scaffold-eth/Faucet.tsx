@@ -125,8 +125,16 @@ export const Faucet = () => {
         </button>
       </div>
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setIsModalOpen(false)}>
-          <div className="bg-card rounded-xl p-6 shadow-xl max-w-md w-full" onClick={e => e.stopPropagation()}>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          onClick={() => setIsModalOpen(false)}
+          onKeyDown={e => e.key === "Escape" && setIsModalOpen(false)}
+        >
+          <div
+            className="bg-card rounded-xl p-6 shadow-xl max-w-md w-full"
+            onClick={e => e.stopPropagation()}
+            onKeyDown={e => e.stopPropagation()}
+          >
             <h3 className="text-xl font-bold mb-3">Local Faucet</h3>
             <button
               type="button"

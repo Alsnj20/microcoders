@@ -1,132 +1,367 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useGlobalState } from "~~/services/store/store";
+import { api } from "~~/services/api/client";
+import { pinToIpfs, retrieveFromIpfs } from "~~/services/api/ipfs";
+import { encryptData, decryptData, createWalletEnvelope, decryptWalletEnvelope } from "~~/services/crypto/envelope";
+import { generateKData } from "~~/services/crypto/keys";
+import { arrayBufferToBase64, base64ToArrayBuffer } from "~~/services/crypto/utils";
 import type { Agent, AgentChatMessage, Conversation, CreateAgent, UpdateAgent } from "../types/agent";
 
-const INITIAL_AGENTS: Agent[] = [
-  {
-    id: "agent-1",
-    name: "Research Agent",
-    description: "Agente de investigación para recuperar y analizar información de documentos.",
-    icon: "🧠",
-    model: "gpt-5.5",
-    personality: "Eres un agente de investigación experto. Ayudas a los usuarios a encontrar información relevante en sus memorias y documentos.",
-    tools: ["SearchTool", "PDFLoader", "VectorStore"],
-    connectedMemories: ["mem-1", "mem-2"],
-    persistentMemory: true,
-    createdAt: "2024-05-10",
-    updatedAt: "2024-05-10",
-  },
-  {
-    id: "agent-2",
-    name: "Trading Assistant",
-    description: "Analista de DeFi & Yields para optimizar inversiones.",
-    icon: "📈",
-    model: "claude",
-    personality: "Eres un asistente de trading especializado en DeFi. Ayudas a analizar yields, pools de liquidez y oportunidades de inversión.",
-    tools: ["SearchTool", "BlockchainReader"],
-    connectedMemories: ["mem-3"],
-    persistentMemory: true,
-    createdAt: "2024-05-08",
-    updatedAt: "2024-05-09",
-  },
-  {
-    id: "agent-3",
-    name: "Code Reviewer",
-    description: "Revisa y mejora código con mejores prácticas.",
-    icon: "💻",
-    model: "gemini",
-    personality: "Eres un revisor de código experto. Analizas código, encuentras bugs, sugieres mejoras y aseguras que se sigan las mejores prácticas.",
-    tools: ["SearchTool", "CodeAnalyzer"],
-    connectedMemories: [],
-    persistentMemory: false,
-    createdAt: "2024-05-05",
-    updatedAt: "2024-05-05",
-  },
-];
-
-const INITIAL_CONVERSATIONS: Conversation[] = [
-  { id: "conv-1", agentId: "agent-1", title: "Investigación de LangChain", lastMessage: "He encontrado 3 documentos relevantes...", timestamp: "10:24 AM" },
-  { id: "conv-2", agentId: "agent-1", title: "Resumen de Paper: RAG", lastMessage: "El paper describe una arquitectura...", timestamp: "Ayer" },
-  { id: "conv-3", agentId: "agent-2", title: "Ideas para mi agente", lastMessage: "Aquí tienes algunas ideas...", timestamp: "2 días atrás" },
-  { id: "conv-4", agentId: "agent-1", title: "Arquitectura de memoria", lastMessage: "La arquitectura propuesta es...", timestamp: "3 días atrás" },
-];
-
-const INITIAL_MESSAGES: Record<string, AgentChatMessage[]> = {
-  "conv-1": [
-    { id: "msg-1", role: "assistant", content: "¡Hola! Soy tu agente de investigación. ¿En qué puedo ayudarte hoy?", timestamp: "10:20 AM" },
-    { id: "msg-2", role: "user", content: "¿Qué sabes sobre LangChain?", timestamp: "10:22 AM" },
-    { id: "msg-3", role: "assistant", content: "LangChain es un framework para desarrollar aplicaciones potenciadas por LLMs. Permite:\n\n• **Chains**: Composición de llamadas a LLMs\n• **Agents**: Uso de herramientas de forma autónoma\n• **Memory**: Gestión de contexto conversacional\n• **Retrieval**: RAG para documentos\n\n¿Te gustaría que profundice en algún aspecto específico?", timestamp: "10:24 AM" },
-  ],
-};
+// Agent blueprint = all rich metadata stored encrypted on IPFS
+// On-chain only stores: name, description (plain), cid, hash
+interface AgentBlueprint {
+  personality: string;
+  model: string;
+  icon: string;
+  tools: string[];
+  persistentMemory: boolean;
+}
 
 export function useAgent() {
-  const [agents, setAgents] = useState<Agent[]>(INITIAL_AGENTS);
-  const [conversations, setConversations] = useState<Conversation[]>(INITIAL_CONVERSATIONS);
-  const [messages, setMessages] = useState<Record<string, AgentChatMessage[]>>(INITIAL_MESSAGES);
-  const [selectedAgentId, setSelectedAgentId] = useState<string>("agent-1");
-  const [selectedConversationId, setSelectedConversationId] = useState<string>("conv-1");
+  const { session } = useGlobalState();
+  const [agents, setAgents] = useState<Agent[]>([]);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [messages, setMessages] = useState<Record<string, AgentChatMessage[]>>({});
+  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
+  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const selectedAgent = agents.find((a) => a.id === selectedAgentId) || null;
-  const agentConversations = conversations.filter((c) => c.agentId === selectedAgentId);
-  const currentMessages = messages[selectedConversationId] || [];
+  const selectedAgent = agents.find(a => a.id === selectedAgentId) || null;
+  const agentConversations = conversations.filter(c => c.agentId === selectedAgentId);
+  const currentMessages = selectedConversationId ? messages[selectedConversationId] || [] : [];
 
-  const getAgents = useCallback(() => agents, [agents]);
+  // ─── Fetch agents list from backend ────────────────────────────────────────
+  const fetchAgents = useCallback(async () => {
+    if (!session.isAuthenticated) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await api.agents.$get();
+      if (!res.ok) throw new Error("Failed to fetch agents");
+      const data = (await res.json()) as any;
 
-  const getAgent = useCallback((id: string) => agents.find((a) => a.id === id) || null, [agents]);
+      const mapped: Agent[] = (data.agents || []).map((a: any) => ({
+        id: a.agentId,
+        name: a.name,
+        description: a.description || "",
+        icon: "🤖", // Will be loaded from blueprint on demand
+        model: "gpt-5.5" as any,
+        personality: "",
+        tools: [],
+        connectedMemories: [],
+        persistentMemory: true,
+        cid: a.cid,
+        hash: a.hash,
+        createdAt: new Date(a.createdAt * 1000).toISOString().split("T")[0],
+        updatedAt: new Date(a.createdAt * 1000).toISOString().split("T")[0],
+      }));
 
-  const createAgent = useCallback((data: CreateAgent) => {
-    const now = new Date().toISOString();
-    const newAgent: Agent = {
-      ...data,
-      id: crypto.randomUUID(),
-      createdAt: now,
-      updatedAt: now,
-    };
-    setAgents((prev) => [...prev, newAgent]);
-    return newAgent;
+      setAgents(mapped);
+      if (mapped.length > 0 && !selectedAgentId) {
+        setSelectedAgentId(mapped[0].id);
+      }
+    } catch (err: any) {
+      console.error("Fetch agents error:", err);
+      setError(err.message || "Failed to load agents");
+    } finally {
+      setLoading(false);
+    }
+  }, [session.isAuthenticated, selectedAgentId]);
+
+  useEffect(() => {
+    fetchAgents();
+  }, [fetchAgents]);
+
+  // ─── Get & decrypt a single agent blueprint from IPFS ──────────────────────
+  const getAgent = useCallback(
+    async (id: string): Promise<Agent | null> => {
+      const localMeta = agents.find(a => a.id === id);
+      if (!localMeta) return null;
+
+      // Already fully loaded
+      if (localMeta.personality || !(localMeta as any).cid) return localMeta;
+
+      try {
+        if (!session.kWallet) {
+          throw new Error("Clave de wallet no disponible. Por favor, reautentíquese.");
+        }
+
+        const base64Data = await retrieveFromIpfs((localMeta as any).cid);
+        const jsonStr = new TextDecoder().decode(base64ToArrayBuffer(base64Data));
+        const envelope = JSON.parse(jsonStr);
+
+        const kData = await decryptWalletEnvelope(base64ToArrayBuffer(envelope.walletEnvelope), session.kWallet);
+
+        const plaintext = await decryptData(base64ToArrayBuffer(envelope.ciphertext), kData);
+        const blueprint: AgentBlueprint = JSON.parse(plaintext);
+
+        const fullAgent: Agent = {
+          ...localMeta,
+          icon: blueprint.icon || "🤖",
+          model: blueprint.model as any,
+          personality: blueprint.personality || "",
+          tools: blueprint.tools || [],
+          persistentMemory: blueprint.persistentMemory ?? true,
+        };
+
+        setAgents(prev => prev.map(a => (a.id === id ? fullAgent : a)));
+        return fullAgent;
+      } catch (err: any) {
+        console.error("Retrieve and decrypt agent error:", err);
+        throw err;
+      }
+    },
+    [agents, session.kWallet],
+  );
+
+  // ─── Create agent (encrypt blueprint → IPFS → on-chain) ───────────────────
+  const createAgent = useCallback(
+    async (data: CreateAgent): Promise<Agent> => {
+      if (!session.kWallet) {
+        throw new Error("Clave de wallet no disponible. Inicie sesión de nuevo.");
+      }
+
+      setLoading(true);
+      setError(null);
+
+      try {
+        const blueprint: AgentBlueprint = {
+          personality: data.personality || "",
+          model: data.model || "gpt-5.5",
+          icon: data.icon || "🤖",
+          tools: data.tools || [],
+          persistentMemory: data.persistentMemory ?? true,
+        };
+
+        // 1. Encrypt blueprint
+        const kData = generateKData();
+        const ciphertext = await encryptData(JSON.stringify(blueprint), kData);
+        const walletEnvelope = await createWalletEnvelope(kData, session.kWallet);
+
+        const ipfsPayload = {
+          ciphertext: arrayBufferToBase64(ciphertext),
+          walletEnvelope: arrayBufferToBase64(walletEnvelope),
+          recoveryEnvelope: "",
+        };
+
+        const rawBytes = new TextEncoder().encode(JSON.stringify(ipfsPayload));
+        const base64Payload = arrayBufferToBase64(rawBytes);
+
+        // 2. Pin to IPFS
+        const ipfsResult = await pinToIpfs(base64Payload, data.name);
+
+        // 3. Register on-chain via Hono API
+        const res = await api.agents.create.$post({
+          json: {
+            name: data.name,
+            description: data.description || "",
+            cid: ipfsResult.cid,
+            hash: ipfsResult.hash,
+          },
+        });
+
+        if (!res.ok) {
+          const errBody = (await res.json()) as any;
+          throw new Error(errBody.message || "Failed to register agent on-chain");
+        }
+
+        const newAgentData = (await res.json()) as any;
+        const newAgent: Agent = {
+          id: newAgentData.agentId,
+          name: data.name,
+          description: data.description || "",
+          icon: blueprint.icon,
+          model: blueprint.model as any,
+          personality: blueprint.personality,
+          tools: blueprint.tools,
+          connectedMemories: [],
+          persistentMemory: blueprint.persistentMemory,
+          createdAt: new Date().toISOString().split("T")[0],
+          updatedAt: new Date().toISOString().split("T")[0],
+        };
+
+        setAgents(prev => [newAgent, ...prev]);
+        if (!selectedAgentId) setSelectedAgentId(newAgent.id);
+        return newAgent;
+      } catch (err: any) {
+        console.error("Create agent error:", err);
+        setError(err.message || "Failed to create agent");
+        throw err;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [session.kWallet, selectedAgentId],
+  );
+
+  // ─── Update agent (re-encrypt blueprint → IPFS → on-chain) ────────────────
+  const updateAgent = useCallback(
+    async (id: string, data: UpdateAgent) => {
+      if (!session.kWallet) {
+        throw new Error("Clave de wallet no disponible. Inicie sesión de nuevo.");
+      }
+
+      setLoading(true);
+      setError(null);
+
+      try {
+        const localAgent = agents.find(a => a.id === id);
+        if (!localAgent) throw new Error("Agent not found locally");
+
+        const blueprint: AgentBlueprint = {
+          personality: data.personality ?? localAgent.personality ?? "",
+          model: data.model ?? localAgent.model ?? "gpt-5.5",
+          icon: data.icon ?? localAgent.icon ?? "🤖",
+          tools: data.tools ?? localAgent.tools ?? [],
+          persistentMemory: data.persistentMemory ?? localAgent.persistentMemory ?? true,
+        };
+
+        const kData = generateKData();
+        const ciphertext = await encryptData(JSON.stringify(blueprint), kData);
+        const walletEnvelope = await createWalletEnvelope(kData, session.kWallet);
+
+        const ipfsPayload = {
+          ciphertext: arrayBufferToBase64(ciphertext),
+          walletEnvelope: arrayBufferToBase64(walletEnvelope),
+          recoveryEnvelope: "",
+        };
+
+        const rawBytes = new TextEncoder().encode(JSON.stringify(ipfsPayload));
+        const base64Payload = arrayBufferToBase64(rawBytes);
+        const ipfsResult = await pinToIpfs(base64Payload, data.name || localAgent.name);
+
+        const res = await api.agents[":id"].$put({
+          param: { id },
+          json: {
+            cid: ipfsResult.cid,
+            hash: ipfsResult.hash,
+          },
+        });
+
+        if (!res.ok) {
+          const errBody = (await res.json()) as any;
+          throw new Error(errBody.message || "Failed to update agent on-chain");
+        }
+
+        setAgents(prev =>
+          prev.map(a =>
+            a.id === id
+              ? {
+                  ...a,
+                  name: data.name ?? a.name,
+                  description: data.description ?? a.description,
+                  icon: blueprint.icon,
+                  model: blueprint.model as any,
+                  personality: blueprint.personality,
+                  tools: blueprint.tools,
+                  persistentMemory: blueprint.persistentMemory,
+                  updatedAt: new Date().toISOString().split("T")[0],
+                }
+              : a,
+          ),
+        );
+      } catch (err: any) {
+        console.error("Update agent error:", err);
+        setError(err.message || "Failed to update agent");
+        throw err;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [agents, session.kWallet],
+  );
+
+  // ─── Delete (archive) agent ────────────────────────────────────────────────
+  const deleteAgent = useCallback(async (id: string) => {
+    setLoading(true);
+    try {
+      const res = await api.agents[":id"].archive.$post({ param: { id } });
+      if (!res.ok) throw new Error("Failed to archive agent on-chain");
+      setAgents(prev => prev.filter(a => a.id !== id));
+      setConversations(prev => prev.filter(c => c.agentId !== id));
+      setSelectedAgentId(prev => (prev === id ? null : prev));
+    } catch (err: any) {
+      console.error("Delete agent error:", err);
+      setError(err.message || "Failed to delete agent");
+      throw err;
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  const updateAgent = useCallback((id: string, data: UpdateAgent) => {
-    setAgents((prev) =>
-      prev.map((a) => (a.id === id ? { ...a, ...data, updatedAt: new Date().toISOString() } : a)),
+  // ─── Link / Unlink a memory to an agent ───────────────────────────────────
+  const linkMemory = useCallback(async (agentId: string, memoryId: string) => {
+    const res = await api.context.link.$post({
+      json: { agentId, memoryId, priority: 100 },
+    });
+    if (!res.ok) {
+      const errBody = (await res.json()) as any;
+      throw new Error(errBody.message || "Failed to link memory");
+    }
+    setAgents(prev =>
+      prev.map(a =>
+        a.id === agentId ? { ...a, connectedMemories: [...new Set([...a.connectedMemories, memoryId])] } : a,
+      ),
     );
   }, []);
 
-  const deleteAgent = useCallback((id: string) => {
-    setAgents((prev) => prev.filter((a) => a.id !== id));
-    setConversations((prev) => prev.filter((c) => c.agentId !== id));
+  const unlinkMemory = useCallback(async (agentId: string, memoryId: string) => {
+    const res = await api.context.unlink.$delete({
+      json: { agentId, memoryId },
+    });
+    if (!res.ok) {
+      const errBody = (await res.json()) as any;
+      throw new Error(errBody.message || "Failed to unlink memory");
+    }
+    setAgents(prev =>
+      prev.map(a =>
+        a.id === agentId ? { ...a, connectedMemories: a.connectedMemories.filter(m => m !== memoryId) } : a,
+      ),
+    );
   }, []);
 
-  const getConversations = useCallback((agentId: string) => {
-    return conversations.filter((c) => c.agentId === agentId);
-  }, [conversations]);
+  // ─── Fetch linked memories for an agent ───────────────────────────────────
+  const fetchLinkedMemories = useCallback(async (agentId: string): Promise<string[]> => {
+    const res = await api.context.agent[":agentId"].memories.$get({
+      param: { agentId },
+    });
+    if (!res.ok) return [];
+    const data = (await res.json()) as any;
+    return (data.links || []).map((l: any) => l.memoryId as string);
+  }, []);
+
+  // ─── Conversations (local, no on-chain yet) ────────────────────────────────
+  const getConversations = useCallback(
+    (agentId: string) => conversations.filter(c => c.agentId === agentId),
+    [conversations],
+  );
 
   const createConversation = useCallback((agentId: string) => {
-    const now = new Date().toISOString();
     const newConv: Conversation = {
       id: crypto.randomUUID(),
       agentId,
       title: "Nueva conversación",
-      timestamp: now,
+      timestamp: new Date().toISOString(),
     };
-    setConversations((prev) => [newConv, ...prev]);
+    setConversations(prev => [newConv, ...prev]);
     setSelectedConversationId(newConv.id);
-    setMessages((prev) => ({ ...prev, [newConv.id]: [] }));
+    setMessages(prev => ({ ...prev, [newConv.id]: [] }));
     return newConv;
   }, []);
 
+  // ─── Local message handling (Phase 5 will replace with real streaming) ─────
   const sendMessage = useCallback((conversationId: string, content: string) => {
     const now = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-
     const userMsg: AgentChatMessage = {
       id: crypto.randomUUID(),
       role: "user",
       content,
       timestamp: now,
     };
-
-    setMessages((prev) => ({
+    setMessages(prev => ({
       ...prev,
       [conversationId]: [...(prev[conversationId] || []), userMsg],
     }));
@@ -135,21 +370,17 @@ export function useAgent() {
       const assistantMsg: AgentChatMessage = {
         id: crypto.randomUUID(),
         role: "assistant",
-        content: `He recibido tu mensaje: "${content}". Procesando consulta contra tus memorias cifradas en MemoryChain...`,
+        content: `He recibido tu mensaje. La integración de streaming con IA se habilitará en la Fase 5. (Fase 4 completada ✓)`,
         timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       };
-
-      setMessages((prev) => ({
+      setMessages(prev => ({
         ...prev,
         [conversationId]: [...(prev[conversationId] || []), assistantMsg],
       }));
-
-      setConversations((prev) =>
-        prev.map((c) =>
-          c.id === conversationId ? { ...c, lastMessage: content, timestamp: now } : c,
-        ),
+      setConversations(prev =>
+        prev.map(c => (c.id === conversationId ? { ...c, lastMessage: content, timestamp: now } : c)),
       );
-    }, 1000);
+    }, 800);
   }, []);
 
   return {
@@ -161,7 +392,8 @@ export function useAgent() {
     setSelectedConversationId,
     agentConversations,
     currentMessages,
-    getAgents,
+    loading,
+    error,
     getAgent,
     createAgent,
     updateAgent,
@@ -169,5 +401,8 @@ export function useAgent() {
     getConversations,
     createConversation,
     sendMessage,
+    linkMemory,
+    unlinkMemory,
+    fetchLinkedMemories,
   };
 }

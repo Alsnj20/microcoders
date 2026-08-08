@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
 import { User } from "lucide-react";
+import { type ReactNode, useState } from "react";
 import { SharedBotAvatar } from "../shared/SharedBotAvatar";
 
 // ============================================================
@@ -14,11 +14,7 @@ interface ChatContainerProps {
 }
 
 export function ChatContainer({ children, className = "" }: ChatContainerProps) {
-  return (
-    <div className={`flex-1 flex flex-col h-full bg-background ${className}`}>
-      {children}
-    </div>
-  );
+  return <div className={`flex-1 flex flex-col h-full bg-background ${className}`}>{children}</div>;
 }
 
 // ============================================================
@@ -33,10 +29,10 @@ interface ChatMessagesProps {
 
 export function ChatMessages({ children, className = "", empty = false }: ChatMessagesProps) {
   return (
-    <div className={`flex-1 overflow-y-auto p-6 scrollbar-hide ${empty ? "flex items-center justify-center" : ""} ${className}`}>
-      <div className={`w-full max-w-4xl mx-auto ${empty ? "" : "flex flex-col gap-6 pt-4 pb-28"}`}>
-        {children}
-      </div>
+    <div
+      className={`flex-1 overflow-y-auto p-6 scrollbar-hide ${empty ? "flex items-center justify-center" : ""} ${className}`}
+    >
+      <div className={`w-full max-w-4xl mx-auto ${empty ? "" : "flex flex-col gap-6 pt-4 pb-28"}`}>{children}</div>
     </div>
   );
 }
@@ -56,9 +52,7 @@ export function ChatBubble({ role, content, timestamp, className = "" }: ChatBub
   const isUser = role === "user";
 
   return (
-    <div
-      className={`flex gap-3 ${isUser ? "justify-end" : "justify-start"} ${className}`}
-    >
+    <div className={`flex gap-3 ${isUser ? "justify-end" : "justify-start"} ${className}`}>
       {isUser ? (
         <div className="w-8 h-8 rounded-full bg-muted border border-border flex items-center justify-center shrink-0">
           <User className="w-4 h-4 text-muted-foreground" />
@@ -76,11 +70,7 @@ export function ChatBubble({ role, content, timestamp, className = "" }: ChatBub
       >
         <p className="text-sm whitespace-pre-wrap font-sans">{content}</p>
         {timestamp && (
-          <p
-            className={`text-xs mt-1 ${
-              isUser ? "text-primary-foreground/70" : "text-muted-foreground"
-            }`}
-          >
+          <p className={`text-xs mt-1 ${isUser ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
             {timestamp}
           </p>
         )}
@@ -127,7 +117,7 @@ export function ChatInput({
         <input
           type="text"
           value={input}
-          onChange={(e) => setInput(e.target.value)}
+          onChange={e => setInput(e.target.value)}
           placeholder={placeholder}
           disabled={disabled}
           className="flex-1 bg-transparent border-none outline-none font-sans text-base text-foreground placeholder:text-muted-foreground px-2"
@@ -227,16 +217,11 @@ export function ChatEmptyState({
         <SharedBotAvatar size="lg" />
       </div>
       <h3 className="text-lg font-semibold text-foreground mb-2">{title}</h3>
-      {description && (
-        <p className="text-sm text-muted-foreground max-w-md">{description}</p>
-      )}
+      {description && <p className="text-sm text-muted-foreground max-w-md">{description}</p>}
       {tools && tools.length > 0 && (
         <div className="flex flex-wrap gap-2 mt-6 justify-center">
-          {tools.map((tool) => (
-            <span
-              key={tool}
-              className="px-3 py-1.5 rounded-full bg-muted text-xs text-muted-foreground font-medium"
-            >
+          {tools.map(tool => (
+            <span key={tool} className="px-3 py-1.5 rounded-full bg-muted text-xs text-muted-foreground font-medium">
               {tool}
             </span>
           ))}
@@ -256,11 +241,7 @@ interface ChatHelperTextProps {
 }
 
 export function ChatHelperText({ children, className = "" }: ChatHelperTextProps) {
-  return (
-    <p className={`text-xs text-muted-foreground text-center mt-2 ${className}`}>
-      {children}
-    </p>
-  );
+  return <p className={`text-xs text-muted-foreground text-center mt-2 ${className}`}>{children}</p>;
 }
 
 // ============================================================
@@ -274,7 +255,9 @@ interface ChatAgentBadgeProps {
 
 export function ChatAgentBadge({ agentName, className = "" }: ChatAgentBadgeProps) {
   return (
-    <div className={`hidden sm:flex items-center gap-1.5 px-3 py-1 bg-muted rounded-full text-xs text-muted-foreground font-sans shrink-0 ${className}`}>
+    <div
+      className={`hidden sm:flex items-center gap-1.5 px-3 py-1 bg-muted rounded-full text-xs text-muted-foreground font-sans shrink-0 ${className}`}
+    >
       <span className="size-2 rounded-full bg-primary" />
       <span>{agentName}</span>
     </div>

@@ -192,6 +192,9 @@ importers:
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
+      hono:
+        specifier: ^4.13.0
+        version: 4.13.0
       kubo-rpc-client:
         specifier: ^6.1.0
         version: 6.1.0

@@ -12,7 +12,8 @@ export const FooterSection = () => {
             <span>MemoryChain</span>
           </div>
           <p className="text-sm text-muted-foreground">
-            &copy; {new Date().getFullYear()} MemoryChain Protocol. El protocolo descentralizado para la propiedad del conocimiento en IA.
+            &copy; {new Date().getFullYear()} MemoryChain Protocol. El protocolo descentralizado para la propiedad del
+            conocimiento en IA.
           </p>
         </div>
 

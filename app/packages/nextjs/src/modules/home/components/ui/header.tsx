@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
+import { useState } from "react";
 import { PetAvatar } from "~~/src/modules/pet/components/pet-avatar";
 import { usePet } from "~~/src/modules/pet/hooks/use-pet";
 
@@ -45,7 +45,7 @@ export const Header = () => {
 
         {/* Desktop Nav Links */}
         <div className="hidden lg:flex items-center gap-8">
-          {navLinks.map((link) => (
+          {navLinks.map(link => (
             <a
               key={link.name}
               href={link.href}
@@ -80,7 +80,7 @@ export const Header = () => {
       {/* Mobile Menu Dropdown */}
       {isMobileMenuOpen && (
         <div className="lg:hidden border-b border-border/40 bg-background/95 backdrop-blur-xl px-6 py-6 flex flex-col gap-4 shadow-xl">
-          {navLinks.map((link) => (
+          {navLinks.map(link => (
             <a
               key={link.name}
               href={link.href}

@@ -109,7 +109,15 @@ export const TupleArray = ({ abiTupleParameter, setParentForm, parentStateObject
     <div>
       <details className="bg-muted pl-4 py-1.5 border-2 border-secondary rounded-lg">
         <summary className="p-0 min-h-fit cursor-pointer text-primary-foreground/50 list-none flex items-center">
-          <svg className="w-4 h-4 mr-2 transition-transform details-open:rotate-90" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
+          <svg
+            className="w-4 h-4 mr-2 transition-transform details-open:rotate-90"
+            fill="none"
+            viewBox="0 0 24 24"
+            strokeWidth="2"
+            stroke="currentColor"
+            role="img"
+            aria-label="Expand"
+          >
             <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
           </svg>
           <p className="m-0 text-[1rem]">{abiTupleParameter.internalType}</p>
@@ -136,11 +144,19 @@ export const TupleArray = ({ abiTupleParameter, setParentForm, parentStateObject
             </div>
           ))}
           <div className="flex space-x-2">
-            <button type="button" className="inline-flex items-center justify-center rounded-lg font-medium transition-colors h-8 px-3 text-xs bg-secondary text-secondary-foreground" onClick={addInput}>
+            <button
+              type="button"
+              className="inline-flex items-center justify-center rounded-lg font-medium transition-colors h-8 px-3 text-xs bg-secondary text-secondary-foreground"
+              onClick={addInput}
+            >
               +
             </button>
             {additionalInputs.length > 0 && (
-              <button type="button" className="inline-flex items-center justify-center rounded-lg font-medium transition-colors h-8 px-3 text-xs bg-secondary text-secondary-foreground" onClick={removeInput}>
+              <button
+                type="button"
+                className="inline-flex items-center justify-center rounded-lg font-medium transition-colors h-8 px-3 text-xs bg-secondary text-secondary-foreground"
+                onClick={removeInput}
+              >
                 -
               </button>
             )}

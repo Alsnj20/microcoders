@@ -1,5 +1,6 @@
 import type { Hex } from "viem";
 import { generatePrivateKey } from "viem/accounts";
+import { isHex } from "viem";
 import { arbitrumNitro } from "./supportedChains";
 
 const burnerStorageKey = "burnerWallet.pk";
@@ -36,7 +37,8 @@ export const loadBurnerPK = ({ useSessionStorage = false }: { useSessionStorage?
   let currentSk: Hex = "0x";
   if (typeof window !== "undefined" && window != null) {
     const storage = useSessionStorage ? window.sessionStorage : window.localStorage;
-    currentSk = (storage?.getItem?.(burnerStorageKey)?.replaceAll('"', "") ?? "0x") as Hex;
+    const raw = storage?.getItem?.(burnerStorageKey)?.replaceAll('"', "") ?? "0x";
+    currentSk = isHex(raw) ? (raw as Hex) : "0x";
   }
 
   if (!!currentSk && isValidPK(currentSk)) {

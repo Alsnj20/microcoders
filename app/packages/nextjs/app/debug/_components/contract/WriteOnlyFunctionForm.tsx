@@ -151,7 +151,9 @@ export const WriteOnlyFunctionForm = ({
                 onClick={handleWrite}
                 data-testid="write-function-submit"
               >
-                {isPending && <span className="animate-spin border-2 border-current border-t-transparent rounded-full h-3 w-3" />}
+                {isPending && (
+                  <span className="animate-spin border-2 border-current border-t-transparent rounded-full h-3 w-3" />
+                )}
                 Send
               </button>
             </div>

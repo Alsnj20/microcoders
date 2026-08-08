@@ -8,20 +8,12 @@ interface MemoryHeaderProps {
   totalCount: number;
 }
 
-export function MemoryHeader({
-  searchQuery,
-  onSearchChange,
-  sortBy,
-  onSortChange,
-  totalCount,
-}: MemoryHeaderProps) {
+export function MemoryHeader({ searchQuery, onSearchChange, sortBy, onSortChange, totalCount }: MemoryHeaderProps) {
   return (
     <div>
       {/* Title */}
       <div className="mb-8">
-        <h1 className="text-3xl md:text-4xl font-extrabold text-foreground mb-2">
-          Mis memorias
-        </h1>
+        <h1 className="text-3xl md:text-4xl font-extrabold text-foreground mb-2">Mis memorias</h1>
         <p className="text-muted-foreground">
           Almacena, organiza y gestiona tus memorias de forma descentralizada y privada.
         </p>
@@ -37,7 +29,7 @@ export function MemoryHeader({
             type="text"
             placeholder="Buscar memorias..."
             value={searchQuery}
-            onChange={(e) => onSearchChange(e.target.value)}
+            onChange={e => onSearchChange(e.target.value)}
             className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-border/60 bg-card text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all"
           />
         </div>
@@ -50,7 +42,7 @@ export function MemoryHeader({
         </button>
         <select
           value={sortBy}
-          onChange={(e) => onSortChange(e.target.value as typeof sortBy)}
+          onChange={e => onSortChange(e.target.value as typeof sortBy)}
           className="px-4 py-2.5 rounded-xl border border-border/60 bg-card text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
         >
           <option value="recent">Más recientes</option>

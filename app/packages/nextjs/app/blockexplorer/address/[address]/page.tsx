@@ -90,7 +90,7 @@ export function generateStaticParams() {
 
 const AddressPage = async (props: PageProps) => {
   const params = await props.params;
-  const address = params?.address as Address;
+  const address = params?.address;
 
   if (isZeroAddress(address)) return null;
 

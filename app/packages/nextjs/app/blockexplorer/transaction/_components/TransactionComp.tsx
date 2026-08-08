@@ -39,7 +39,11 @@ const TransactionComp = ({ txHash }: { txHash: Hash }) => {
 
   return (
     <div className="container mx-auto mt-10 mb-20 px-10 md:px-0">
-      <button type="button" className="inline-flex items-center justify-center rounded-lg font-medium transition-colors h-8 px-3 text-xs bg-primary text-primary-foreground" onClick={() => router.back()}>
+      <button
+        type="button"
+        className="inline-flex items-center justify-center rounded-lg font-medium transition-colors h-8 px-3 text-xs bg-primary text-primary-foreground"
+        onClick={() => router.back()}
+      >
         Back
       </button>
       {transaction ? (
@@ -101,7 +105,9 @@ const TransactionComp = ({ txHash }: { txHash: Hash }) => {
                     ) : (
                       <>
                         <span className="mr-2">{getFunctionDetails(transaction)}</span>
-                        <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-primary text-primary-foreground font-bold">{functionCalled}</span>
+                        <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-primary text-primary-foreground font-bold">
+                          {functionCalled}
+                        </span>
                       </>
                     )}
                   </div>

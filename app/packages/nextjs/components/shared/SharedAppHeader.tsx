@@ -1,7 +1,10 @@
 "use client";
 
+import { ConnectButton } from "@rainbow-me/rainbowkit";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useAccount } from "wagmi";
+import { useSiwe } from "~~/src/modules/auth/hooks/useSiwe";
 import { SharedBotAvatar } from "./SharedBotAvatar";
 
 const NAV_LINKS = [
@@ -12,6 +15,8 @@ const NAV_LINKS = [
 
 export function SharedAppHeader() {
   const pathname = usePathname();
+  const { isConnected } = useAccount();
+  const { session, login, logout, loading } = useSiwe();
 
   const isActive = (href: string) => pathname.startsWith(href);
 
@@ -28,7 +33,7 @@ export function SharedAppHeader() {
 
         {/* Nav Links */}
         <div className="hidden md:flex items-center gap-6">
-          {NAV_LINKS.map((link) => (
+          {NAV_LINKS.map(link => (
             <Link
               key={link.href}
               href={link.href}
@@ -43,17 +48,40 @@ export function SharedAppHeader() {
           ))}
         </div>
 
-        {/* Wallet */}
+        {/* Wallet & Auth Section */}
         <div className="flex items-center gap-3">
-          <span className="text-xs font-mono text-muted-foreground bg-muted px-3 py-1.5 rounded-lg hidden sm:inline">
-            0x8a7B...3cF2
-          </span>
-          <button
-            type="button"
-            className="py-2 px-4 rounded-full bg-secondary text-secondary-foreground text-sm font-semibold hover:bg-secondary/90 transition-all border border-border"
-          >
-            Conectar Wallet
-          </button>
+          {!isConnected ? (
+            <ConnectButton label="Conectar Wallet" />
+          ) : !session.isAuthenticated ? (
+            <button
+              type="button"
+              onClick={login}
+              disabled={loading}
+              className="py-1.5 px-4 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/95 transition-all shadow-md flex items-center gap-2 disabled:opacity-50"
+            >
+              {loading ? (
+                <span className="animate-spin h-3 w-3 border-2 border-primary-foreground border-t-transparent rounded-full" />
+              ) : (
+                <span className="material-symbols-outlined text-sm">draw</span>
+              )}
+              <span>Firma SIWE</span>
+            </button>
+          ) : (
+            <div className="flex items-center gap-3">
+              <span className="text-xs font-mono text-primary bg-primary/10 border border-primary/20 px-3 py-1.5 rounded-lg hidden sm:inline flex items-center gap-1.5 font-bold">
+                <span className="h-1.5 w-1.5 bg-emerald-500 rounded-full animate-pulse" />
+                SIWE Activo
+              </span>
+              <button
+                type="button"
+                onClick={logout}
+                disabled={loading}
+                className="py-1.5 px-3 rounded-xl bg-accent text-accent-foreground text-xs font-semibold hover:bg-accent/80 transition-all border border-border/30"
+              >
+                Cerrar Sesión
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </nav>

@@ -37,23 +37,23 @@ export function PetWalkSection() {
 
   return (
     <div className="w-full bg-card flex justify-center">
-    <section ref={sectionRef} className="max-w-7xl relative w-full overflow-hidden" style={{ height: PET_SIZE + 32 }}>
-      <div
-        className="absolute bottom-8 left-0 right-0 h-px mx-12"
-        style={{
-          background: "linear-gradient(90deg, transparent, var(--border) 10%, var(--border) 90%, transparent)",
-        }}
-      />
+      <section ref={sectionRef} className="max-w-7xl relative w-full overflow-hidden" style={{ height: PET_SIZE + 32 }}>
+        <div
+          className="absolute bottom-8 left-0 right-0 h-px mx-12"
+          style={{
+            background: "linear-gradient(90deg, transparent, var(--border) 10%, var(--border) 90%, transparent)",
+          }}
+        />
 
-      <PetAvatar
-        spritesheet="/sprites/pet.png"
-        currentState={pet.currentState}
-        currentFrame={pet.currentFrame}
-        position={pet.position}
-        frameWidth={16}
-        frameHeight={16}
-        scale={SPRITE_SCALE}
-      />
+        <PetAvatar
+          spritesheet="/sprites/pet.png"
+          currentState={pet.currentState}
+          currentFrame={pet.currentFrame}
+          position={pet.position}
+          frameWidth={16}
+          frameHeight={16}
+          scale={SPRITE_SCALE}
+        />
       </section>
     </div>
   );

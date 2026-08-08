@@ -36,7 +36,8 @@ const imageUrl = `${baseUrl}/thumbnail.jpg`;
 
 const title = "MemoryChain | Propiedad del Conocimiento para IA";
 const titleTemplate = "%s | MemoryChain";
-const description = "El protocolo descentralizado para la propiedad del conocimiento utilizado por agentes de Inteligencia Artificial en Arbitrum Stylus.";
+const description =
+  "El protocolo descentralizado para la propiedad del conocimiento utilizado por agentes de Inteligencia Artificial en Arbitrum Stylus.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(baseUrl),

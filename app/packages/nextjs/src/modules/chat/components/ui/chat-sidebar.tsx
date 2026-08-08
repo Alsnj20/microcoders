@@ -2,8 +2,8 @@
 
 import {
   LateralBar,
-  LateralBarHeader,
   LateralBarContent,
+  LateralBarHeader,
   LateralBarSection,
   LateralBarSectionButton,
 } from "../../../../../components/ui/lateral-bar";
@@ -64,7 +64,7 @@ export function ChatSidebar({
       <LateralBarContent>
         {/* Conversations List */}
         <LateralBarSection title="CHATS">
-          {conversations.map((conv) => (
+          {conversations.map(conv => (
             <LateralBarSectionButton
               key={conv.id}
               onClick={() => onSelectConversation(conv.id)}
@@ -73,9 +73,7 @@ export function ChatSidebar({
             >
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-foreground break-words">{conv.title}</p>
-                {conv.lastMessage && (
-                  <p className="text-xs text-muted-foreground break-words">{conv.lastMessage}</p>
-                )}
+                {conv.lastMessage && <p className="text-xs text-muted-foreground break-words">{conv.lastMessage}</p>}
                 <p className="text-xs text-muted-foreground/60">{conv.timestamp}</p>
               </div>
             </LateralBarSectionButton>

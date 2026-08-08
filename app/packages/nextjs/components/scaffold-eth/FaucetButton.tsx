@@ -54,13 +54,7 @@ export const FaucetButton = () => {
   const isBalanceZero = balance && balance.value === 0n;
 
   return (
-    <div
-      className={
-        !isBalanceZero
-          ? "ml-1 group relative"
-          : "ml-1 group relative font-bold"
-      }
-    >
+    <div className={!isBalanceZero ? "ml-1 group relative" : "ml-1 group relative font-bold"}>
       {!isBalanceZero && (
         <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs text-primary-foreground bg-primary rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
           Grab funds from faucet
@@ -77,7 +71,11 @@ export const FaucetButton = () => {
         onClick={sendETH}
         disabled={loading}
       >
-        {!loading ? <BanknotesIcon className="h-4 w-4" /> : <span className="animate-spin border-2 border-current border-t-transparent rounded-full h-3 w-3" />}
+        {!loading ? (
+          <BanknotesIcon className="h-4 w-4" />
+        ) : (
+          <span className="animate-spin border-2 border-current border-t-transparent rounded-full h-3 w-3" />
+        )}
       </button>
     </div>
   );
