@@ -79,69 +79,71 @@ async function initializeContracts(
 
   console.log("\n🔧 Initializing contracts...");
 
+  // Helper: try to initialize, skip if already initialized
+  const tryInit = async (name: string, fn: () => Promise<any>) => {
+    try {
+      await fn();
+      console.log(`  ✅ ${name} initialized`);
+    } catch (e: any) {
+      const msg = e.shortMessage || e.message || "";
+      if (msg.includes("already initialized")) {
+        console.log(`  ⏭️  ${name} already initialized, skipping`);
+      } else {
+        console.log(`  ❌ ${name} failed: ${msg.slice(0, 100)}`);
+      }
+    }
+  };
+
   // 1. CreditManager.initialize()
-  console.log("  → CreditManager.initialize()");
-  const { request: cmInit } = await publicClient.simulateContract({
-    account,
-    address: addresses.creditManager,
-    abi: INITIALIZE_ABI,
-    functionName: "initialize",
+  await tryInit("CreditManager", async () => {
+    const { request } = await publicClient.simulateContract({
+      account, address: addresses.creditManager, abi: INITIALIZE_ABI, functionName: "initialize",
+    });
+    await walletClient.writeContract(request);
   });
-  await walletClient.writeContract(cmInit);
 
   // 2. UserRegistry.initialize()
-  console.log("  → UserRegistry.initialize()");
-  const { request: urInit } = await publicClient.simulateContract({
-    account,
-    address: addresses.userRegistry,
-    abi: INITIALIZE_ABI,
-    functionName: "initialize",
+  await tryInit("UserRegistry", async () => {
+    const { request } = await publicClient.simulateContract({
+      account, address: addresses.userRegistry, abi: INITIALIZE_ABI, functionName: "initialize",
+    });
+    await walletClient.writeContract(request);
   });
-  await walletClient.writeContract(urInit);
 
   // 3. MemoryRegistry.initialize(creditManager, userRegistry)
-  console.log("  → MemoryRegistry.initialize(creditManager, userRegistry)");
-  const { request: mrInit } = await publicClient.simulateContract({
-    account,
-    address: addresses.memoryRegistry,
-    abi: INITIALIZE_ABI,
-    functionName: "initialize",
-    args: [addresses.creditManager, addresses.userRegistry],
+  await tryInit("MemoryRegistry", async () => {
+    const { request } = await publicClient.simulateContract({
+      account, address: addresses.memoryRegistry, abi: INITIALIZE_ABI, functionName: "initialize",
+      args: [addresses.creditManager, addresses.userRegistry],
+    });
+    await walletClient.writeContract(request);
   });
-  await walletClient.writeContract(mrInit);
 
   // 4. AgentRegistry.initialize(creditManager, userRegistry)
-  console.log("  → AgentRegistry.initialize(creditManager, userRegistry)");
-  const { request: arInit } = await publicClient.simulateContract({
-    account,
-    address: addresses.agentRegistry,
-    abi: INITIALIZE_ABI,
-    functionName: "initialize",
-    args: [addresses.creditManager, addresses.userRegistry],
+  await tryInit("AgentRegistry", async () => {
+    const { request } = await publicClient.simulateContract({
+      account, address: addresses.agentRegistry, abi: INITIALIZE_ABI, functionName: "initialize",
+      args: [addresses.creditManager, addresses.userRegistry],
+    });
+    await walletClient.writeContract(request);
   });
-  await walletClient.writeContract(arInit);
 
   // 5. ContextRegistry.initialize(memoryRegistry, agentRegistry, creditManager)
-  console.log("  → ContextRegistry.initialize(memoryRegistry, agentRegistry, creditManager)");
-  const { request: ctxInit } = await publicClient.simulateContract({
-    account,
-    address: addresses.contextRegistry,
-    abi: INITIALIZE_ABI,
-    functionName: "initialize",
-    args: [addresses.memoryRegistry, addresses.agentRegistry, addresses.creditManager],
+  await tryInit("ContextRegistry", async () => {
+    const { request } = await publicClient.simulateContract({
+      account, address: addresses.contextRegistry, abi: INITIALIZE_ABI, functionName: "initialize",
+      args: [addresses.memoryRegistry, addresses.agentRegistry, addresses.creditManager],
+    });
+    await walletClient.writeContract(request);
   });
-  await walletClient.writeContract(ctxInit);
 
   // 6. AuditRegistry.initialize()
-  console.log("  → AuditRegistry.initialize()");
-  const { request: auditInit } = await publicClient.simulateContract({
-    account,
-    address: addresses.auditRegistry,
-    abi: INITIALIZE_ABI,
-    functionName: "initialize",
+  await tryInit("AuditRegistry", async () => {
+    const { request } = await publicClient.simulateContract({
+      account, address: addresses.auditRegistry, abi: INITIALIZE_ABI, functionName: "initialize",
+    });
+    await walletClient.writeContract(request);
   });
-  await walletClient.writeContract(auditInit);
-
   console.log("✅ All contracts initialized\n");
 }
 

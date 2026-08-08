@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import type { ContextRegistryContract } from "../types/contracts.js";
+import type { ContextRegistryContract, AuditRegistryContract } from "../types/contracts.js";
 import type { AppEnv } from "../index.js";
 
 const LinkMemorySchema = z.object({
@@ -24,7 +24,7 @@ function requireSession(c: { get: (key: string) => unknown; json: (body: unknown
   return session as { address: string; chainId: number; username: string | null };
 }
 
-export function createContextRoutes(contextRegistry: ContextRegistryContract): Hono<AppEnv> {
+export function createContextRoutes(contextRegistry: ContextRegistryContract, auditRegistry?: AuditRegistryContract): Hono<AppEnv> {
   const routes = new Hono<AppEnv>();
 
   routes.post("/link", async (c) => {
@@ -57,6 +57,11 @@ export function createContextRoutes(contextRegistry: ContextRegistryContract): H
     const context = await contextRegistry.getContext(result.data!);
     if (!context.success || !context.data) {
       return c.json({ code: "CONTRACT_ERROR", message: "Failed to read created link" }, 500);
+    }
+
+    // Audit: record memory linking
+    if (auditRegistry) {
+      await auditRegistry.recordAudit(session.address, 2, result.data!, 0);
     }
 
     return c.json(context.data);

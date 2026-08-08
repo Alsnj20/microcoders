@@ -97,7 +97,7 @@ export function LateralBarSectionButton({
     <button
       type="button"
       onClick={onClick}
-      className={`w-full flex items-center gap-3 px-4 py-3 rounded-r-lg text-left transition-all duration-200 ${
+      className={`w-full flex items-center gap-3 px-4 py-3 rounded-r-lg text-left transition-all duration-200 overflow-hidden ${
         isActive
           ? "border-l-4 border-primary bg-input text-primary font-bold"
           : "border-l-4 border-transparent text-muted-foreground hover:text-foreground hover:bg-surface-container-low hover:border-border"
@@ -167,5 +167,5 @@ interface LateralBarContentProps {
 }
 
 export function LateralBarContent({ children, className = "" }: LateralBarContentProps) {
-  return <div className={`flex-1 overflow-y-auto px-2 py-6 space-y-6 scrollbar-hide ${className}`}>{children}</div>;
+  return <div className={`flex-1 overflow-y-auto overflow-x-hidden px-2 py-6 space-y-6 scrollbar-hide ${className}`}>{children}</div>;
 }

@@ -2,6 +2,7 @@ export interface MemoryData {
   memoryId: string;
   owner: string;
   name: string;
+  description: string;
   cid: string;
   hash: string;
   memoryType: number;
@@ -29,6 +30,7 @@ export interface MemoryRegistryContract {
   createMemory(
     owner: string,
     name: string,
+    description: string,
     cid: string,
     hash: string,
     memoryType: number,
@@ -190,6 +192,8 @@ export interface CreditManagerContract {
   balanceOf(user: string): Promise<ContractResult<CreditBalance>>;
 
   hasSufficientCredits(user: string, amount: number): Promise<ContractResult<boolean>>;
+
+  buyCredits(user: string, amount: number, valueWei: string): Promise<ContractResult<void>>;
 
   getFees(): Promise<ContractResult<FeeSchedule>>;
 

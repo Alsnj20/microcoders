@@ -29,7 +29,7 @@ export function MemoryCard({ memory, onToggleFavorite, onEdit, onDelete }: Memor
   const typeInfo = TYPE_LABELS[memory.type] || TYPE_LABELS.texto;
 
   return (
-    <div className="group p-5 rounded-2xl border border-border/60 bg-card hover:border-primary/40 hover:shadow-lg transition-all duration-200">
+    <div className="min-h-50 group p-5 rounded-2xl border border-border/60 bg-card hover:border-primary/40 hover:shadow-lg transition-all duration-200">
       <div className="flex items-start justify-between mb-3">
         <span className={`text-xs font-bold px-2.5 py-1 rounded-md ${typeInfo.color}`}>{typeInfo.label}</span>
         <div className="flex items-center gap-1">

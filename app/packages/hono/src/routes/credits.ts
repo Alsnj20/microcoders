@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { z } from "zod";
 import type { CreditManagerContract } from "../types/contracts.js";
 import type { AppEnv } from "../index.js";
 
@@ -54,6 +55,43 @@ export function createCreditRoutes(creditManager: CreditManagerContract): Hono<A
 
   routes.get("/ai-fees", (c) => {
     return c.json({ fees: AI_FEES });
+  });
+
+  const BuyCreditsSchema = z.object({
+    amount: z.number().int().positive(),
+  });
+
+  routes.post("/buy", async (c) => {
+    const session = requireSession(c);
+    if (!session) {
+      return c.json({ code: "AUTH_REQUIRED", message: "No valid session" }, 401);
+    }
+
+    const body = await c.req.json();
+    const parsed = BuyCreditsSchema.safeParse(body);
+    if (!parsed.success) {
+      return c.json(
+        { code: "VALIDATION_ERROR", message: "Invalid request", details: parsed.error.flatten() },
+        400,
+      );
+    }
+
+    const priceResult = await creditManager.getPricing();
+    const pricePerCredit = priceResult.data?.pricePerCredit ?? "100000000000000";
+    const totalCost = BigInt(pricePerCredit) * BigInt(parsed.data.amount);
+
+    const result = await creditManager.buyCredits(
+      session.address,
+      parsed.data.amount,
+      totalCost.toString(),
+    );
+
+    if (!result.success) {
+      return c.json({ code: "CONTRACT_ERROR", message: result.error }, 500);
+    }
+
+    const balance = await creditManager.balanceOf(session.address);
+    return c.json({ success: true, balance: balance.data?.balance ?? 0 });
   });
 
   return routes;

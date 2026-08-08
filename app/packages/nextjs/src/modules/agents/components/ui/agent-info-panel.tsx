@@ -1,13 +1,16 @@
 "use client";
 
+import { Button } from "~~/components/ui/button";
 import type { Agent } from "../../types/agent";
 
 interface AgentInfoPanelProps {
   agent: Agent | null;
   onEdit: (agent: Agent) => void;
+  onLinkMemory?: () => void;
+  onStartChat?: () => void;
 }
 
-export function AgentInfoPanel({ agent, onEdit }: AgentInfoPanelProps) {
+export function AgentInfoPanel({ agent, onEdit, onLinkMemory, onStartChat }: AgentInfoPanelProps) {
   if (!agent) {
     return (
       <aside className="hidden xl:block w-80 min-h-[calc(100vh-4rem)] border-l border-border/40 bg-background p-6">
@@ -25,13 +28,9 @@ export function AgentInfoPanel({ agent, onEdit }: AgentInfoPanelProps) {
       <div className="p-6 border-b border-border/40">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-semibold text-muted-foreground tracking-wider">CONEXIONES</h3>
-          <button
-            type="button"
-            onClick={() => onEdit(agent)}
-            className="p-2 rounded-lg hover:bg-muted/50 transition-colors"
-          >
-            <span className="material-symbols-outlined text-lg text-muted-foreground">edit</span>
-          </button>
+          <Button variant="ghost" size="icon" onClick={() => onEdit(agent)}>
+            <span className="material-symbols-outlined text-lg">edit</span>
+          </Button>
         </div>
       </div>
 
@@ -85,6 +84,12 @@ export function AgentInfoPanel({ agent, onEdit }: AgentInfoPanelProps) {
             {agent.connectedMemories.length} memoria{agent.connectedMemories.length !== 1 ? "s" : ""} conectada
             {agent.connectedMemories.length !== 1 ? "s" : ""}
           </p>
+          {onLinkMemory && (
+            <Button variant="outline" size="sm" className="mt-2" onClick={onLinkMemory}>
+              <span className="material-symbols-outlined text-sm">link</span>
+              Vincular memoria
+            </Button>
+          )}
         </div>
 
         {/* Persistent Memory */}
@@ -103,6 +108,14 @@ export function AgentInfoPanel({ agent, onEdit }: AgentInfoPanelProps) {
             />
           </div>
         </div>
+
+        {/* Start Chat Button */}
+        {onStartChat && (
+          <Button className="w-full" onClick={onStartChat}>
+            <span className="material-symbols-outlined text-sm">chat</span>
+            Iniciar Chat
+          </Button>
+        )}
 
         {/* Stats */}
         <div className="pt-4 border-t border-border/40">

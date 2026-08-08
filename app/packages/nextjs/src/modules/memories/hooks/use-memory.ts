@@ -9,6 +9,12 @@ import { generateKData } from "~~/services/crypto/keys";
 import { arrayBufferToBase64, base64ToArrayBuffer } from "~~/services/crypto/utils";
 import type { Collection, CreateMemory, Memory, UpdateMemory } from "../types/memory";
 
+function generateDevHash(): string {
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  return "0x" + Array.from(bytes).map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
 const typeToNum = (type: string): number => {
   switch (type) {
     case "documento":
@@ -50,8 +56,19 @@ const INITIAL_COLLECTIONS: Collection[] = [
 ];
 
 export function useMemory() {
-  const { session } = useGlobalState();
+  const { session, setCreditBalance } = useGlobalState();
   const [memories, setMemories] = useState<Memory[]>([]);
+  const [archivedCount, setArchivedCount] = useState(0);
+
+  const refreshBalance = useCallback(async () => {
+    try {
+      const res = await api.credits.balance.$get();
+      if (res.ok) {
+        const data = await res.json();
+        setCreditBalance(data.balance ?? 0);
+      }
+    } catch {}
+  }, [setCreditBalance]);
   const [collections] = useState<Collection[]>(INITIAL_COLLECTIONS);
   const [selectedCollection, setSelectedCollection] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
@@ -87,15 +104,21 @@ export function useMemory() {
 
       const favorites = loadFavorites();
 
-      const mappedMemories: Memory[] = (data.memories || []).map((m: any) => ({
-        id: m.memoryId,
-        title: m.name,
-        description: "",
-        type: numToType(m.memoryType) as any,
-        collectionId: "all",
-        isFavorite: favorites.has(m.memoryId),
-        cid: m.cid,
-        hash: m.hash,
+      const allMemories = data.memories || [];
+      const archived = allMemories.filter((m: any) => m.status === 1).length;
+      setArchivedCount(archived);
+
+      const mappedMemories: Memory[] = allMemories
+        .map((m: any) => ({
+          id: m.memoryId,
+          title: m.name,
+          description: m.description || "",
+          type: numToType(m.memoryType) as any,
+          collectionId: "all",
+          isFavorite: favorites.has(m.memoryId),
+          isArchived: m.status === 1,
+          cid: m.cid,
+          hash: m.hash,
         createdAt: new Date(m.createdAt * 1000).toISOString().split("T")[0],
         updatedAt: new Date(m.createdAt * 1000).toISOString().split("T")[0],
       }));
@@ -159,7 +182,7 @@ export function useMemory() {
       setError(null);
 
       try {
-        let ipfsResult = { cid: `dev-${Date.now()}`, hash: "0x" + "00".repeat(32) };
+        let ipfsResult = { cid: `dev-${Date.now()}`, hash: generateDevHash() };
 
         if (session.kWallet) {
           // Production: encrypt → IPFS → on-chain
@@ -210,6 +233,7 @@ export function useMemory() {
         };
 
         setMemories(prev => [newMemory, ...prev]);
+        refreshBalance();
         return newMemory;
       } catch (err: any) {
         console.error("Create memory error:", err);
@@ -219,7 +243,7 @@ export function useMemory() {
         setLoading(false);
       }
     },
-    [session.kWallet],
+    [session.kWallet, refreshBalance],
   );
 
   const updateMemory = useCallback(
@@ -231,7 +255,7 @@ export function useMemory() {
         const localMeta = memories.find(m => m.id === id);
         if (!localMeta) throw new Error("Memory not found locally");
 
-        let ipfsResult = { cid: `dev-${Date.now()}`, hash: "0x" + "00".repeat(32) };
+        let ipfsResult = { cid: `dev-${Date.now()}`, hash: generateDevHash() };
 
         if (session.kWallet) {
           const kData = generateKData();
@@ -251,7 +275,11 @@ export function useMemory() {
 
         // 4. Pin to IPFS (if not already pinned with encryption)
         if (!session.kWallet) {
-          ipfsResult = await pinToIpfs(JSON.stringify(data), data.title || localMeta.title);
+          try {
+            ipfsResult = await pinToIpfs(JSON.stringify(data), data.title || localMeta.title);
+          } catch {
+            // Dev mode: skip IPFS pinning
+          }
         }
 
         // 5. Update on Hono API
@@ -304,6 +332,7 @@ export function useMemory() {
       });
       if (!res.ok) throw new Error("Failed to archive memory on-chain");
       setMemories(prev => prev.filter(m => m.id !== id));
+      refreshBalance();
     } catch (err: any) {
       console.error("Delete memory error:", err);
       setError(err.message || "Failed to delete memory");
@@ -311,7 +340,7 @@ export function useMemory() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [refreshBalance]);
 
   const toggleFavorite = useCallback((id: string) => {
     setMemories(prev => {
@@ -370,6 +399,7 @@ export function useMemory() {
     deleteMemory,
     toggleFavorite,
     totalByCollection,
+    archivedCount,
     loading,
     error,
   };

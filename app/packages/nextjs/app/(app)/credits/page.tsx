@@ -2,16 +2,53 @@
 
 import { useState } from "react";
 import { useAccount } from "wagmi";
+import { Button } from "~~/components/ui/button";
+import { Input } from "~~/components/ui/input";
 import { useGlobalState } from "~~/services/store/store";
 import { api } from "~~/services/api/client";
 
+const CREDIT_PACKS = [
+  { amount: 50, price: "0.005", label: "Plan Starter", description: "Para empezar" },
+  { amount: 100, price: "0.01", label: "Plan Regular", description: "Uso regular" },
+  { amount: 200, price: "0.02", label: "Plan Pro", description: "Power user" },
+];
+
+function getPlanName(balance: number): string {
+  if (balance >= 200) return "Plan Pro";
+  if (balance >= 100) return "Plan Regular";
+  if (balance >= 50) return "Plan Starter";
+  return "Plan Free";
+}
+
+function getPlanMax(balance: number): number {
+  if (balance >= 200) return 200;
+  if (balance >= 100) return 100;
+  if (balance >= 50) return 50;
+  return 50;
+}
+
 export default function CreditsPage() {
   const { address } = useAccount();
-  const { creditBalance } = useGlobalState();
-  const [amount, setAmount] = useState(10);
+  const { creditBalance, setCreditBalance } = useGlobalState();
+  const [amount, setAmount] = useState(50);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+
+  const selectedPack = CREDIT_PACKS.find((p) => p.amount === amount);
+  const planName = selectedPack ? selectedPack.label : amount > 0 ? "Plan personalizado" : "Plan Free";
+  const planMax = getPlanMax(creditBalance);
+  const barPercent = Math.min(100, (creditBalance / planMax) * 100);
+
+  const refreshBalance = async () => {
+    try {
+      const res = await api.credits.balance.$get();
+      if (res.ok) {
+        const data = await res.json();
+        setCreditBalance(data.balance ?? 0);
+      }
+    } catch {}
+  };
 
   const handlePurchase = async () => {
     if (!address) return;
@@ -30,6 +67,7 @@ export default function CreditsPage() {
       }
 
       setSuccess(true);
+      await refreshBalance();
       setTimeout(() => setSuccess(false), 3000);
     } catch (err: any) {
       setError(err.message || "Purchase failed");
@@ -42,54 +80,73 @@ export default function CreditsPage() {
     <div className="max-w-2xl mx-auto px-4 py-8">
       <h1 className="text-2xl font-bold mb-6">Créditos MemoryChain</h1>
 
-      {/* Current Balance */}
+      {/* Current Balance + Plan */}
       <div className="bg-card rounded-xl border border-border p-6 mb-6">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between mb-4">
           <div>
             <p className="text-sm text-muted-foreground">Balance actual</p>
-            <p className="text-3xl font-bold text-primary">{creditBalance} MC</p>
+            <div className="flex items-baseline gap-1.5">
+              <p className="text-3xl font-bold text-primary">{creditBalance}</p>
+              <span className="text-lg font-medium text-muted-foreground">MC</span>
+            </div>
           </div>
           <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
             <span className="material-symbols-outlined text-primary">token</span>
           </div>
         </div>
+        <div className="h-2 bg-border rounded-full overflow-hidden mb-2">
+          <div
+            className="h-full bg-emerald-500 rounded-full transition-all duration-500"
+            style={{ width: `${barPercent}%` }}
+          />
+        </div>
+        <div className="flex items-center justify-between">
+          <p className="text-xs text-muted-foreground">
+            Plan actual: <span className="font-medium text-foreground">{getPlanName(creditBalance)}</span>
+          </p>
+          <p className="text-xs text-muted-foreground">{creditBalance} / {planMax} MC</p>
+        </div>
       </div>
 
       {/* Purchase Section */}
       <div className="bg-card rounded-xl border border-border p-6">
-        <h2 className="text-lg font-semibold mb-4">Comprar créditos</h2>
-        <p className="text-sm text-muted-foreground mb-4">
-          Los créditos se utilizan para operaciones en la red (crear memorias, agentes, ejecutar consultas).
+        <h2 className="text-lg font-semibold mb-1">Comprar créditos</h2>
+        <p className="text-xs text-muted-foreground mb-4">
+          Selecciona un plan o ingresa una cantidad personalizada.
         </p>
 
-        <div className="mb-4">
-          <label className="block text-sm font-medium mb-2">Cantidad</label>
-          <div className="flex gap-2">
-            {[10, 25, 50, 100].map(qty => (
-              <button
-                key={qty}
-                onClick={() => setAmount(qty)}
-                className={`flex-1 py-2 px-3 rounded-lg border text-sm font-medium transition-all ${
-                  amount === qty
-                    ? "bg-primary text-primary-foreground border-primary"
-                    : "bg-background border-border hover:border-primary/50"
-                }`}
-              >
-                {qty} MC
-              </button>
-            ))}
-          </div>
+        <div className="grid grid-cols-3 gap-3 mb-4">
+          {CREDIT_PACKS.map((pack) => (
+            <button
+              key={pack.amount}
+              onClick={() => setAmount(pack.amount)}
+              className={`p-4 rounded-xl border text-center transition-all ${
+                amount === pack.amount
+                  ? "border-primary bg-primary/5 ring-2 ring-primary/20"
+                  : "border-border hover:border-primary/50"
+              }`}
+            >
+              <p className="text-xs font-medium text-muted-foreground">{pack.label}</p>
+              <p className="text-2xl font-bold text-foreground mt-1">{pack.amount}</p>
+              <p className="text-xs text-muted-foreground">MC</p>
+              <p className="text-xs text-primary font-medium mt-2">{pack.price} ETH</p>
+            </button>
+          ))}
         </div>
 
-        <div className="mb-6">
-          <label className="block text-sm font-medium mb-2">O ingresa cantidad personalizada</label>
-          <input
+        <div className="mb-4">
+          <label className="block text-xs font-medium text-muted-foreground mb-1.5">Cantidad personalizada</label>
+          <Input
             type="number"
             min={1}
             value={amount}
-            onChange={e => setAmount(Number(e.target.value))}
-            className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+            onChange={(e) => setAmount(Number(e.target.value))}
           />
+        </div>
+
+        <div className="mb-4 p-3 rounded-lg bg-muted/50 flex items-center justify-between">
+          <span className="text-sm text-muted-foreground">Plan seleccionado</span>
+          <span className="text-sm font-semibold text-foreground">{planName}</span>
         </div>
 
         {error && (
@@ -98,26 +155,23 @@ export default function CreditsPage() {
 
         {success && (
           <div className="mb-4 p-3 rounded-lg bg-emerald-500/10 text-emerald-600 text-sm">
-            ¡Créditos comprados exitosamente!
+            ¡Créditos comprados! Balance actualizado.
           </div>
         )}
 
-        <button
+        <Button
+          className="w-full"
+          size="lg"
           onClick={handlePurchase}
-          disabled={loading || !address || amount <= 0}
-          className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-semibold hover:bg-primary/95 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+          disabled={loading || amount <= 0}
         >
           {loading ? (
             <span className="animate-spin h-4 w-4 border-2 border-primary-foreground border-t-transparent rounded-full" />
           ) : (
             <span className="material-symbols-outlined">shopping_cart</span>
           )}
-          <span>Comprar {amount} MC</span>
-        </button>
-
-        {!address && (
-          <p className="text-center text-sm text-muted-foreground mt-3">Conecta tu wallet para comprar</p>
-        )}
+          Comprar {amount} MC
+        </Button>
       </div>
     </div>
   );

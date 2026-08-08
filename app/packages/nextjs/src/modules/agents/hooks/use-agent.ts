@@ -19,10 +19,26 @@ interface AgentBlueprint {
   persistentMemory: boolean;
 }
 
+function generateDevHash(): string {
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  return "0x" + Array.from(bytes).map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
 export function useAgent() {
-  const { session } = useGlobalState();
+  const { session, setCreditBalance } = useGlobalState();
   const [agents, setAgents] = useState<Agent[]>([]);
   const [conversations, setConversations] = useState<Conversation[]>([]);
+
+  const refreshBalance = useCallback(async () => {
+    try {
+      const res = await api.credits.balance.$get();
+      if (res.ok) {
+        const data = await res.json();
+        setCreditBalance(data.balance ?? 0);
+      }
+    } catch {}
+  }, [setCreditBalance]);
   const [messages, setMessages] = useState<Record<string, AgentChatMessage[]>>({});
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
@@ -43,21 +59,23 @@ export function useAgent() {
       if (!res.ok) throw new Error("Failed to fetch agents");
       const data = (await res.json()) as any;
 
-      const mapped: Agent[] = (data.agents || []).map((a: any) => ({
-        id: a.agentId,
-        name: a.name,
-        description: a.description || "",
-        icon: "🤖", // Will be loaded from blueprint on demand
-        model: "gpt-5.5" as any,
-        personality: "",
-        tools: [],
-        connectedMemories: [],
-        persistentMemory: true,
-        cid: a.cid,
-        hash: a.hash,
-        createdAt: new Date(a.createdAt * 1000).toISOString().split("T")[0],
-        updatedAt: new Date(a.createdAt * 1000).toISOString().split("T")[0],
-      }));
+      const mapped: Agent[] = (data.agents || [])
+        .filter((a: any) => a.status === 0)
+        .map((a: any) => ({
+          id: a.agentId,
+          name: a.name,
+          description: a.description || "",
+          icon: "🤖",
+          model: "gpt-5.5" as any,
+          personality: "",
+          tools: [],
+          connectedMemories: [],
+          persistentMemory: true,
+          cid: a.cid,
+          hash: a.hash,
+          createdAt: new Date(a.createdAt * 1000).toISOString().split("T")[0],
+          updatedAt: new Date(a.createdAt * 1000).toISOString().split("T")[0],
+        }));
 
       setAgents(mapped);
       if (mapped.length > 0 && !selectedAgentId) {
@@ -135,7 +153,7 @@ export function useAgent() {
       setError(null);
 
       try {
-        let ipfsResult = { cid: `dev-${Date.now()}`, hash: "0x" + "00".repeat(32) };
+        let ipfsResult = { cid: `dev-${Date.now()}`, hash: generateDevHash() };
 
         const blueprint: AgentBlueprint = {
           personality: data.personality || "",
@@ -194,6 +212,7 @@ export function useAgent() {
 
         setAgents(prev => [newAgent, ...prev]);
         if (!selectedAgentId) setSelectedAgentId(newAgent.id);
+        refreshBalance();
         return newAgent;
       } catch (err: any) {
         console.error("Create agent error:", err);
@@ -203,7 +222,7 @@ export function useAgent() {
         setLoading(false);
       }
     },
-    [session.kWallet, selectedAgentId],
+    [session.kWallet, selectedAgentId, refreshBalance],
   );
 
   // ─── Update agent (re-encrypt blueprint → IPFS → on-chain) ────────────────
@@ -216,7 +235,7 @@ export function useAgent() {
         const localAgent = agents.find(a => a.id === id);
         if (!localAgent) throw new Error("Agent not found locally");
 
-        let ipfsResult = { cid: `dev-${Date.now()}`, hash: "0x" + "00".repeat(32) };
+        let ipfsResult = { cid: `dev-${Date.now()}`, hash: generateDevHash() };
 
         const blueprint: AgentBlueprint = {
           personality: data.personality ?? localAgent.personality ?? "",
@@ -306,7 +325,8 @@ export function useAgent() {
     const res = await api.context.link.$post({
       json: { agentId, memoryId, priority: 100 },
     });
-    if (!res.ok) {
+    // 409 = already linked, still update local state
+    if (!res.ok && res.status !== 409) {
       const errBody = (await res.json()) as any;
       throw new Error(errBody.message || "Failed to link memory");
     }

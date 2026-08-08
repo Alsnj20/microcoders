@@ -1,10 +1,11 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import type { MemoryRegistryContract } from "../types/contracts.js";
+import type { MemoryRegistryContract, AuditRegistryContract } from "../types/contracts.js";
 import type { AppEnv } from "../index.js";
 
 const CreateMemorySchema = z.object({
   name: z.string().min(1),
+  description: z.string().optional().default(""),
   cid: z.string().min(1),
   hash: z.string().refine((v) => v.replace("0x", "").length === 64, "hash must be 64 hex chars"),
   memoryType: z.number().int().min(0).max(4),
@@ -24,7 +25,7 @@ function requireSession(c: { get: (key: string) => unknown; json: (body: unknown
   return session as { address: string; chainId: number; username: string | null };
 }
 
-export function createMemoryRoutes(memoryRegistry: MemoryRegistryContract): Hono<AppEnv> {
+export function createMemoryRoutes(memoryRegistry: MemoryRegistryContract, auditRegistry?: AuditRegistryContract): Hono<AppEnv> {
   const routes = new Hono<AppEnv>();
 
   routes.post("/create", async (c) => {
@@ -45,6 +46,7 @@ export function createMemoryRoutes(memoryRegistry: MemoryRegistryContract): Hono
     const result = await memoryRegistry.createMemory(
       session.address,
       parsed.data.name,
+      parsed.data.description,
       parsed.data.cid,
       parsed.data.hash,
       parsed.data.memoryType,
@@ -60,9 +62,15 @@ export function createMemoryRoutes(memoryRegistry: MemoryRegistryContract): Hono
       return c.json({ code: "CONTRACT_ERROR", message: "Failed to read created memory" }, 500);
     }
 
+    // Audit: record memory creation
+    if (auditRegistry) {
+      await auditRegistry.recordAudit(session.address, 0, memory.data.memoryId, 0);
+    }
+
     return c.json({
       memoryId: memory.data.memoryId,
       name: parsed.data.name,
+      description: parsed.data.description,
       cid: memory.data.cid,
       hash: memory.data.hash,
       version: memory.data.version,

@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import type { AgentRegistryContract } from "../types/contracts.js";
+import type { AgentRegistryContract, AuditRegistryContract } from "../types/contracts.js";
 import type { AppEnv } from "../index.js";
 
 const CreateAgentSchema = z.object({
@@ -21,7 +21,7 @@ function requireSession(c: { get: (key: string) => unknown; json: (body: unknown
   return session as { address: string; chainId: number; username: string | null };
 }
 
-export function createAgentRoutes(agentRegistry: AgentRegistryContract): Hono<AppEnv> {
+export function createAgentRoutes(agentRegistry: AgentRegistryContract, auditRegistry?: AuditRegistryContract): Hono<AppEnv> {
   const routes = new Hono<AppEnv>();
 
   routes.post("/create", async (c) => {
@@ -56,10 +56,15 @@ export function createAgentRoutes(agentRegistry: AgentRegistryContract): Hono<Ap
       return c.json({ code: "CONTRACT_ERROR", message: "Failed to read created agent" }, 500);
     }
 
+    // Audit: record agent creation
+    if (auditRegistry) {
+      await auditRegistry.recordAudit(session.address, 1, agent.data.agentId, 0);
+    }
+
     return c.json({
       agentId: agent.data.agentId,
-      name: agent.data.name,
-      description: agent.data.description,
+      name: parsed.data.name,
+      description: parsed.data.description,
       cid: agent.data.cid,
       hash: agent.data.hash,
       version: agent.data.version,

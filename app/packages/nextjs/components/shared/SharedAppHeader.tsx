@@ -1,23 +1,22 @@
 "use client";
 
-import { ConnectButton } from "@rainbow-me/rainbowkit";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAccount } from "wagmi";
-import { useSiwe } from "~~/src/modules/auth/hooks/useSiwe";
 import { useGlobalState } from "~~/services/store/store";
 import { SharedBotAvatar } from "./SharedBotAvatar";
 
 const NAV_LINKS = [
   { name: "Chat", href: "/chat" },
-  { name: "Memorias", href: "/memories" },
   { name: "Agentes", href: "/agents" },
+  { name: "Memorias", href: "/memories" },
+  { name: "Créditos", href: "/credits" },
 ];
 
 export function SharedAppHeader() {
   const pathname = usePathname();
   const { isConnected } = useAccount();
-  const { session, login, logout, loading } = useSiwe();
+  const { session } = useGlobalState();
   const { creditBalance } = useGlobalState();
 
   const isActive = (href: string) => pathname.startsWith(href);
@@ -50,27 +49,10 @@ export function SharedAppHeader() {
           ))}
         </div>
 
-        {/* Wallet & Auth Section */}
+        {/* Right side: only show when wallet is connected */}
         <div className="flex items-center gap-3">
-          {!isConnected ? (
-            <ConnectButton label="Conectar Wallet" />
-          ) : !session.isAuthenticated ? (
-            <button
-              type="button"
-              onClick={login}
-              disabled={loading}
-              className="py-1.5 px-4 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/95 transition-all shadow-md flex items-center gap-2 disabled:opacity-50"
-            >
-              {loading ? (
-                <span className="animate-spin h-3 w-3 border-2 border-primary-foreground border-t-transparent rounded-full" />
-              ) : (
-                <span className="material-symbols-outlined text-sm">draw</span>
-              )}
-              <span>Firma SIWE</span>
-            </button>
-          ) : (
-            <div className="flex items-center gap-3">
-              {/* Credit Balance */}
+          {isConnected && session.isAuthenticated && (
+            <>
               <Link
                 href="/credits"
                 className="text-xs font-mono text-emerald-600 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-lg flex items-center gap-1.5 hover:bg-emerald-100 transition-all"
@@ -80,17 +62,16 @@ export function SharedAppHeader() {
               </Link>
               <span className="text-xs font-mono text-primary bg-primary/10 border border-primary/20 px-3 py-1.5 rounded-lg hidden sm:inline flex items-center gap-1.5 font-bold">
                 <span className="h-1.5 w-1.5 bg-emerald-500 rounded-full animate-pulse" />
-                SIWE Activo
+                Conectado
               </span>
               <button
-                type="button"
-                onClick={logout}
-                disabled={loading}
-                className="py-1.5 px-3 rounded-xl bg-accent text-accent-foreground text-xs font-semibold hover:bg-accent/80 transition-all border border-border/30"
+                onClick={() => { localStorage.clear(); window.location.reload(); }}
+                className="text-xs text-muted-foreground hover:text-foreground"
+                title="Reset onboarding"
               >
-                Cerrar Sesión
+                <span className="material-symbols-outlined text-sm">refresh</span>
               </button>
-            </div>
+            </>
           )}
         </div>
       </div>

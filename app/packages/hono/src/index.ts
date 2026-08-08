@@ -1,3 +1,4 @@
+import "dotenv/config";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { serve } from "@hono/node-server";
@@ -13,6 +14,7 @@ import { createUserRoutes } from "./routes/user.js";
 import { createAuthRoutes } from "./routes/auth.js";
 import { createSessionKeyRoutes } from "./routes/session-keys.js";
 import { createAuditRoutes } from "./routes/audit.js";
+import { createChatRoutes } from "./routes/chat.js";
 import type {
   MemoryRegistryContract,
   AgentRegistryContract,
@@ -124,15 +126,15 @@ export function createApp(deps: AppDependencies = {}): Hono<AppEnv> {
   app.route("/ipfs", createIpfsRoutes(ipfs));
 
   if (memoryRegistry) {
-    app.route("/memories", createMemoryRoutes(memoryRegistry));
+    app.route("/memories", createMemoryRoutes(memoryRegistry, auditRegistry));
   }
 
   if (agentRegistry) {
-    app.route("/agents", createAgentRoutes(agentRegistry));
+    app.route("/agents", createAgentRoutes(agentRegistry, auditRegistry));
   }
 
   if (contextRegistry) {
-    app.route("/context", createContextRoutes(contextRegistry));
+    app.route("/context", createContextRoutes(contextRegistry, auditRegistry));
   }
 
   if (creditManager) {
@@ -146,6 +148,9 @@ export function createApp(deps: AppDependencies = {}): Hono<AppEnv> {
   if (auditRegistry) {
     app.route("/audit", createAuditRoutes(auditRegistry));
   }
+
+  // Chat routes (always available)
+  app.route("/chat", createChatRoutes(agentRegistry, memoryRegistry, contextRegistry));
 
   return app;
 }
