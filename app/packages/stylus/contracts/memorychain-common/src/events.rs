@@ -41,7 +41,7 @@ sol! {
     event MemoryRestored(bytes32 indexed memory_id, address indexed owner);
 
     // ── AgentRegistry events ──────────────────────────
-    event AgentCreated(bytes32 indexed agent_id, address indexed owner, string name, string cid, bytes32 hash);
+    event AgentCreated(bytes32 indexed agent_id, address indexed owner, string cid, bytes32 hash);
     event AgentUpdated(bytes32 indexed agent_id, address indexed owner, string new_cid, bytes32 new_hash, uint32 new_version);
     event AgentArchived(bytes32 indexed agent_id, address indexed owner);
     event AgentRestored(bytes32 indexed agent_id, address indexed owner);

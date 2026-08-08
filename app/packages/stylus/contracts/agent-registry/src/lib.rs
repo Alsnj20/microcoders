@@ -1,6 +1,7 @@
 //! AgentRegistry Contract
 //!
 //! Manages personal AI agents created by users.
+//! Metadata (name, description) lives in IPFS; only CID and hash are stored on-chain.
 
 #![cfg_attr(not(any(test, feature = "export-abi")), no_main)]
 extern crate alloc;
@@ -8,11 +9,12 @@ extern crate alloc;
 use alloc::string::String;
 use alloy_primitives::{Address, FixedBytes, Uint, U256};
 use memorychain_common::{
-    errors::CommonError,
+    errors::{AgentError, CommonError},
     events::*,
     helpers::generate_id,
+    impl_admin_transfer, impl_pausable,
     interfaces::{ICreditManager, IUserRegistry},
-    types::ResourceStatus,
+    types::{ResourceStatus, OP_CREATE_AGENT, OP_UPDATE_AGENT},
 };
 use stylus_core::calls::Call;
 use stylus_sdk::prelude::*;
@@ -21,7 +23,6 @@ sol_storage! {
     #[entrypoint]
     pub struct AgentRegistry {
         mapping(bytes32 => Agent) agents;
-        mapping(bytes32 => mapping(uint32 => AgentVersion)) versions;
         mapping(address => mapping(uint256 => bytes32)) owner_agents;
         mapping(address => uint256) owner_agent_count;
         uint256 total_agents;
@@ -36,8 +37,6 @@ sol_storage! {
     pub struct Agent {
         bytes32 agent_id;
         address owner;
-        string name;
-        string description;
         uint32 latest_version;
         string current_cid;
         bytes32 current_hash;
@@ -45,113 +44,74 @@ sol_storage! {
         uint64 created_at;
         uint64 updated_at;
     }
-
-    pub struct AgentVersion {
-        bytes32 agent_id;
-        uint32 version;
-        string cid;
-        bytes32 hash;
-        uint64 created_at;
-    }
 }
 
 #[public]
 impl AgentRegistry {
     /// Initializes the contract with CreditManager and UserRegistry addresses.
-    pub fn initialize(&mut self, credit_manager: Address, user_registry: Address) {
-        if self.admin.get() == Address::ZERO {
-            self.admin.set(self.vm().msg_sender());
-            self.credit_manager.set(credit_manager);
-            self.user_registry.set(user_registry);
+    pub fn initialize(&mut self, credit_manager: Address, user_registry: Address) -> Result<(), String> {
+        if self.admin.get() != Address::ZERO {
+            return Err(String::from("AgentRegistry: already initialized"));
         }
+        if credit_manager == Address::ZERO || user_registry == Address::ZERO {
+            return Err(String::from("AgentRegistry: zero address provided"));
+        }
+
+        let caller = self.vm().msg_sender();
+        self.admin.set(caller);
+        self.credit_manager.set(credit_manager);
+        self.user_registry.set(user_registry);
+
+        Ok(())
     }
 
     // ════════════════════════════════════════════════════════════════════════
     // PAUSABLE
     // ════════════════════════════════════════════════════════════════════════
-
-    /// Pauses the contract. Admin only.
-    pub fn pause(&mut self) -> Result<(), String> {
-        let caller = self.vm().msg_sender();
-        if caller != self.admin.get() {
-            return Err(CommonError::NotAdmin { caller }.into());
-        }
-        self.paused.set(true);
-        self.vm().log(ContractPaused { admin: caller });
-        Ok(())
-    }
-
-    /// Unpauses the contract. Admin only.
-    pub fn unpause(&mut self) -> Result<(), String> {
-        let caller = self.vm().msg_sender();
-        if caller != self.admin.get() {
-            return Err(CommonError::NotAdmin { caller }.into());
-        }
-        self.paused.set(false);
-        self.vm().log(ContractUnpaused { admin: caller });
-        Ok(())
-    }
-
-    /// Returns whether the contract is paused.
-    pub fn is_paused(&self) -> bool {
-        self.paused.get()
-    }
-
-    fn require_not_paused(&self) -> Result<(), String> {
-        if self.paused.get() {
-            return Err(CommonError::Paused.into());
-        }
-        Ok(())
-    }
+    impl_pausable!();
 
     // ════════════════════════════════════════════════════════════════════════
     // ADMIN TRANSFER (Two-step)
     // ════════════════════════════════════════════════════════════════════════
+    impl_admin_transfer!();
 
-    /// Proposes a new admin. Current admin only.
-    pub fn propose_admin(&mut self, new_admin: Address) -> Result<(), String> {
+    // ════════════════════════════════════════════════════════════════════════
+    // UPGRADEABILITY SETTERS
+    // ════════════════════════════════════════════════════════════════════════
+
+    /// Updates the CreditManager address. Admin only.
+    pub fn set_credit_manager(&mut self, new_address: Address) -> Result<(), String> {
         let caller = self.vm().msg_sender();
         if caller != self.admin.get() {
             return Err(CommonError::NotAdmin { caller }.into());
         }
-        if new_admin == Address::ZERO {
-            return Err(CommonError::InvalidInput { reason: "new admin cannot be zero address" }.into());
+        if new_address == Address::ZERO {
+            return Err(CommonError::InvalidInput { reason: "credit manager cannot be zero address" }.into());
         }
-        self.pending_admin.set(new_admin);
-        self.vm().log(AdminTransferProposed {
-            current_admin: caller,
-            new_admin,
-        });
+        self.credit_manager.set(new_address);
         Ok(())
     }
 
-    /// Accepts admin role. Called by the proposed admin.
-    pub fn accept_admin(&mut self) -> Result<(), String> {
+    /// Updates the UserRegistry address. Admin only.
+    pub fn set_user_registry(&mut self, new_address: Address) -> Result<(), String> {
         let caller = self.vm().msg_sender();
-        let pending = self.pending_admin.get();
-        if caller != pending {
-            return Err(String::from("AgentRegistry: not pending admin"));
+        if caller != self.admin.get() {
+            return Err(CommonError::NotAdmin { caller }.into());
         }
-        let old_admin = self.admin.get();
-        self.admin.set(caller);
-        self.pending_admin.set(Address::ZERO);
-        self.vm().log(AdminTransferCompleted {
-            old_admin,
-            new_admin: caller,
-        });
+        if new_address == Address::ZERO {
+            return Err(CommonError::InvalidInput { reason: "user registry cannot be zero address" }.into());
+        }
+        self.user_registry.set(new_address);
         Ok(())
     }
 
-    /// Returns the pending admin address.
-    pub fn pending_admin(&self) -> Address {
-        self.pending_admin.get()
-    }
+    // ════════════════════════════════════════════════════════════════════════
+    // AGENT MANAGEMENT
+    // ════════════════════════════════════════════════════════════════════════
 
-    /// Creates a new agent AFTER backend processing is complete.
+    /// Creates a new agent. Metadata lives in IPFS; only CID and hash are stored.
     pub fn create_agent(
         &mut self,
-        name: String,
-        description: String,
         cid: String,
         hash: FixedBytes<32>,
     ) -> Result<FixedBytes<32>, String> {
@@ -159,45 +119,34 @@ impl AgentRegistry {
 
         let caller = self.vm().msg_sender();
 
-        if name.is_empty() {
-            return Err(String::from("AgentRegistry: empty name"));
-        }
         if cid.is_empty() {
-            return Err(String::from("AgentRegistry: empty CID"));
+            return Err(AgentError::InvalidCid.into());
         }
         if hash == FixedBytes::ZERO {
-            return Err(String::from("AgentRegistry: zero hash"));
+            return Err(AgentError::InvalidHash.into());
         }
 
         let nonce = self.nonces.get(caller);
         let agent_id = generate_id(self.vm(), caller, nonce);
 
         if self.agents.getter(agent_id).owner.get() != Address::ZERO {
-            return Err(String::from("AgentRegistry: ID collision"));
+            return Err(AgentError::IdCollision.into());
         }
 
-        // CROSS-CONTRACT CALL: Get fee from CreditManager
+        // CROSS-CONTRACT CALL: Consume credits for operation (single call)
         let credit_manager_addr = self.credit_manager.get();
         let credit_manager = ICreditManager::new(credit_manager_addr);
-        
-        let fee: u16 = credit_manager
-            .get_fee(self.vm(), Call::new(), 3u8) // OP_CREATE_AGENT = 3
-            .map_err(|_| String::from("AgentRegistry: failed to get fee"))?;
-        let fee_u64 = u64::from(fee);
 
-        // CROSS-CONTRACT CALL: Consume credits (reverts on insufficient)
-        let context = Call::new_mutating(self);
+        let ctx = Call::new_mutating(self);
         credit_manager
-            .consume_credits(self.vm(), context, caller, fee_u64)
-            .map_err(|_| String::from("AgentRegistry: credit consumption failed"))?;
+            .consume_credits_for_op(self.vm(), ctx, caller, OP_CREATE_AGENT)
+            .map_err(|_| AgentError::CreditConsumptionFailed)?;
 
         let timestamp = Uint::from(self.vm().block_timestamp());
 
         let mut agent = self.agents.setter(agent_id);
         agent.agent_id.set(agent_id);
         agent.owner.set(caller);
-        agent.name.set_str(&name);
-        agent.description.set_str(&description);
         agent.latest_version.set(Uint::from(1u32));
         agent.current_cid.set_str(&cid);
         agent.current_hash.set(hash);
@@ -205,21 +154,13 @@ impl AgentRegistry {
         agent.created_at.set(timestamp);
         agent.updated_at.set(timestamp);
 
-        let mut version_map = self.versions.setter(agent_id);
-        let mut version = version_map.setter(Uint::from(1u32));
-        version.agent_id.set(agent_id);
-        version.version.set(Uint::from(1u32));
-        version.cid.set_str(&cid);
-        version.hash.set(hash);
-        version.created_at.set(timestamp);
-
         self.nonces.setter(caller).set(nonce + U256::from(1));
-        
+
         // Store agent_id in owner's list
         let agent_count: Uint<256, 4> = self.owner_agent_count.get(caller);
         self.owner_agents.setter(caller).setter(agent_count).set(agent_id);
         self.owner_agent_count.setter(caller).set(agent_count + U256::from(1));
-        
+
         self.total_agents.set(self.total_agents.get() + U256::from(1));
 
         // CROSS-CONTRACT CALL: Update user stats in UserRegistry
@@ -233,7 +174,6 @@ impl AgentRegistry {
         self.vm().log(AgentCreated {
             agent_id,
             owner: caller,
-            name,
             cid,
             hash,
         });
@@ -254,39 +194,33 @@ impl AgentRegistry {
 
         let owner = self.agents.getter(agent_id).owner.get();
         if owner == Address::ZERO {
-            return Err(String::from("AgentRegistry: agent not found"));
+            return Err(AgentError::NotFound.into());
         }
 
         if caller != owner {
-            return Err(String::from("AgentRegistry: not owner"));
+            return Err(AgentError::NotOwner.into());
         }
 
         let status: Uint<8, 1> = self.agents.getter(agent_id).status.get();
         if status == Uint::from(ResourceStatus::Archived as u8) {
-            return Err(String::from("AgentRegistry: agent is archived"));
+            return Err(AgentError::Archived.into());
         }
 
         if new_cid.is_empty() {
-            return Err(String::from("AgentRegistry: empty CID"));
+            return Err(AgentError::InvalidCid.into());
         }
         if new_hash == FixedBytes::ZERO {
-            return Err(String::from("AgentRegistry: zero hash"));
+            return Err(AgentError::InvalidHash.into());
         }
 
-        // CROSS-CONTRACT CALL: Get fee from CreditManager
+        // CROSS-CONTRACT CALL: Consume credits for operation (single call)
         let credit_manager_addr = self.credit_manager.get();
         let credit_manager = ICreditManager::new(credit_manager_addr);
-        
-        let fee: u16 = credit_manager
-            .get_fee(self.vm(), Call::new(), 4u8) // OP_UPDATE_AGENT = 4
-            .map_err(|_| String::from("AgentRegistry: failed to get fee"))?;
-        let fee_u64 = u64::from(fee);
 
-        // CROSS-CONTRACT CALL: Consume credits (reverts on insufficient)
-        let context = Call::new_mutating(self);
+        let ctx = Call::new_mutating(self);
         credit_manager
-            .consume_credits(self.vm(), context, caller, fee_u64)
-            .map_err(|_| String::from("AgentRegistry: credit consumption failed"))?;
+            .consume_credits_for_op(self.vm(), ctx, caller, OP_UPDATE_AGENT)
+            .map_err(|_| AgentError::CreditConsumptionFailed)?;
 
         let current_version: Uint<32, 1> = self.agents.getter(agent_id).latest_version.get();
         let new_version = current_version + Uint::from(1u32);
@@ -297,14 +231,6 @@ impl AgentRegistry {
         agent.current_cid.set_str(&new_cid);
         agent.current_hash.set(new_hash);
         agent.updated_at.set(timestamp);
-
-        let mut version_map = self.versions.setter(agent_id);
-        let mut version = version_map.setter(new_version);
-        version.agent_id.set(agent_id);
-        version.version.set(new_version);
-        version.cid.set_str(&new_cid);
-        version.hash.set(new_hash);
-        version.created_at.set(timestamp);
 
         self.vm().log(AgentUpdated {
             agent_id,
@@ -325,16 +251,16 @@ impl AgentRegistry {
 
         let owner = self.agents.getter(agent_id).owner.get();
         if owner == Address::ZERO {
-            return Err(String::from("AgentRegistry: agent not found"));
+            return Err(AgentError::NotFound.into());
         }
 
         if caller != owner {
-            return Err(String::from("AgentRegistry: not owner"));
+            return Err(AgentError::NotOwner.into());
         }
 
         let status: Uint<8, 1> = self.agents.getter(agent_id).status.get();
         if status == Uint::from(ResourceStatus::Archived as u8) {
-            return Err(String::from("AgentRegistry: already archived"));
+            return Err(AgentError::Archived.into());
         }
 
         let timestamp = Uint::from(self.vm().block_timestamp());
@@ -358,16 +284,16 @@ impl AgentRegistry {
 
         let owner = self.agents.getter(agent_id).owner.get();
         if owner == Address::ZERO {
-            return Err(String::from("AgentRegistry: agent not found"));
+            return Err(AgentError::NotFound.into());
         }
 
         if caller != owner {
-            return Err(String::from("AgentRegistry: not owner"));
+            return Err(AgentError::NotOwner.into());
         }
 
         let status: Uint<8, 1> = self.agents.getter(agent_id).status.get();
         if status != Uint::from(ResourceStatus::Archived as u8) {
-            return Err(String::from("AgentRegistry: not archived"));
+            return Err(AgentError::NotArchived.into());
         }
 
         let timestamp = Uint::from(self.vm().block_timestamp());
@@ -383,22 +309,24 @@ impl AgentRegistry {
         Ok(())
     }
 
-    /// Returns agent data.
+    // ════════════════════════════════════════════════════════════════════════
+    // VIEW FUNCTIONS
+    // ════════════════════════════════════════════════════════════════════════
+
+    /// Returns agent data (control data only; metadata is in IPFS).
     pub fn get_agent(
         &self,
         agent_id: FixedBytes<32>,
-    ) -> Result<(Address, String, String, u32, String, FixedBytes<32>, u8, u64, u64), String> {
+    ) -> Result<(Address, u32, String, FixedBytes<32>, u8, u64, u64), String> {
         let agent = self.agents.getter(agent_id);
         let owner = agent.owner.get();
 
         if owner == Address::ZERO {
-            return Err(String::from("AgentRegistry: not found"));
+            return Err(AgentError::NotFound.into());
         }
 
         Ok((
             owner,
-            agent.name.get_string(),
-            agent.description.get_string(),
             u32::try_from(agent.latest_version.get()).unwrap_or(0),
             agent.current_cid.get_string(),
             agent.current_hash.get(),
@@ -408,41 +336,9 @@ impl AgentRegistry {
         ))
     }
 
-    /// Returns a specific version of an agent's blueprint.
-    pub fn get_agent_version(
-        &self,
-        agent_id: FixedBytes<32>,
-        version: u32,
-    ) -> Result<(String, FixedBytes<32>, u64), String> {
-        let versions_map = self.versions.getter(agent_id);
-        let v = versions_map.getter(Uint::from(version));
-
-        if v.version.get() == Uint::ZERO {
-            return Err(String::from("AgentRegistry: version not found"));
-        }
-
-        Ok((
-            v.cid.get_string(),
-            v.hash.get(),
-            u64::try_from(v.created_at.get()).unwrap_or(0),
-        ))
-    }
-
     /// Returns the total number of agents created.
     pub fn total_agents(&self) -> U256 {
         self.total_agents.get()
-    }
-
-    /// Returns the cost to create an agent (in MC credits).
-    /// Cross-contract call to CreditManager.get_fee(OP_CREATE_AGENT).
-    pub fn preview_create_cost(&self) -> u64 {
-        let credit_manager_addr = self.credit_manager.get();
-        let credit_manager = ICreditManager::new(credit_manager_addr);
-        let context = Call::new();
-        credit_manager
-            .get_fee(self.vm(), context, 3) // OP_CREATE_AGENT = 3
-            .unwrap_or(5)
-            .into()
     }
 
     /// Returns the admin address.
@@ -450,14 +346,35 @@ impl AgentRegistry {
         self.admin.get()
     }
 
+
+
     /// Returns the number of agents owned by an address.
     pub fn get_agent_count_by_owner(&self, owner: Address) -> U256 {
         self.owner_agent_count.get(owner)
     }
 
-    /// Returns an agent ID by owner and index.
-    pub fn get_agent_by_owner_index(&self, owner: Address, index: U256) -> FixedBytes<32> {
-        self.owner_agents.getter(owner).getter(index).get()
+    /// Returns the current nonce for a user.
+    pub fn get_nonce(&self, owner: Address) -> U256 {
+        self.nonces.get(owner)
+    }
+
+    /// Returns an agent ID by owner and index with boundary check.
+    pub fn get_agent_by_owner_index(&self, owner: Address, index: U256) -> Result<FixedBytes<32>, String> {
+        let count = self.owner_agent_count.get(owner);
+        if index >= count {
+            return Err(String::from("AgentRegistry: index out of bounds"));
+        }
+        Ok(self.owner_agents.getter(owner).getter(index).get())
+    }
+
+    /// Returns the CreditManager address.
+    pub fn credit_manager(&self) -> Address {
+        self.credit_manager.get()
+    }
+
+    /// Returns the UserRegistry address.
+    pub fn user_registry(&self) -> Address {
+        self.user_registry.get()
     }
 }
 
@@ -499,13 +416,6 @@ mod tests {
     }
 
     #[test]
-    fn test_get_agent_version_not_found() {
-        let (_vm, contract) = setup();
-        let fake_id = FixedBytes::from([0x01; 32]);
-        assert!(contract.get_agent_version(fake_id, 1).is_err());
-    }
-
-    #[test]
     fn test_get_agent_count_by_owner() {
         let (_vm, contract) = setup();
         assert_eq!(contract.get_agent_count_by_owner(DEFAULT_SENDER), U256::from(0));
@@ -520,5 +430,16 @@ mod tests {
         assert!(contract.archive_agent(FixedBytes::from([0x01; 32])).is_err());
         contract.unpause().unwrap();
         assert!(!contract.is_paused());
+    }
+
+    #[test]
+    fn test_setters() {
+        let (_vm, mut contract) = setup();
+        let new_cm = Address::new([0x33; 20]);
+        let new_ur = Address::new([0x44; 20]);
+        contract.set_credit_manager(new_cm).unwrap();
+        contract.set_user_registry(new_ur).unwrap();
+        assert_eq!(contract.credit_manager(), new_cm);
+        assert_eq!(contract.user_registry(), new_ur);
     }
 }

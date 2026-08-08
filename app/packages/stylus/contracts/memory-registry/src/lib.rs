@@ -1,6 +1,7 @@
 //! MemoryRegistry Contract
 //!
 //! Manages the lifecycle of user memories (knowledge units).
+//! Metadata lives in IPFS; only CID and hash are stored on-chain.
 
 #![cfg_attr(not(any(test, feature = "export-abi")), no_main)]
 extern crate alloc;
@@ -8,11 +9,12 @@ extern crate alloc;
 use alloc::string::String;
 use alloy_primitives::{Address, FixedBytes, Uint, U256};
 use memorychain_common::{
-    errors::CommonError,
+    errors::{CommonError, MemoryError},
     events::*,
     helpers::generate_id,
+    impl_admin_transfer, impl_pausable,
     interfaces::{ICreditManager, IUserRegistry},
-    types::ResourceStatus,
+    types::{MemoryType, ResourceStatus, Visibility, OP_CREATE_MEMORY, OP_UPDATE_MEMORY},
 };
 use stylus_core::calls::Call;
 use stylus_sdk::prelude::*;
@@ -21,7 +23,6 @@ sol_storage! {
     #[entrypoint]
     pub struct MemoryRegistry {
         mapping(bytes32 => Memory) memories;
-        mapping(bytes32 => mapping(uint32 => MemoryVersion)) versions;
         mapping(address => mapping(uint256 => bytes32)) owner_memories;
         mapping(address => uint256) owner_memory_count;
         uint256 total_memories;
@@ -45,109 +46,78 @@ sol_storage! {
         uint64 created_at;
         uint64 updated_at;
     }
-
-    pub struct MemoryVersion {
-        bytes32 memory_id;
-        uint32 version;
-        string cid;
-        bytes32 hash;
-        uint64 created_at;
-    }
 }
 
 #[public]
 impl MemoryRegistry {
     /// Initializes the contract with CreditManager and UserRegistry addresses.
-    pub fn initialize(&mut self, credit_manager: Address, user_registry: Address) {
-        if self.admin.get() == Address::ZERO {
-            self.admin.set(self.vm().msg_sender());
-            self.credit_manager.set(credit_manager);
-            self.user_registry.set(user_registry);
+    pub fn initialize(&mut self, credit_manager: Address, user_registry: Address) -> Result<(), String> {
+        if self.admin.get() != Address::ZERO {
+            return Err(String::from("MemoryRegistry: already initialized"));
         }
+        if credit_manager == Address::ZERO || user_registry == Address::ZERO {
+            return Err(String::from("MemoryRegistry: zero address provided"));
+        }
+
+        let caller = self.vm().msg_sender();
+        self.admin.set(caller);
+        self.credit_manager.set(credit_manager);
+        self.user_registry.set(user_registry);
+        
+        Ok(())
     }
 
     // ════════════════════════════════════════════════════════════════════════
     // PAUSABLE
     // ════════════════════════════════════════════════════════════════════════
-
-    /// Pauses the contract. Admin only.
-    pub fn pause(&mut self) -> Result<(), String> {
-        let caller = self.vm().msg_sender();
-        if caller != self.admin.get() {
-            return Err(CommonError::NotAdmin { caller }.into());
-        }
-        self.paused.set(true);
-        self.vm().log(ContractPaused { admin: caller });
-        Ok(())
-    }
-
-    /// Unpauses the contract. Admin only.
-    pub fn unpause(&mut self) -> Result<(), String> {
-        let caller = self.vm().msg_sender();
-        if caller != self.admin.get() {
-            return Err(CommonError::NotAdmin { caller }.into());
-        }
-        self.paused.set(false);
-        self.vm().log(ContractUnpaused { admin: caller });
-        Ok(())
-    }
-
-    /// Returns whether the contract is paused.
-    pub fn is_paused(&self) -> bool {
-        self.paused.get()
-    }
-
-    fn require_not_paused(&self) -> Result<(), String> {
-        if self.paused.get() {
-            return Err(CommonError::Paused.into());
-        }
-        Ok(())
-    }
+    impl_pausable!();
 
     // ════════════════════════════════════════════════════════════════════════
     // ADMIN TRANSFER (Two-step)
     // ════════════════════════════════════════════════════════════════════════
+    impl_admin_transfer!();
 
-    /// Proposes a new admin. Current admin only.
-    pub fn propose_admin(&mut self, new_admin: Address) -> Result<(), String> {
+    // ════════════════════════════════════════════════════════════════════════
+    // UPGRADEABILITY SETTERS
+    // ════════════════════════════════════════════════════════════════════════
+
+    /// Updates the CreditManager address. Admin only.
+    pub fn set_credit_manager(&mut self, new_address: Address) -> Result<(), String> {
         let caller = self.vm().msg_sender();
         if caller != self.admin.get() {
             return Err(CommonError::NotAdmin { caller }.into());
         }
-        if new_admin == Address::ZERO {
-            return Err(CommonError::InvalidInput { reason: "new admin cannot be zero address" }.into());
+        if new_address == Address::ZERO {
+            return Err(CommonError::InvalidInput { reason: "credit manager cannot be zero address" }.into());
         }
-        self.pending_admin.set(new_admin);
-        self.vm().log(AdminTransferProposed {
-            current_admin: caller,
-            new_admin,
-        });
+        self.credit_manager.set(new_address);
         Ok(())
     }
 
-    /// Accepts admin role. Called by the proposed admin.
-    pub fn accept_admin(&mut self) -> Result<(), String> {
+    /// Updates the UserRegistry address. Admin only.
+    pub fn set_user_registry(&mut self, new_address: Address) -> Result<(), String> {
         let caller = self.vm().msg_sender();
-        let pending = self.pending_admin.get();
-        if caller != pending {
-            return Err(String::from("MemoryRegistry: not pending admin"));
+        if caller != self.admin.get() {
+            return Err(CommonError::NotAdmin { caller }.into());
         }
-        let old_admin = self.admin.get();
-        self.admin.set(caller);
-        self.pending_admin.set(Address::ZERO);
-        self.vm().log(AdminTransferCompleted {
-            old_admin,
-            new_admin: caller,
-        });
+        if new_address == Address::ZERO {
+            return Err(CommonError::InvalidInput { reason: "user registry cannot be zero address" }.into());
+        }
+        self.user_registry.set(new_address);
         Ok(())
     }
 
-    /// Returns the pending admin address.
-    pub fn pending_admin(&self) -> Address {
-        self.pending_admin.get()
-    }
+    // ════════════════════════════════════════════════════════════════════════
+    // MEMORY MANAGEMENT
+    // ════════════════════════════════════════════════════════════════════════
 
     /// Creates a new memory AFTER backend processing is complete.
+    ///
+    /// # Parameters
+    /// - `cid`: IPFS content identifier
+    /// - `hash`: Content hash for integrity verification
+    /// - `memory_type`: Category (0=Preference, 1=Knowledge, 2=Document, 3=Objective, 4=Other)
+    /// - `vis`: Visibility level (0=Private, 1=Public, 2=Restricted). Default: 0 (Private)
     pub fn create_memory(
         &mut self,
         cid: String,
@@ -160,39 +130,33 @@ impl MemoryRegistry {
         let caller = self.vm().msg_sender();
 
         if cid.is_empty() {
-            return Err(String::from("MemoryRegistry: empty CID"));
+            return Err(MemoryError::InvalidCid.into());
         }
         if hash == FixedBytes::ZERO {
-            return Err(String::from("MemoryRegistry: zero hash"));
+            return Err(MemoryError::InvalidHash.into());
         }
-        if memory_type > 4 {
-            return Err(String::from("MemoryRegistry: invalid memory type"));
+        if memory_type > MemoryType::Other as u8 {
+            return Err(CommonError::InvalidInput { reason: "invalid memory type" }.into());
         }
-        if vis > 2 {
-            return Err(String::from("MemoryRegistry: invalid visibility"));
+        if vis > Visibility::max_value() {
+            return Err(CommonError::InvalidInput { reason: "invalid visibility" }.into());
         }
 
         let nonce = self.nonces.get(caller);
         let memory_id = generate_id(self.vm(), caller, nonce);
 
         if self.memories.getter(memory_id).owner.get() != Address::ZERO {
-            return Err(String::from("MemoryRegistry: ID collision"));
+            return Err(MemoryError::IdCollision.into());
         }
 
-        // CROSS-CONTRACT CALL: Get fee from CreditManager
+        // CROSS-CONTRACT CALL: Consume credits for operation (single call)
         let credit_manager_addr = self.credit_manager.get();
         let credit_manager = ICreditManager::new(credit_manager_addr);
-        
-        let fee: u16 = credit_manager
-            .get_fee(self.vm(), Call::new(), 1u8) // OP_CREATE_MEMORY = 1
-            .map_err(|_| String::from("MemoryRegistry: failed to get fee"))?;
-        let fee_u64 = u64::from(fee);
 
-        // CROSS-CONTRACT CALL: Consume credits via CreditManager (reverts on insufficient)
-        let context = Call::new_mutating(self);
+        let ctx = Call::new_mutating(self);
         credit_manager
-            .consume_credits(self.vm(), context, caller, fee_u64)
-            .map_err(|_| String::from("MemoryRegistry: credit consumption failed"))?;
+            .consume_credits_for_op(self.vm(), ctx, caller, OP_CREATE_MEMORY)
+            .map_err(|_| MemoryError::CreditConsumptionFailed)?;
 
         let timestamp = Uint::from(self.vm().block_timestamp());
 
@@ -208,21 +172,13 @@ impl MemoryRegistry {
         memory.created_at.set(timestamp);
         memory.updated_at.set(timestamp);
 
-        let mut version_map = self.versions.setter(memory_id);
-        let mut version = version_map.setter(Uint::from(1u32));
-        version.memory_id.set(memory_id);
-        version.version.set(Uint::from(1u32));
-        version.cid.set_str(&cid);
-        version.hash.set(hash);
-        version.created_at.set(timestamp);
-
         self.nonces.setter(caller).set(nonce + U256::from(1));
-        
+
         // Store memory_id in owner's list
         let memory_count: Uint<256, 4> = self.owner_memory_count.get(caller);
         self.owner_memories.setter(caller).setter(memory_count).set(memory_id);
         self.owner_memory_count.setter(caller).set(memory_count + U256::from(1));
-        
+
         self.total_memories.set(self.total_memories.get() + U256::from(1));
 
         // CROSS-CONTRACT CALL: Update user stats in UserRegistry
@@ -258,39 +214,33 @@ impl MemoryRegistry {
 
         let owner = self.memories.getter(memory_id).owner.get();
         if owner == Address::ZERO {
-            return Err(String::from("MemoryRegistry: memory not found"));
+            return Err(MemoryError::NotFound.into());
         }
 
         if caller != owner {
-            return Err(String::from("MemoryRegistry: not owner"));
+            return Err(MemoryError::NotOwner.into());
         }
 
         let status: Uint<8, 1> = self.memories.getter(memory_id).status.get();
         if status == Uint::from(ResourceStatus::Archived as u8) {
-            return Err(String::from("MemoryRegistry: memory is archived"));
+            return Err(MemoryError::Archived.into());
         }
 
         if new_cid.is_empty() {
-            return Err(String::from("MemoryRegistry: empty CID"));
+            return Err(MemoryError::InvalidCid.into());
         }
         if new_hash == FixedBytes::ZERO {
-            return Err(String::from("MemoryRegistry: zero hash"));
+            return Err(MemoryError::InvalidHash.into());
         }
 
-        // CROSS-CONTRACT CALL: Get fee from CreditManager
+        // CROSS-CONTRACT CALL: Consume credits for operation (single call)
         let credit_manager_addr = self.credit_manager.get();
         let credit_manager = ICreditManager::new(credit_manager_addr);
-        
-        let fee: u16 = credit_manager
-            .get_fee(self.vm(), Call::new(), 2u8) // OP_UPDATE_MEMORY = 2
-            .map_err(|_| String::from("MemoryRegistry: failed to get fee"))?;
-        let fee_u64 = u64::from(fee);
 
-        // CROSS-CONTRACT CALL: Consume credits (reverts on insufficient)
-        let context = Call::new_mutating(self);
+        let ctx = Call::new_mutating(self);
         credit_manager
-            .consume_credits(self.vm(), context, caller, fee_u64)
-            .map_err(|_| String::from("MemoryRegistry: credit consumption failed"))?;
+            .consume_credits_for_op(self.vm(), ctx, caller, OP_UPDATE_MEMORY)
+            .map_err(|_| MemoryError::CreditConsumptionFailed)?;
 
         let current_version: Uint<32, 1> = self.memories.getter(memory_id).latest_version.get();
         let new_version = current_version + Uint::from(1u32);
@@ -301,14 +251,6 @@ impl MemoryRegistry {
         memory.current_cid.set_str(&new_cid);
         memory.current_hash.set(new_hash);
         memory.updated_at.set(timestamp);
-
-        let mut version_map = self.versions.setter(memory_id);
-        let mut version = version_map.setter(new_version);
-        version.memory_id.set(memory_id);
-        version.version.set(new_version);
-        version.cid.set_str(&new_cid);
-        version.hash.set(new_hash);
-        version.created_at.set(timestamp);
 
         self.vm().log(MemoryUpdated {
             memory_id,
@@ -329,16 +271,16 @@ impl MemoryRegistry {
 
         let owner = self.memories.getter(memory_id).owner.get();
         if owner == Address::ZERO {
-            return Err(String::from("MemoryRegistry: memory not found"));
+            return Err(MemoryError::NotFound.into());
         }
 
         if caller != owner {
-            return Err(String::from("MemoryRegistry: not owner"));
+            return Err(MemoryError::NotOwner.into());
         }
 
         let status: Uint<8, 1> = self.memories.getter(memory_id).status.get();
         if status == Uint::from(ResourceStatus::Archived as u8) {
-            return Err(String::from("MemoryRegistry: already archived"));
+            return Err(MemoryError::Archived.into());
         }
 
         let timestamp = Uint::from(self.vm().block_timestamp());
@@ -362,16 +304,16 @@ impl MemoryRegistry {
 
         let owner = self.memories.getter(memory_id).owner.get();
         if owner == Address::ZERO {
-            return Err(String::from("MemoryRegistry: memory not found"));
+            return Err(MemoryError::NotFound.into());
         }
 
         if caller != owner {
-            return Err(String::from("MemoryRegistry: not owner"));
+            return Err(MemoryError::NotOwner.into());
         }
 
         let status: Uint<8, 1> = self.memories.getter(memory_id).status.get();
         if status != Uint::from(ResourceStatus::Archived as u8) {
-            return Err(String::from("MemoryRegistry: not archived"));
+            return Err(MemoryError::NotArchived.into());
         }
 
         let timestamp = Uint::from(self.vm().block_timestamp());
@@ -387,6 +329,10 @@ impl MemoryRegistry {
         Ok(())
     }
 
+    // ════════════════════════════════════════════════════════════════════════
+    // VIEW FUNCTIONS
+    // ════════════════════════════════════════════════════════════════════════
+
     /// Returns memory data.
     pub fn get_memory(
         &self,
@@ -396,7 +342,7 @@ impl MemoryRegistry {
         let owner = memory.owner.get();
 
         if owner == Address::ZERO {
-            return Err(String::from("MemoryRegistry: not found"));
+            return Err(MemoryError::NotFound.into());
         }
 
         Ok((
@@ -410,41 +356,9 @@ impl MemoryRegistry {
         ))
     }
 
-    /// Returns a specific version of a memory.
-    pub fn get_memory_version(
-        &self,
-        memory_id: FixedBytes<32>,
-        version: u32,
-    ) -> Result<(String, FixedBytes<32>, u64), String> {
-        let versions_map = self.versions.getter(memory_id);
-        let v = versions_map.getter(Uint::from(version));
-
-        if v.version.get() == Uint::ZERO {
-            return Err(String::from("MemoryRegistry: version not found"));
-        }
-
-        Ok((
-            v.cid.get_string(),
-            v.hash.get(),
-            u64::try_from(v.created_at.get()).unwrap_or(0),
-        ))
-    }
-
     /// Returns the total number of memories created.
     pub fn total_memories(&self) -> U256 {
         self.total_memories.get()
-    }
-
-    /// Returns the cost to create a memory (in MC credits).
-    /// Cross-contract call to CreditManager.get_fee(OP_CREATE_MEMORY).
-    pub fn preview_create_cost(&self) -> u64 {
-        let credit_manager_addr = self.credit_manager.get();
-        let credit_manager = ICreditManager::new(credit_manager_addr);
-        let context = Call::new();
-        credit_manager
-            .get_fee(self.vm(), context, 1) // OP_CREATE_MEMORY = 1
-            .unwrap_or(1)
-            .into()
     }
 
     /// Returns the CreditManager address.
@@ -462,9 +376,18 @@ impl MemoryRegistry {
         self.owner_memory_count.get(owner)
     }
 
-    /// Returns a memory ID by owner and index.
-    pub fn get_memory_by_owner_index(&self, owner: Address, index: U256) -> FixedBytes<32> {
-        self.owner_memories.getter(owner).getter(index).get()
+    /// Returns a memory ID by owner and index with boundary check.
+    pub fn get_memory_by_owner_index(&self, owner: Address, index: U256) -> Result<FixedBytes<32>, String> {
+        let count = self.owner_memory_count.get(owner);
+        if index >= count {
+            return Err(String::from("MemoryRegistry: index out of bounds"));
+        }
+        Ok(self.owner_memories.getter(owner).getter(index).get())
+    }
+
+    /// Returns the UserRegistry address.
+    pub fn user_registry(&self) -> Address {
+        self.user_registry.get()
     }
 }
 
@@ -506,13 +429,6 @@ mod tests {
     }
 
     #[test]
-    fn test_get_memory_version_not_found() {
-        let (_vm, contract) = setup();
-        let fake_id = FixedBytes::from([0x01; 32]);
-        assert!(contract.get_memory_version(fake_id, 1).is_err());
-    }
-
-    #[test]
     fn test_get_memory_count_by_owner() {
         let (_vm, contract) = setup();
         assert_eq!(contract.get_memory_count_by_owner(DEFAULT_SENDER), U256::from(0));
@@ -527,5 +443,16 @@ mod tests {
         assert!(contract.archive_memory(FixedBytes::from([0x01; 32])).is_err());
         contract.unpause().unwrap();
         assert!(!contract.is_paused());
+    }
+
+    #[test]
+    fn test_setters() {
+        let (_vm, mut contract) = setup();
+        let new_cm = Address::new([0x33; 20]);
+        let new_ur = Address::new([0x44; 20]);
+        contract.set_credit_manager(new_cm).unwrap();
+        contract.set_user_registry(new_ur).unwrap();
+        assert_eq!(contract.credit_manager(), new_cm);
+        assert_eq!(contract.user_registry(), new_ur);
     }
 }

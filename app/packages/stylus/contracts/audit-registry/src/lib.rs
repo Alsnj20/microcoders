@@ -8,9 +8,10 @@ extern crate alloc;
 use alloc::string::String;
 use alloy_primitives::{Address, FixedBytes, Uint, U256};
 use memorychain_common::{
-    errors::CommonError,
+    errors::{AuditError, CommonError},
     events::*,
     helpers::generate_id,
+    impl_admin_transfer, impl_pausable,
 };
 use stylus_sdk::prelude::*;
 
@@ -39,92 +40,23 @@ sol_storage! {
 #[public]
 impl AuditRegistry {
     /// Initializes the contract.
-    pub fn initialize(&mut self) {
-        if self.admin.get() == Address::ZERO {
-            self.admin.set(self.vm().msg_sender());
+    pub fn initialize(&mut self) -> Result<(), String> {
+        if self.admin.get() != Address::ZERO {
+            return Err(String::from("AuditRegistry: already initialized"));
         }
+        self.admin.set(self.vm().msg_sender());
+        Ok(())
     }
 
     // ════════════════════════════════════════════════════════════════════════
     // PAUSABLE
     // ════════════════════════════════════════════════════════════════════════
-
-    /// Pauses the contract. Admin only.
-    pub fn pause(&mut self) -> Result<(), String> {
-        let caller = self.vm().msg_sender();
-        if caller != self.admin.get() {
-            return Err(CommonError::NotAdmin { caller }.into());
-        }
-        self.paused.set(true);
-        self.vm().log(ContractPaused { admin: caller });
-        Ok(())
-    }
-
-    /// Unpauses the contract. Admin only.
-    pub fn unpause(&mut self) -> Result<(), String> {
-        let caller = self.vm().msg_sender();
-        if caller != self.admin.get() {
-            return Err(CommonError::NotAdmin { caller }.into());
-        }
-        self.paused.set(false);
-        self.vm().log(ContractUnpaused { admin: caller });
-        Ok(())
-    }
-
-    /// Returns whether the contract is paused.
-    pub fn is_paused(&self) -> bool {
-        self.paused.get()
-    }
-
-    fn require_not_paused(&self) -> Result<(), String> {
-        if self.paused.get() {
-            return Err(CommonError::Paused.into());
-        }
-        Ok(())
-    }
+    impl_pausable!();
 
     // ════════════════════════════════════════════════════════════════════════
     // ADMIN TRANSFER (Two-step)
     // ════════════════════════════════════════════════════════════════════════
-
-    /// Proposes a new admin. Current admin only.
-    pub fn propose_admin(&mut self, new_admin: Address) -> Result<(), String> {
-        let caller = self.vm().msg_sender();
-        if caller != self.admin.get() {
-            return Err(CommonError::NotAdmin { caller }.into());
-        }
-        if new_admin == Address::ZERO {
-            return Err(CommonError::InvalidInput { reason: "new admin cannot be zero address" }.into());
-        }
-        self.pending_admin.set(new_admin);
-        self.vm().log(AdminTransferProposed {
-            current_admin: caller,
-            new_admin,
-        });
-        Ok(())
-    }
-
-    /// Accepts admin role. Called by the proposed admin.
-    pub fn accept_admin(&mut self) -> Result<(), String> {
-        let caller = self.vm().msg_sender();
-        let pending = self.pending_admin.get();
-        if caller != pending {
-            return Err(String::from("AuditRegistry: not pending admin"));
-        }
-        let old_admin = self.admin.get();
-        self.admin.set(caller);
-        self.pending_admin.set(Address::ZERO);
-        self.vm().log(AdminTransferCompleted {
-            old_admin,
-            new_admin: caller,
-        });
-        Ok(())
-    }
-
-    /// Returns the pending admin address.
-    pub fn pending_admin(&self) -> Address {
-        self.pending_admin.get()
-    }
+    impl_admin_transfer!();
 
     /// Records an audit event.
     pub fn record_audit(
@@ -139,7 +71,7 @@ impl AuditRegistry {
         let caller = self.vm().msg_sender();
 
         if !self.authorized_recorders.get(caller) && caller != self.admin.get() {
-            return Err(String::from("AuditRegistry: unauthorized recorder"));
+            return Err(AuditError::UnauthorizedRecorder { caller }.into());
         }
 
         let nonce = self.nonces.get(caller);
@@ -169,37 +101,15 @@ impl AuditRegistry {
         Ok(event_id)
     }
 
-    /// Returns audit event data.
-    pub fn get_audit_event(
-        &self,
-        event_id: FixedBytes<32>,
-    ) -> Result<(Address, u8, FixedBytes<32>, u8, u64), String> {
-        let event = self.events.getter(event_id);
-
-        if event.actor.get() == Address::ZERO {
-            return Err(String::from("AuditRegistry: event not found"));
-        }
-
-        Ok((
-            event.actor.get(),
-            u8::try_from(event.entity_type.get()).unwrap_or(0),
-            event.entity_id.get(),
-            u8::try_from(event.action.get()).unwrap_or(0),
-            u64::try_from(event.timestamp.get()).unwrap_or(0),
-        ))
-    }
-
-    /// Returns the total number of recorded events.
-    pub fn total_events(&self) -> U256 {
-        self.total_events.get()
-    }
-
     /// Authorizes a contract to record events. Admin only.
     pub fn authorize_recorder(&mut self, recorder: Address) -> Result<(), String> {
         let caller = self.vm().msg_sender();
 
         if caller != self.admin.get() {
-            return Err(String::from("AuditRegistry: only admin"));
+            return Err(CommonError::NotAdmin { caller }.into());
+        }
+        if recorder == Address::ZERO {
+            return Err(CommonError::InvalidInput { reason: "cannot authorize zero address" }.into());
         }
 
         self.authorized_recorders.setter(recorder).set(true);
@@ -214,7 +124,7 @@ impl AuditRegistry {
         let caller = self.vm().msg_sender();
 
         if caller != self.admin.get() {
-            return Err(String::from("AuditRegistry: only admin"));
+            return Err(CommonError::NotAdmin { caller }.into());
         }
 
         self.authorized_recorders.setter(recorder).set(false);
@@ -222,6 +132,41 @@ impl AuditRegistry {
         self.vm().log(RecorderRevoked { recorder });
 
         Ok(())
+    }
+
+    /// Returns audit event data.
+    pub fn get_audit_event(
+        &self,
+        event_id: FixedBytes<32>,
+    ) -> Result<(Address, u8, FixedBytes<32>, u8, u64), String> {
+        let event = self.events.getter(event_id);
+
+        if event.actor.get() == Address::ZERO {
+            return Err(CommonError::ResourceNotFound.into());
+        }
+
+        Ok((
+            event.actor.get(),
+            u8::try_from(event.entity_type.get()).unwrap_or(0),
+            event.entity_id.get(),
+            u8::try_from(event.action.get()).unwrap_or(0),
+            u64::try_from(event.timestamp.get()).unwrap_or(0),
+        ))
+    }
+
+    /// Checks if an address is an authorized recorder.
+    pub fn is_authorized_recorder(&self, recorder: Address) -> bool {
+        self.authorized_recorders.get(recorder)
+    }
+
+    /// Returns the current nonce for a user.
+    pub fn get_nonce(&self, owner: Address) -> U256 {
+        self.nonces.get(owner)
+    }
+
+    /// Returns the total number of recorded events.
+    pub fn total_events(&self) -> U256 {
+        self.total_events.get()
     }
 
     /// Returns the admin address.

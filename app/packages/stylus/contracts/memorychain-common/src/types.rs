@@ -26,8 +26,15 @@ pub enum ResourceStatus {
 #[repr(u8)]
 pub enum Visibility {
     Private = 0,
-    Shared = 1,
-    Public = 2,
+    Public = 1,
+    Restricted = 2,
+}
+
+impl Visibility {
+    /// Returns the maximum valid visibility value.
+    pub fn max_value() -> u8 {
+        Visibility::Restricted as u8
+    }
 }
 
 /// Category of a memory.
@@ -39,6 +46,13 @@ pub enum MemoryType {
     Document = 2,
     Objective = 3,
     Other = 4,
+}
+
+impl MemoryType {
+    /// Returns the maximum valid memory type value.
+    pub fn max_value() -> u8 {
+        MemoryType::Other as u8
+    }
 }
 
 /// Category of an agent.
@@ -78,3 +92,22 @@ pub enum AuditAction {
     Consume = 7,
     Refund = 8,
 }
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Operation codes for CreditManager.get_fee()
+// ══════════════════════════════════════════════════════════════════════════════
+
+/// User registration operation.
+pub const OP_REGISTER_USER: u8 = 0;
+/// Memory creation operation.
+pub const OP_CREATE_MEMORY: u8 = 1;
+/// Memory update operation.
+pub const OP_UPDATE_MEMORY: u8 = 2;
+/// Agent creation operation.
+pub const OP_CREATE_AGENT: u8 = 3;
+/// Agent update operation.
+pub const OP_UPDATE_AGENT: u8 = 4;
+/// Agent execution operation (reserved).
+pub const OP_EXECUTE_AGENT: u8 = 5;
+/// Memory linking operation.
+pub const OP_LINK_MEMORY: u8 = 6;

@@ -51,6 +51,8 @@ pub enum MemoryError {
     NotOwner,
     /// Memory is archived.
     Archived,
+    /// Memory is not archived (when trying to restore).
+    NotArchived,
     /// Invalid CID (empty).
     InvalidCid,
     /// Invalid hash (zero).
@@ -72,6 +74,8 @@ pub enum AgentError {
     NotOwner,
     /// Agent is archived.
     Archived,
+    /// Agent is not archived (when trying to restore).
+    NotArchived,
     /// Invalid name (empty).
     InvalidName,
     /// Invalid CID (empty).
@@ -185,6 +189,7 @@ impl From<MemoryError> for String {
             MemoryError::NotFound => String::from("MemoryError: not found"),
             MemoryError::NotOwner => String::from("MemoryError: not owner"),
             MemoryError::Archived => String::from("MemoryError: archived"),
+            MemoryError::NotArchived => String::from("MemoryError: not archived"),
             MemoryError::InvalidCid => String::from("MemoryError: empty CID"),
             MemoryError::InvalidHash => String::from("MemoryError: zero hash"),
             MemoryError::IdCollision => String::from("MemoryError: ID collision"),
@@ -202,6 +207,7 @@ impl From<AgentError> for String {
             AgentError::NotFound => String::from("AgentError: not found"),
             AgentError::NotOwner => String::from("AgentError: not owner"),
             AgentError::Archived => String::from("AgentError: archived"),
+            AgentError::NotArchived => String::from("AgentError: not archived"),
             AgentError::InvalidName => String::from("AgentError: empty name"),
             AgentError::InvalidCid => String::from("AgentError: empty CID"),
             AgentError::InvalidHash => String::from("AgentError: zero hash"),

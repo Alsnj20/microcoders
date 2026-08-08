@@ -1,6 +1,6 @@
 //! UserRegistry Contract
 //!
-//! Manages user identities within MemoryChain.
+//! Manages user identities, usernames, and activity stats within MemoryChain.
 
 #![cfg_attr(not(any(test, feature = "export-abi")), no_main)]
 extern crate alloc;
@@ -10,6 +10,7 @@ use alloy_primitives::{Address, Uint, U256};
 use memorychain_common::{
     errors::{CommonError, UserError},
     events::*,
+    impl_admin_transfer, impl_pausable,
 };
 use stylus_sdk::prelude::*;
 
@@ -37,110 +38,37 @@ sol_storage! {
 
 #[public]
 impl UserRegistry {
-    /// Initializes the contract.
-    pub fn initialize(&mut self) {
-        if self.admin.get() == Address::ZERO {
-            self.admin.set(self.vm().msg_sender());
+    /// Initializes the contract. Returns an error if already initialized.
+    pub fn initialize(&mut self) -> Result<(), String> {
+        if self.admin.get() != Address::ZERO {
+            return Err(String::from("UserRegistry: already initialized"));
         }
-    }
-
-    // ════════════════════════════════════════════════════════════════════════
-    // PAUSABLE
-    // ════════════════════════════════════════════════════════════════════════
-
-    /// Pauses the contract. Admin only.
-    pub fn pause(&mut self) -> Result<(), String> {
-        let caller = self.vm().msg_sender();
-        if caller != self.admin.get() {
-            return Err(CommonError::NotAdmin { caller }.into());
-        }
-        self.paused.set(true);
-        self.vm().log(ContractPaused { admin: caller });
-        Ok(())
-    }
-
-    /// Unpauses the contract. Admin only.
-    pub fn unpause(&mut self) -> Result<(), String> {
-        let caller = self.vm().msg_sender();
-        if caller != self.admin.get() {
-            return Err(CommonError::NotAdmin { caller }.into());
-        }
-        self.paused.set(false);
-        self.vm().log(ContractUnpaused { admin: caller });
-        Ok(())
-    }
-
-    /// Returns whether the contract is paused.
-    pub fn is_paused(&self) -> bool {
-        self.paused.get()
-    }
-
-    fn require_not_paused(&self) -> Result<(), String> {
-        if self.paused.get() {
-            return Err(CommonError::Paused.into());
-        }
+        self.admin.set(self.vm().msg_sender());
         Ok(())
     }
 
     // ════════════════════════════════════════════════════════════════════════
-    // ADMIN TRANSFER (Two-step)
+    // PAUSABLE & ADMIN TRANSFER
     // ════════════════════════════════════════════════════════════════════════
-
-    /// Proposes a new admin. Current admin only.
-    pub fn propose_admin(&mut self, new_admin: Address) -> Result<(), String> {
-        let caller = self.vm().msg_sender();
-        if caller != self.admin.get() {
-            return Err(CommonError::NotAdmin { caller }.into());
-        }
-        if new_admin == Address::ZERO {
-            return Err(CommonError::InvalidInput { reason: "new admin cannot be zero address" }.into());
-        }
-        self.pending_admin.set(new_admin);
-        self.vm().log(AdminTransferProposed {
-            current_admin: caller,
-            new_admin,
-        });
-        Ok(())
-    }
-
-    /// Accepts admin role. Called by the proposed admin.
-    pub fn accept_admin(&mut self) -> Result<(), String> {
-        let caller = self.vm().msg_sender();
-        let pending = self.pending_admin.get();
-        if caller != pending {
-            return Err(String::from("UserRegistry: not pending admin"));
-        }
-        let old_admin = self.admin.get();
-        self.admin.set(caller);
-        self.pending_admin.set(Address::ZERO);
-        self.vm().log(AdminTransferCompleted {
-            old_admin,
-            new_admin: caller,
-        });
-        Ok(())
-    }
-
-    /// Returns the pending admin address.
-    pub fn pending_admin(&self) -> Address {
-        self.pending_admin.get()
-    }
+    impl_pausable!();
+    impl_admin_transfer!();
 
     // ════════════════════════════════════════════════════════════════════════
     // USER MANAGEMENT
     // ════════════════════════════════════════════════════════════════════════
 
-    /// Registers a new user.
+    /// Registers a new user identity.
     pub fn register_user(&mut self, username: String) -> Result<(), String> {
         self.require_not_paused()?;
 
         let caller = self.vm().msg_sender();
 
         if self.is_registered(caller) {
-            return Err(String::from("UserRegistry: already registered"));
+            return Err(CommonError::AlreadyExists.into());
         }
 
         if username.is_empty() || username.len() > 64 {
-            return Err(String::from("UserRegistry: invalid username length"));
+            return Err(CommonError::InvalidInput { reason: "invalid username length" }.into());
         }
 
         if self.username_taken.get(username.clone()) {
@@ -169,18 +97,18 @@ impl UserRegistry {
         Ok(())
     }
 
-    /// Updates the caller's username.
+    /// Updates the caller's username and frees the old one.
     pub fn update_username(&mut self, new_username: String) -> Result<(), String> {
         self.require_not_paused()?;
 
         let caller = self.vm().msg_sender();
 
         if !self.is_registered(caller) {
-            return Err(String::from("UserRegistry: not registered"));
+            return Err(CommonError::NotRegistered { caller }.into());
         }
 
         if new_username.is_empty() || new_username.len() > 64 {
-            return Err(String::from("UserRegistry: invalid username length"));
+            return Err(CommonError::InvalidInput { reason: "invalid username length" }.into());
         }
 
         let old_username = self.users.getter(caller).username.get_string();
@@ -192,6 +120,7 @@ impl UserRegistry {
             return Err(UserError::UsernameTaken { username: new_username }.into());
         }
 
+        // Release previous username and reserve new one
         self.username_taken.setter(old_username).set(false);
         self.username_taken.setter(new_username.clone()).set(true);
         self.users.setter(caller).username.set_str(&new_username);
@@ -211,48 +140,94 @@ impl UserRegistry {
         let caller = self.vm().msg_sender();
 
         if !self.is_registered(caller) {
-            return Err(String::from("UserRegistry: not registered"));
+            return Err(CommonError::NotRegistered { caller }.into());
         }
 
         self.users.setter(caller).active.set(false);
 
-        self.vm().log(UserDeactivated {
-            owner: caller,
-        });
+        self.vm().log(UserDeactivated { owner: caller });
 
         Ok(())
     }
 
     // ════════════════════════════════════════════════════════════════════════
-    // STAT UPDATES (Cross-contract, access controlled)
+    // STAT UPDATES (Cross-contract calls)
     // ════════════════════════════════════════════════════════════════════════
 
-    /// Increments the agent count for a user. Only callable by authorized contracts.
+    /// Increments the agent count for a user. Only callable by authorized contracts or admin.
     pub fn increment_agents(&mut self, owner: Address) -> Result<(), String> {
+        self.require_not_paused()?;
+
         let caller = self.vm().msg_sender();
         if !self.authorized_updaters.get(caller) && caller != self.admin.get() {
             return Err(CommonError::NotAdmin { caller }.into());
         }
 
         let current: Uint<32, 1> = self.users.getter(owner).total_agents.get();
-        self.users.setter(owner).total_agents.set(current + Uint::from(1u32));
+        let new_val = current
+            .checked_add(Uint::from(1u32))
+            .ok_or(CommonError::InvalidInput { reason: "agent count overflow" })?;
+
+        self.users.setter(owner).total_agents.set(new_val);
         Ok(())
     }
 
-    /// Increments the memory count for a user. Only callable by authorized contracts.
+    /// Decrements the agent count for a user.
+    pub fn decrement_agents(&mut self, owner: Address) -> Result<(), String> {
+        self.require_not_paused()?;
+
+        let caller = self.vm().msg_sender();
+        if !self.authorized_updaters.get(caller) && caller != self.admin.get() {
+            return Err(CommonError::NotAdmin { caller }.into());
+        }
+
+        let current: Uint<32, 1> = self.users.getter(owner).total_agents.get();
+        if current > Uint::ZERO {
+            self.users.setter(owner).total_agents.set(current - Uint::from(1u32));
+        }
+
+        Ok(())
+    }
+
+    /// Increments the memory count for a user. Only callable by authorized contracts or admin.
     pub fn increment_memories(&mut self, owner: Address) -> Result<(), String> {
+        self.require_not_paused()?;
+
         let caller = self.vm().msg_sender();
         if !self.authorized_updaters.get(caller) && caller != self.admin.get() {
             return Err(CommonError::NotAdmin { caller }.into());
         }
 
         let current: Uint<32, 1> = self.users.getter(owner).total_memories.get();
-        self.users.setter(owner).total_memories.set(current + Uint::from(1u32));
+        let new_val = current
+            .checked_add(Uint::from(1u32))
+            .ok_or(CommonError::InvalidInput { reason: "memory count overflow" })?;
+
+        self.users.setter(owner).total_memories.set(new_val);
+        Ok(())
+    }
+
+    /// Decrements the memory count for a user.
+    pub fn decrement_memories(&mut self, owner: Address) -> Result<(), String> {
+        self.require_not_paused()?;
+
+        let caller = self.vm().msg_sender();
+        if !self.authorized_updaters.get(caller) && caller != self.admin.get() {
+            return Err(CommonError::NotAdmin { caller }.into());
+        }
+
+        let current: Uint<32, 1> = self.users.getter(owner).total_memories.get();
+        if current > Uint::ZERO {
+            self.users.setter(owner).total_memories.set(current - Uint::from(1u32));
+        }
+
         Ok(())
     }
 
     /// Authorizes a contract to update user stats. Admin only.
     pub fn authorize_updater(&mut self, updater: Address) -> Result<(), String> {
+        self.require_not_paused()?;
+
         let caller = self.vm().msg_sender();
         if caller != self.admin.get() {
             return Err(CommonError::NotAdmin { caller }.into());
@@ -264,6 +239,8 @@ impl UserRegistry {
 
     /// Revokes updater authorization. Admin only.
     pub fn revoke_updater(&mut self, updater: Address) -> Result<(), String> {
+        self.require_not_paused()?;
+
         let caller = self.vm().msg_sender();
         if caller != self.admin.get() {
             return Err(CommonError::NotAdmin { caller }.into());
@@ -277,12 +254,25 @@ impl UserRegistry {
     // VIEW FUNCTIONS
     // ════════════════════════════════════════════════════════════════════════
 
+    /// Returns full profile details for a given address.
+    pub fn get_user(&self, owner: Address) -> (Address, String, u64, bool, u32, u32) {
+        let user = self.users.getter(owner);
+        (
+            user.owner.get(),
+            user.username.get_string(),
+            u64::try_from(user.created_at.get()).unwrap_or(0),
+            user.active.get(),
+            u32::try_from(user.total_agents.get()).unwrap_or(0),
+            u32::try_from(user.total_memories.get()).unwrap_or(0),
+        )
+    }
+
     /// Checks if an address is registered.
     pub fn exists(&self, owner: Address) -> bool {
         self.users.getter(owner).owner.get() != Address::ZERO
     }
 
-    /// Checks if the caller is registered.
+    /// Checks if an address is registered.
     pub fn is_registered(&self, owner: Address) -> bool {
         self.exists(owner)
     }
@@ -292,12 +282,17 @@ impl UserRegistry {
         self.users.getter(owner).username.get_string()
     }
 
+    /// Checks if the username is already taken.
+    pub fn is_username_taken(&self, username: String) -> bool {
+        self.username_taken.get(username)
+    }
+
     /// Checks if the user account is active.
     pub fn is_active(&self, owner: Address) -> bool {
         self.users.getter(owner).active.get()
     }
 
-    /// Returns the total number of registered users.
+    /// Returns total number of registered users.
     pub fn total_users(&self) -> U256 {
         self.total_users.get()
     }

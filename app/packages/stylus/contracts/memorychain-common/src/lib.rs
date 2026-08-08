@@ -10,3 +10,4 @@ pub mod errors;
 pub mod events;
 pub mod interfaces;
 pub mod helpers;
+pub mod macros;

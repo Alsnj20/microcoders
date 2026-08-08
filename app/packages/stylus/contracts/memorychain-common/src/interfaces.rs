@@ -8,6 +8,7 @@ use stylus_sdk::prelude::*;
 sol_interface! {
     interface ICreditManager {
         function consumeCredits(address user, uint64 amount) external;
+        function consumeCreditsForOp(address user, uint8 operation) external returns (uint16);
         function balanceOf(address user) external view returns (uint64);
         function hasSufficientCredits(address user, uint64 amount) external view returns (bool);
         function getFee(uint8 operation) external view returns (uint16);
