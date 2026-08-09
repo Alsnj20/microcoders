@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 NITRO_NODE_VERSION="v3.11.0-a618155"  # <-- only update this when you need a new version
 TARGET_IMAGE="offchainlabs/nitro-node:${NITRO_NODE_VERSION}"
@@ -97,13 +97,15 @@ if [ "$(cast code -r $RPC $CREATE2_FACTORY)" == "0x" ]; then
 fi
 
 # Deploy Cache Manager Contract
+# Uses cast mktx + cast publish to avoid "gas uint64 overflow" on Nitro dev,
+# which affects cast send --create's automatic gas estimation.
 echo "Deploying Cache Manager contract..."
-deploy_output=$(cast send --private-key $PRIVATE_KEY \
-  --rpc-url $RPC \
-  --create 0x60a06040523060805234801561001457600080fd5b50608051611d1c61003060003960006105260152611d1c6000f3fe)
+CACHE_MANAGER_BYTECODE=0x60a06040523060805234801561001457600080fd5b50608051611d1c61003060003960006105260152611d1c6000f3fe
+signed_tx=$(cast mktx --private-key $PRIVATE_KEY --rpc-url $RPC --gas-limit 1000000 --create "$CACHE_MANAGER_BYTECODE")
+deploy_output=$(cast publish --rpc-url $RPC "$signed_tx")
 
-# Extract contract address using awk from plain text output
-contract_address=$(echo "$deploy_output" | awk '/contractAddress/ {print $2}')
+# Extract contract address from JSON output
+contract_address=$(echo "$deploy_output" | jq -r '.contractAddress')
 
 # Check if contract deployment was successful
 if [[ -z "$contract_address" ]]; then
