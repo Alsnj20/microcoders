@@ -50,6 +50,7 @@ export function useChat() {
           const url = `${api.chat.welcome.$url()}?username=${encodeURIComponent(username || "usuario")}`;
           const res = await fetch(url, {
             headers: { "X-Dev-Wallet": addr },
+            credentials: "include",
           });
           if (res.ok) {
             const data = await res.json();

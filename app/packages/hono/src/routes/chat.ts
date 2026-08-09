@@ -129,6 +129,30 @@ export function createChatRoutes(
     return c.json({ chats });
   });
 
+  // ── WELCOME MESSAGE ─────────────────────────────────────────────────
+  routes.get("/welcome", async (c) => {
+    const session = requireSession(c);
+    if (!session) {
+      return c.json({ code: "AUTH_REQUIRED", message: "No valid session" }, 401);
+    }
+
+    const username = c.req.query("username") || session.username || "usuario";
+    const shortAddress = session.address
+      ? `${session.address.slice(0, 6)}…${session.address.slice(-4)}`
+      : "";
+    const welcomeMessage = `¡Hola ${username}! 👋 Soy tu asistente de MemoryChain.
+
+Puedo ayudarte a:
+• **Crear memorias** — Guarda información importante en la blockchain
+• **Crear agentes** — Configura agentes de IA especializados
+• **Vincular memorias a agentes** — Dale conocimiento a tus agentes
+• **Consultar tu knowledge base** — Recupera información guardada
+
+¿En qué te puedo ayudar hoy?`;
+
+    return c.json({ message: welcomeMessage, address: shortAddress, username });
+  });
+
   // ── GET CHAT ───────────────────────────────────────────────────────────
   routes.get("/:id", async (c) => {
     const session = requireSession(c);
@@ -259,30 +283,6 @@ Si el usuario pregunta sobre sus memorias o agentes, ayúdale a entender qué pu
       console.error("Chat error:", err.message);
       return c.json({ code: "AI_ERROR", message: "Error al procesar el mensaje" }, 500);
     }
-  });
-
-  // Welcome message endpoint
-  routes.get("/welcome", async (c) => {
-    const session = requireSession(c);
-    if (!session) {
-      return c.json({ code: "AUTH_REQUIRED", message: "No valid session" }, 401);
-    }
-
-    const username = c.req.query("username") || session.username || "usuario";
-    const shortAddress = session.address
-      ? `${session.address.slice(0, 6)}…${session.address.slice(-4)}`
-      : "";
-    const welcomeMessage = `¡Hola ${username}! 👋 Soy tu asistente de MemoryChain.
-
-Puedo ayudarte a:
-• **Crear memorias** — Guarda información importante en la blockchain
-• **Crear agentes** — Configura agentes de IA especializados
-• **Vincular memorias a agentes** — Dale conocimiento a tus agentes
-• **Consultar tu knowledge base** — Recupera información guardada
-
-¿En qué te puedo ayudar hoy?`;
-
-    return c.json({ message: welcomeMessage, address: shortAddress, username });
   });
 
   return routes;

@@ -253,8 +253,15 @@ export function createAgentRegistryAdapter(): AgentRegistryContract {
 
     async getAgentsByOwner(owner, offset, limit): Promise<ContractResult<AgentData[]>> {
       try {
+        const count = await publicClient.readContract({
+          address,
+          abi: agentAbi,
+          functionName: "getAgentCountByOwner",
+          args: [owner as `0x${string}`],
+        });
+        const total = Number(count);
         const agents: AgentData[] = [];
-        for (let i = offset; i < offset + limit; i++) {
+        for (let i = offset; i < Math.min(offset + limit, total); i++) {
           const agentId = await publicClient.readContract({
             address,
             abi: agentAbi,
@@ -416,8 +423,15 @@ export function createMemoryRegistryAdapter(): MemoryRegistryContract {
 
     async getMemoriesByOwner(owner, offset, limit): Promise<ContractResult<MemoryData[]>> {
       try {
+        const count = await publicClient.readContract({
+          address,
+          abi: memoryAbi,
+          functionName: "getMemoryCountByOwner",
+          args: [owner as `0x${string}`],
+        });
+        const total = Number(count);
         const memories: MemoryData[] = [];
-        for (let i = offset; i < offset + limit; i++) {
+        for (let i = offset; i < Math.min(offset + limit, total); i++) {
           const memoryId = await publicClient.readContract({
             address,
             abi: memoryAbi,
@@ -868,8 +882,15 @@ export function createChatRegistryAdapter(): ChatRegistryContract {
 
     async getChatsByOwner(owner, offset, limit): Promise<ContractResult<ChatData[]>> {
       try {
+        const count = await publicClient.readContract({
+          address,
+          abi: chatAbi,
+          functionName: "getChatCountByOwner",
+          args: [owner as `0x${string}`],
+        });
+        const total = Number(count);
         const chats: ChatData[] = [];
-        for (let i = offset; i < offset + limit; i++) {
+        for (let i = offset; i < Math.min(offset + limit, total); i++) {
           const chatId = await publicClient.readContract({
             address,
             abi: chatAbi,

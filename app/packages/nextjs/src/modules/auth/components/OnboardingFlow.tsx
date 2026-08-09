@@ -116,10 +116,19 @@ export function OnboardingFlow({ startStep = "welcome" }: OnboardingFlowProps) {
 
       if (!regRes.ok) {
         const errBody = await regRes.json().catch(() => null);
-        const msg = errBody?.message ?? `Registration failed (${regRes.status})`;
-        console.error("[Onboarding] registerAndComplete: register failed:", msg);
-        setRegisterError(msg);
-        return;
+        const code = errBody?.code;
+        const msg = errBody?.message ?? "";
+        const isAlreadyRegistered =
+          regRes.status === 409 && code === "ALREADY_REGISTERED" ||
+          msg.includes("0x436f6d6d") ||
+          msg.includes("already exists");
+        if (isAlreadyRegistered) {
+          console.log("[Onboarding] User already registered, continuing");
+        } else {
+          console.error("[Onboarding] registerAndComplete: register failed:", msg);
+          setRegisterError(msg || `Registration failed (${regRes.status})`);
+          return;
+        }
       }
 
       if (pack && pack > 0) {
