@@ -7,6 +7,7 @@
     "chain": "./nitro-devnode/start-chain-with-cors.sh",
     "clean-contracts": "pnpm --filter @ss/stylus clean-contracts",
     "compile": "pnpm --filter @ss/stylus compile",
+    "predeploy:contracts": "pnpm --filter @ss/stylus predeploy:contracts",
     "deploy:contracts": "pnpm --filter @ss/stylus deploy:contracts",
     "export-abi": "pnpm --filter @ss/stylus export-abi",
     "flatten": "pnpm --filter @ss/stylus flatten",
