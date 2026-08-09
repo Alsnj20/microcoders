@@ -77,7 +77,7 @@ export const HeroClient = () => {
               <div className="p-4 rounded-xl bg-muted/40 border border-border/50 text-foreground font-sans text-xs flex justify-between items-center">
                 <div>
                   <p className="font-semibold">Información Privada Cifrada</p>
-                  <p className="text-muted-foreground text-xs">Almacenada Off-Chain en IPFS + PostgreSQL (pgvector)</p>
+                  <p className="text-muted-foreground text-xs">Almacenada Off-Chain cifrada de extremo a extremo en IPFS</p>
                 </div>
                 <span className="material-symbols-outlined text-primary text-2xl">lock</span>
               </div>
@@ -99,7 +99,7 @@ export const HeroClient = () => {
               <div className="p-4 rounded-xl bg-muted/40 border border-border/50 text-foreground font-sans text-xs flex justify-between items-center">
                 <div>
                   <p className="font-semibold">Modelos Compatibles</p>
-                  <p className="text-muted-foreground text-xs">OpenAI GPT-4o, Claude 3.5 Sonnet, Flowise Workflows</p>
+                  <p className="text-muted-foreground text-xs">OpenAI GPT-4o, Claude 3.5 Sonnet, Gemini (Vercel AI SDK)</p>
                 </div>
                 <span className="material-symbols-outlined text-secondary text-2xl">smart_toy</span>
               </div>

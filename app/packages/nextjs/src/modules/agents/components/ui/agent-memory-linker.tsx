@@ -44,7 +44,7 @@ export function AgentMemoryLinker({
 
         if (ctxRes.ok) {
           const ctxData = await ctxRes.json();
-          const ids = new Set((ctxData.links || []).map((l: any) => l.memoryId));
+          const ids: Set<string> = new Set((ctxData.links || []).map((l: any) => l.memoryId as string));
           setLinkedIds(ids);
         }
       } catch (err) {

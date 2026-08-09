@@ -12,7 +12,7 @@ export { MemorySchema, MemoryTypeSchema, CollectionSchema } from "./types/memory
 export { useMemory } from "./hooks/use-memory";
 
 // Components
-export { MemoriesPage } from "./components/pages/memories-page";
+export { default as MemoriesPage } from "./components/pages/memories-page";
 export { MemoryCard } from "./components/ui/memory-card";
 export { MemorySidebar } from "./components/ui/memory-sidebar";
 export { MemoryHeader } from "./components/ui/memory-header";

@@ -6,7 +6,7 @@ import { Input } from "~~/components/ui/input";
 import { LateralBar, LateralBarContent, LateralBarSection, LateralBarSectionButton } from "~~/components/ui/lateral-bar";
 import { SlidePanel } from "~~/components/shared/SlidePanel";
 import { useMemory } from "../../hooks/use-memory";
-import type { Memory } from "../../types/memory";
+import type { Memory, MemoryType } from "../../types/memory";
 import { MemoryCard } from "../ui/memory-card";
 
 const TYPE_ICONS: Record<string, string> = {
@@ -39,7 +39,7 @@ export default function MemoriesPage() {
 
   const [showPanel, setShowPanel] = useState<"create" | "edit" | "detail" | null>(null);
   const [selectedMemory, setSelectedMemory] = useState<Memory | null>(null);
-  const [formData, setFormData] = useState({ title: "", description: "", type: "documento" as const, content: "" });
+  const [formData, setFormData] = useState<{ title: string; description: string; type: MemoryType; content: string }>({ title: "", description: "", type: "documento", content: "" });
 
   const filteredMemories = memories
     .filter(m => {
@@ -179,7 +179,7 @@ export default function MemoriesPage() {
             </div>
             <select
               value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
+              onChange={(e) => setSortBy(e.target.value as "recent" | "oldest" | "name")}
               className="px-3 py-2 rounded-lg border border-input bg-transparent text-sm text-foreground"
             >
               <option value="recent">Más recientes</option>

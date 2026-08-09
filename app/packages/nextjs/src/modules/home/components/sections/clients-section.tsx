@@ -2,12 +2,12 @@
 
 export const ClientsSection = () => {
   const stack = [
-    { name: "FastAPI", category: "Backend Engine", icon: "bolt" },
-    { name: "PostgreSQL + pgvector", category: "Vector Database", icon: "database" },
+    { name: "Hono", category: "Zero-Knowledge API", icon: "bolt" },
+    { name: "Arbitrum Stylus", category: "Rust WASM Contracts", icon: "token" },
     { name: "IPFS", category: "Off-chain Encrypted Storage", icon: "cloud" },
-    { name: "Flowise", category: "LLM Orchestration", icon: "account_tree" },
-    { name: "OpenAI & Claude", category: "AI Models", icon: "neurology" },
-    { name: "MetaMask / Wagmi", category: "Web3 Wallet Auth", icon: "account_balance_wallet" },
+    { name: "Vercel AI SDK", category: "LLM Orchestration", icon: "hub" },
+    { name: "OpenAI & Claude", category: "AI Models", icon: "psychology" },
+    { name: "RainbowKit & Wagmi", category: "Web3 Auth & SIWE", icon: "account_balance_wallet" },
   ];
 
   return (

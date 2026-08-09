@@ -31,6 +31,7 @@ export function ChatPage() {
     onSaveAsMemory,
     userState,
     sendMessage,
+    isGenerating,
   } = useChat();
 
   const activeAgent = agents.find((a) => a.id === userState.activeAgentId);
@@ -64,7 +65,7 @@ export function ChatPage() {
         </ChatMessages>
 
         {/* Bottom Input Composer */}
-        <ChatInput onSendMessage={sendMessage} />
+        <ChatInput onSendMessage={sendMessage} disabled={isGenerating} />
       </main>
 
       {/* Right Panel: Context + Memories */}

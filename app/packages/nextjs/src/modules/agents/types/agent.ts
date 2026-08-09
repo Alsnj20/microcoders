@@ -1,13 +1,13 @@
 import { z } from "zod";
 
-export const AgentModelSchema = z.enum(["gpt-5.5", "claude", "gemini", "llama3"]);
+export const AgentModelSchema = z.enum(["gpt-4o", "gpt-4o-mini", "claude-sonnet-4-20250514", "gemini-2.0-flash"]);
 
 export const AgentSchema = z.object({
   id: z.string(),
   name: z.string().min(1, "El nombre es requerido"),
   description: z.string().optional(),
   icon: z.string().default("🤖"),
-  model: AgentModelSchema.default("gpt-5.5"),
+  model: AgentModelSchema.default("gpt-4o-mini"),
   personality: z.string().optional(),
   tools: z.array(z.string()).default([]),
   connectedMemories: z.array(z.string()).default([]),

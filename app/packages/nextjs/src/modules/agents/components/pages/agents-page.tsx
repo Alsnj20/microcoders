@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAgent } from "../../hooks/use-agent";
-import type { Agent } from "../../types/agent";
+import type { Agent, AgentModel } from "../../types/agent";
 import { AgentChat } from "../ui/agent-chat";
 import { AgentForm } from "../ui/agent-form";
 import { AgentInfoPanel } from "../ui/agent-info-panel";
@@ -21,6 +21,7 @@ export function AgentsPage() {
     agentConversations,
     currentMessages,
     loading,
+    isGenerating,
     getAgent,
     createAgent,
     updateAgent,
@@ -55,7 +56,7 @@ export function AgentsPage() {
     name: string;
     description?: string;
     icon: string;
-    model: "gpt-5.5" | "claude" | "gemini" | "llama3";
+    model: AgentModel;
     personality?: string;
     tools: string[];
     persistentMemory: boolean;
@@ -172,7 +173,7 @@ export function AgentsPage() {
       {/* Center — Chat or Agent Details */}
       <div className="flex-1 flex flex-col">
         {selectedAgent ? (
-          <AgentChat agent={selectedAgent} messages={currentMessages} onSendMessage={handleSendMessage} />
+          <AgentChat agent={selectedAgent} messages={currentMessages} onSendMessage={handleSendMessage} disabled={isGenerating} />
         ) : (
           <div className="flex-1 flex items-center justify-center text-muted-foreground">
             <div className="text-center">

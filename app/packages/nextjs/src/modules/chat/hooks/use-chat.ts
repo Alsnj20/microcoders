@@ -27,6 +27,7 @@ export function useChat() {
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [linkedMemories, setLinkedMemories] = useState<LinkedMemory[]>([]);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [userState, setUserState] = useState<UserProtocolState>({
     username: session.username || "",
     memoryCredits: 0,
@@ -188,7 +189,9 @@ export function useChat() {
 
   const sendMessage = useCallback(
     async (text: string) => {
-      if (!text.trim()) return;
+      if (!text.trim() || isGenerating) return;
+
+      setIsGenerating(true);
 
       const convId = selectedConversationId || Date.now().toString();
       const isNew = !selectedConversationId;
@@ -233,15 +236,17 @@ export function useChat() {
             systemLog: `> MODEL: ${data.model}`,
             creditsUsed: 2,
           };
-          const newMessages = [...messages, userMsg, botMsg];
-          setMessages(newMessages);
-
-          saveConversation({
-            id: convId,
-            title: (isNew ? text.slice(0, 40) : conversations.find((c) => c.id === convId)?.title) || "Chat",
-            messages: newMessages,
-            createdAt: new Date().toISOString(),
-          }).catch(() => {});
+          
+          setMessages((prev) => {
+            const updated = [...prev, botMsg];
+            saveConversation({
+              id: convId,
+              title: (isNew ? text.slice(0, 40) : conversations.find((c) => c.id === convId)?.title) || "Chat",
+              messages: updated,
+              createdAt: new Date().toISOString(),
+            }).catch(() => {});
+            return updated;
+          });
         } else {
           const errData = await res.json();
           const errorMsg: ChatMessage = {
@@ -262,6 +267,8 @@ export function useChat() {
           timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         };
         setMessages((prev) => [...prev, errorMsg]);
+      } finally {
+        setIsGenerating(false);
       }
 
       setUserState((prev) => ({
@@ -271,7 +278,7 @@ export function useChat() {
 
       refreshBalance();
     },
-    [selectedConversationId, agents, userState.activeAgentId, conversations, refreshBalance],
+    [selectedConversationId, agents, userState.activeAgentId, conversations, refreshBalance, isGenerating],
   );
 
   const saveAsMemory = useCallback(
@@ -331,5 +338,6 @@ export function useChat() {
     onSaveAsMemory: saveAsMemory,
     userState,
     sendMessage,
+    isGenerating,
   };
 }

@@ -33,7 +33,7 @@ export const ExploreLinksSection = () => {
             {
               icon: "swap_horiz",
               title: "Interoperabilidad Multi-Modelo",
-              desc: "Conecta tus conocimientos con OpenAI GPT-4o, Claude o flujos personalizados en Flowise sin perder datos.",
+              desc: "Conecta tus conocimientos con OpenAI GPT-4o, Claude o flujos personalizados mediante el Vercel AI SDK sin perder datos.",
             },
           ].map(feature => (
             <div

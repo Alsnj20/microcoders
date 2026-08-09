@@ -9,6 +9,12 @@ import { generateKData } from "~~/services/crypto/keys";
 import { arrayBufferToBase64, base64ToArrayBuffer } from "~~/services/crypto/utils";
 import type { Collection, CreateMemory, Memory, UpdateMemory } from "../types/memory";
 
+interface MemoryPayload {
+  title: string;
+  description: string;
+  content: string;
+}
+
 function generateDevHash(): string {
   const bytes = new Uint8Array(32);
   crypto.getRandomValues(bytes);
@@ -160,11 +166,23 @@ export function useMemory() {
         // 3. Decrypt content
         const plaintext = await decryptData(base64ToArrayBuffer(envelope.ciphertext), kData);
 
-        const decrypted = {
-          ...localMeta,
-          content: plaintext,
-          description: localMeta.description || plaintext.slice(0, 100) + "...",
-        };
+        let decrypted: Memory;
+        try {
+          const payload = JSON.parse(plaintext) as MemoryPayload;
+          decrypted = {
+            ...localMeta,
+            title: payload.title || localMeta.title,
+            description: payload.description || localMeta.description,
+            content: payload.content,
+          };
+        } catch {
+          // Fallback if ciphertext was not JSON formatted
+          decrypted = {
+            ...localMeta,
+            content: plaintext,
+            description: localMeta.description || plaintext.slice(0, 100) + "...",
+          };
+        }
 
         setMemories(prev => prev.map(m => (m.id === id ? decrypted : m)));
         return decrypted;
@@ -187,7 +205,12 @@ export function useMemory() {
         if (session.kWallet) {
           // Production: encrypt → IPFS → on-chain
           const kData = generateKData();
-          const ciphertext = await encryptData(data.content || "", kData);
+          const memoryPayload: MemoryPayload = {
+            title: data.title,
+            description: data.description || "",
+            content: data.content || "",
+          };
+          const ciphertext = await encryptData(JSON.stringify(memoryPayload), kData);
           const walletEnvelope = await createWalletEnvelope(kData, session.kWallet);
 
           const ipfsPayload = {
@@ -259,7 +282,12 @@ export function useMemory() {
 
         if (session.kWallet) {
           const kData = generateKData();
-          const ciphertext = await encryptData(data.content || "", kData);
+          const memoryPayload: MemoryPayload = {
+            title: data.title || localMeta.title,
+            description: data.description ?? localMeta.description ?? "",
+            content: data.content ?? localMeta.content ?? "",
+          };
+          const ciphertext = await encryptData(JSON.stringify(memoryPayload), kData);
           const walletEnvelope = await createWalletEnvelope(kData, session.kWallet);
 
           const ipfsPayload = {

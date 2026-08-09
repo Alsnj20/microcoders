@@ -23,7 +23,7 @@ export const ServicesGrid = () => {
     {
       action: "Crear Memoria",
       cost: "1 MC",
-      detail: "Cifrado fuera de cadena e inserción en pgvector",
+      detail: "Cifrado simétrico local y almacenamiento descentralizado en IPFS",
       icon: "memory",
     },
     { action: "Actualizar Memoria", cost: "1 MC", detail: "Nuevo hash SHA-256 e incremento de versión", icon: "edit" },
@@ -51,7 +51,7 @@ export const ServicesGrid = () => {
             <span>Arbitrum Gas: Independiente</span>
             <span className="text-emerald-500 font-semibold flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-              FastAPI
+              Hono API
             </span>
           </div>
         </div>

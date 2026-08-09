@@ -16,9 +16,10 @@ interface AgentChatProps {
   agent: Agent | null;
   messages: AgentChatMessage[];
   onSendMessage: (content: string) => void;
+  disabled?: boolean;
 }
 
-export function AgentChat({ agent, messages, onSendMessage }: AgentChatProps) {
+export function AgentChat({ agent, messages, onSendMessage, disabled }: AgentChatProps) {
   return (
     <ChatContainer>
       <ChatMessages empty={messages.length === 0}>
@@ -34,7 +35,7 @@ export function AgentChat({ agent, messages, onSendMessage }: AgentChatProps) {
         )}
       </ChatMessages>
 
-      <ChatInput onSendMessage={onSendMessage} placeholder="Ask MemoryChain agent or request analysis...">
+      <ChatInput onSendMessage={onSendMessage} disabled={disabled} placeholder="Ask MemoryChain agent or request analysis...">
         <ChatAttachButton />
         <ChatInsertMedia />
       </ChatInput>
