@@ -4,6 +4,7 @@ export interface ChatMessage {
   avatarUrl: string;
   content: string;
   timestamp: string;
+  agentId?: string;
   systemLog?: string;
   memoryCid?: string;
   creditsUsed?: number;
@@ -29,7 +30,9 @@ export interface MemoryNode {
 
 export interface ChatConversation {
   id: string;
+  onChainId?: string;
   title: string;
+  cid?: string;
   lastMessage?: string;
   timestamp: string;
 }

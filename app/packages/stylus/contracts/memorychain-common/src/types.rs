@@ -111,3 +111,7 @@ pub const OP_UPDATE_AGENT: u8 = 4;
 pub const OP_EXECUTE_AGENT: u8 = 5;
 /// Memory linking operation.
 pub const OP_LINK_MEMORY: u8 = 6;
+/// Chat creation operation.
+pub const OP_CREATE_CHAT: u8 = 7;
+/// Chat update operation.
+pub const OP_UPDATE_CHAT: u8 = 8;

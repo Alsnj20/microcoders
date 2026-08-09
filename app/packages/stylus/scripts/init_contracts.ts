@@ -28,6 +28,7 @@ interface ContractAddresses {
   userRegistry: `0x${string}`;
   memoryRegistry: `0x${string}`;
   agentRegistry: `0x${string}`;
+  chatRegistry: `0x${string}`;
   contextRegistry: `0x${string}`;
   auditRegistry: `0x${string}`;
 }
@@ -55,14 +56,15 @@ function getAddresses(): ContractAddresses | null {
   const userRegistry = get("UserRegistry");
   const memoryRegistry = get("MemoryRegistry");
   const agentRegistry = get("AgentRegistry");
+  const chatRegistry = get("ChatRegistry");
   const contextRegistry = get("ContextRegistry");
   const auditRegistry = get("AuditRegistry");
 
-  if (!creditManager || !userRegistry || !memoryRegistry || !agentRegistry || !contextRegistry || !auditRegistry) {
+  if (!creditManager || !userRegistry || !memoryRegistry || !agentRegistry || !chatRegistry || !contextRegistry || !auditRegistry) {
     return null;
   }
 
-  return { creditManager, userRegistry, memoryRegistry, agentRegistry, contextRegistry, auditRegistry };
+  return { creditManager, userRegistry, memoryRegistry, agentRegistry, chatRegistry, contextRegistry, auditRegistry };
 }
 
 // ── Initialize contracts ───────────────────────────────────────────────────
@@ -128,7 +130,16 @@ async function initializeContracts(
     await walletClient.writeContract(request);
   });
 
-  // 5. ContextRegistry.initialize(memoryRegistry, agentRegistry, creditManager)
+  // 5. ChatRegistry.initialize(creditManager, userRegistry)
+  await tryInit("ChatRegistry", async () => {
+    const { request } = await publicClient.simulateContract({
+      account, address: addresses.chatRegistry, abi: INITIALIZE_ABI, functionName: "initialize",
+      args: [addresses.creditManager, addresses.userRegistry],
+    });
+    await walletClient.writeContract(request);
+  });
+
+  // 6. ContextRegistry.initialize(memoryRegistry, agentRegistry, creditManager)
   await tryInit("ContextRegistry", async () => {
     const { request } = await publicClient.simulateContract({
       account, address: addresses.contextRegistry, abi: INITIALIZE_ABI, functionName: "initialize",
@@ -137,7 +148,7 @@ async function initializeContracts(
     await walletClient.writeContract(request);
   });
 
-  // 6. AuditRegistry.initialize()
+  // 7. AuditRegistry.initialize()
   await tryInit("AuditRegistry", async () => {
     const { request } = await publicClient.simulateContract({
       account, address: addresses.auditRegistry, abi: INITIALIZE_ABI, functionName: "initialize",
@@ -161,10 +172,11 @@ async function authorizeContracts(
 
   console.log("🔗 Authorizing cross-contract calls...");
 
-  // CreditManager.authorizeConsumer — allow MemoryRegistry, AgentRegistry, ContextRegistry to consume credits
+  // CreditManager.authorizeConsumer — allow MemoryRegistry, AgentRegistry, ChatRegistry, ContextRegistry to consume credits
   for (const [label, addr] of [
     ["MemoryRegistry", addresses.memoryRegistry],
     ["AgentRegistry", addresses.agentRegistry],
+    ["ChatRegistry", addresses.chatRegistry],
     ["ContextRegistry", addresses.contextRegistry],
   ] as const) {
     console.log(`  → CreditManager.authorizeConsumer(${label})`);
@@ -178,10 +190,11 @@ async function authorizeContracts(
     await walletClient.writeContract(request);
   }
 
-  // UserRegistry.authorizeUpdater — allow MemoryRegistry, AgentRegistry to update user stats
+  // UserRegistry.authorizeUpdater — allow MemoryRegistry, AgentRegistry, ChatRegistry to update user stats
   for (const [label, addr] of [
     ["MemoryRegistry", addresses.memoryRegistry],
     ["AgentRegistry", addresses.agentRegistry],
+    ["ChatRegistry", addresses.chatRegistry],
   ] as const) {
     console.log(`  → UserRegistry.authorizeUpdater(${label})`);
     const { request } = await publicClient.simulateContract({

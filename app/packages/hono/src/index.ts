@@ -3,7 +3,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { serve } from "@hono/node-server";
 import { createIpfsClient, type IpfsClient } from "./lib/ipfs.js";
-import { createAgentRegistryAdapter, createMemoryRegistryAdapter, createUserRegistryAdapter, createCreditManagerAdapter, createContextRegistryAdapter, createAuditRegistryAdapter } from "./lib/contracts.js";
+import { createAgentRegistryAdapter, createMemoryRegistryAdapter, createUserRegistryAdapter, createCreditManagerAdapter, createContextRegistryAdapter, createAuditRegistryAdapter, createChatRegistryAdapter } from "./lib/contracts.js";
 import { createIpfsRoutes } from "./routes/ipfs.js";
 import { createMemoryRoutes } from "./routes/memories.js";
 import { createAgentRoutes } from "./routes/agents.js";
@@ -22,6 +22,7 @@ import type {
   CreditManagerContract,
   UserRegistryContract,
   AuditRegistryContract,
+  ChatRegistryContract,
 } from "./types/contracts.js";
 import type { SessionStore, SessionData, SessionKeyStore } from "./types/session.js";
 
@@ -38,6 +39,7 @@ export type AppDependencies = {
   memoryRegistry?: MemoryRegistryContract;
   agentRegistry?: AgentRegistryContract;
   contextRegistry?: ContextRegistryContract;
+  chatRegistry?: ChatRegistryContract;
   creditManager?: CreditManagerContract;
   userRegistry?: UserRegistryContract;
   auditRegistry?: AuditRegistryContract;
@@ -71,6 +73,7 @@ export function createApp(deps: AppDependencies = {}): Hono<AppEnv> {
   const memoryRegistry = deps.memoryRegistry;
   const agentRegistry = deps.agentRegistry;
   const contextRegistry = deps.contextRegistry;
+  const chatRegistry = deps.chatRegistry;
   const auditRegistry = deps.auditRegistry;
   const creditManager = deps.creditManager;
   const userRegistry = deps.userRegistry;
@@ -150,7 +153,7 @@ export function createApp(deps: AppDependencies = {}): Hono<AppEnv> {
   }
 
   // Chat routes (always available)
-  app.route("/chat", createChatRoutes(agentRegistry, memoryRegistry, contextRegistry));
+  app.route("/chat", createChatRoutes(agentRegistry, memoryRegistry, contextRegistry, chatRegistry));
 
   return app;
 }
@@ -160,15 +163,17 @@ const PORT = Number(process.env.PORT) || 3001;
 const isDev = process.env.NODE_ENV !== "production";
 const agentRegistry = isDev ? createAgentRegistryAdapter() : undefined;
 const memoryRegistry = isDev ? createMemoryRegistryAdapter() : undefined;
+const chatRegistry = isDev ? createChatRegistryAdapter() : undefined;
 const userRegistry = isDev ? createUserRegistryAdapter() : undefined;
 const creditManager = isDev ? createCreditManagerAdapter() : undefined;
 const contextRegistry = isDev ? createContextRegistryAdapter() : undefined;
 const auditRegistry = isDev ? createAuditRegistryAdapter() : undefined;
 
-serve({ fetch: createApp({ agentRegistry, memoryRegistry, userRegistry, creditManager, contextRegistry, auditRegistry }).fetch, port: PORT }, (info) => {
+serve({ fetch: createApp({ agentRegistry, memoryRegistry, chatRegistry, userRegistry, creditManager, contextRegistry, auditRegistry }).fetch, port: PORT }, (info) => {
   console.log(`🚀 Hono server running on http://localhost:${info.port}`);
   if (agentRegistry) console.log(`⛓️  AgentRegistry connected`);
   if (memoryRegistry) console.log(`⛓️  MemoryRegistry connected`);
+  if (chatRegistry) console.log(`⛓️  ChatRegistry connected`);
   if (userRegistry) console.log(`⛓️  UserRegistry connected`);
   if (creditManager) console.log(`⛓️  CreditManager connected`);
   if (contextRegistry) console.log(`⛓️  ContextRegistry connected`);

@@ -40,6 +40,7 @@ sol_storage! {
         uint32 latest_version;
         string current_cid;
         bytes32 current_hash;
+        string name;
         uint8 memory_type;
         uint8 visibility;
         uint8 status;
@@ -114,12 +115,14 @@ impl MemoryRegistry {
     /// Creates a new memory AFTER backend processing is complete.
     ///
     /// # Parameters
+    /// - `name`: Human-readable name for the memory
     /// - `cid`: IPFS content identifier
     /// - `hash`: Content hash for integrity verification
     /// - `memory_type`: Category (0=Preference, 1=Knowledge, 2=Document, 3=Objective, 4=Other)
     /// - `vis`: Visibility level (0=Private, 1=Public, 2=Restricted). Default: 0 (Private)
     pub fn create_memory(
         &mut self,
+        name: String,
         cid: String,
         hash: FixedBytes<32>,
         memory_type: u8,
@@ -129,6 +132,9 @@ impl MemoryRegistry {
 
         let caller = self.vm().msg_sender();
 
+        if name.is_empty() {
+            return Err(MemoryError::InvalidName.into());
+        }
         if cid.is_empty() {
             return Err(MemoryError::InvalidCid.into());
         }
@@ -166,6 +172,7 @@ impl MemoryRegistry {
         memory.latest_version.set(Uint::from(1u32));
         memory.current_cid.set_str(&cid);
         memory.current_hash.set(hash);
+        memory.name.set_str(&name);
         memory.memory_type.set(Uint::from(memory_type));
         memory.visibility.set(Uint::from(vis));
         memory.status.set(Uint::from(ResourceStatus::Active as u8));
@@ -337,7 +344,7 @@ impl MemoryRegistry {
     pub fn get_memory(
         &self,
         memory_id: FixedBytes<32>,
-    ) -> Result<(Address, u32, String, FixedBytes<32>, u8, u8, u8), String> {
+    ) -> Result<(Address, u32, String, FixedBytes<32>, String, u8, u8, u8), String> {
         let memory = self.memories.getter(memory_id);
         let owner = memory.owner.get();
 
@@ -350,6 +357,7 @@ impl MemoryRegistry {
             u32::try_from(memory.latest_version.get()).unwrap_or(0),
             memory.current_cid.get_string(),
             memory.current_hash.get(),
+            memory.name.get_string(),
             u8::try_from(memory.memory_type.get()).unwrap_or(0),
             u8::try_from(memory.visibility.get()).unwrap_or(0),
             u8::try_from(memory.status.get()).unwrap_or(0),

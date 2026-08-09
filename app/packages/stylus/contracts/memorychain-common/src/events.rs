@@ -53,6 +53,12 @@ sol! {
     event LinkDisabled(bytes32 indexed context_id);
     event LinkEnabled(bytes32 indexed context_id);
 
+    // ── ChatRegistry events ──────────────────────────
+    event ChatCreated(bytes32 indexed chat_id, address indexed owner, string cid, bytes32 hash, string name);
+    event ChatUpdated(bytes32 indexed chat_id, address indexed owner, string new_cid, bytes32 new_hash, uint32 new_version);
+    event ChatArchived(bytes32 indexed chat_id, address indexed owner);
+    event ChatRestored(bytes32 indexed chat_id, address indexed owner);
+
     // ── AuditRegistry events ──────────────────────────
     event AuditRecorded(bytes32 indexed event_id, address indexed actor, uint8 entity_type, bytes32 indexed entity_id, uint8 action, uint64 timestamp);
     event RecorderAuthorized(address indexed recorder);

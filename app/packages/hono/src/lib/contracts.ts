@@ -19,6 +19,8 @@ import type {
   ContextData,
   AuditRegistryContract,
   AuditEvent,
+  ChatRegistryContract,
+  ChatData,
   ContractResult,
 } from "../types/contracts.js";
 
@@ -53,6 +55,7 @@ function loadDeployment(chainId: string) {
 const deployments = loadDeployment("412346");
 const agentAbi = loadAbi("agent-registry");
 const memoryAbi = loadAbi("memory-registry");
+const chatAbi = loadAbi("chat-registry");
 const userAbi = loadAbi("user-registry");
 const creditAbi = loadAbi("credit-manager");
 const contextAbi = loadAbi("context-registry");
@@ -77,6 +80,7 @@ function toNumber(val: unknown): number {
 const META_DIR = path.resolve(DEPLOYMENTS_DIR, "../metadata");
 const agentMetaPath = path.join(META_DIR, "agents.json");
 const memoryMetaPath = path.join(META_DIR, "memories.json");
+const chatMetaPath = path.join(META_DIR, "chats.json");
 
 function ensureMetaDir() {
   if (!fs.existsSync(META_DIR)) fs.mkdirSync(META_DIR, { recursive: true });
@@ -97,12 +101,14 @@ function saveMeta(filePath: string, data: Record<string, any>) {
 
 const agentMetaStore = new Map<string, { name: string; description: string }>();
 const memoryMetaStore = new Map<string, { name: string; description: string }>();
+const chatMetaStore = new Map<string, { name: string }>();
 const linkMetaPath = path.join(META_DIR, "links.json");
 const linkStore = new Map<string, { agentId: string; memoryId: string; priority: number; contextId: string }>();
 
 // Load from disk on startup
 for (const [k, v] of Object.entries(loadMeta(agentMetaPath))) agentMetaStore.set(k, v);
 for (const [k, v] of Object.entries(loadMeta(memoryMetaPath))) memoryMetaStore.set(k, v);
+for (const [k, v] of Object.entries(loadMeta(chatMetaPath))) chatMetaStore.set(k, v);
 for (const [k, v] of Object.entries(loadMeta(linkMetaPath))) linkStore.set(k, v);
 
 export function createAgentRegistryAdapter(): AgentRegistryContract {
@@ -115,7 +121,7 @@ export function createAgentRegistryAdapter(): AgentRegistryContract {
           address,
           abi: agentAbi,
           functionName: "createAgent",
-          args: [cid, hash as `0x${string}`],
+          args: [name, cid, hash as `0x${string}`],
           account,
         });
         const hash_ = await walletClient.writeContract(request);
@@ -204,14 +210,14 @@ export function createAgentRegistryAdapter(): AgentRegistryContract {
           functionName: "getAgent",
           args: [agentId as `0x${string}`],
         });
-        const [owner, version, cid, hash, status, createdAt, updatedAt] = result as any[];
+        const [owner, version, cid, hash, name, status, createdAt, updatedAt] = result as any[];
         const meta = agentMetaStore.get(agentId as string);
         return {
           success: true,
           data: {
             agentId,
             owner: owner as string,
-            name: meta?.name ?? "",
+            name: (name as string) || (meta?.name ?? ""),
             description: meta?.description ?? "",
             cid: cid as string,
             hash: bytes32ToHex(hash),
@@ -277,7 +283,7 @@ export function createMemoryRegistryAdapter(): MemoryRegistryContract {
           address,
           abi: memoryAbi,
           functionName: "createMemory",
-          args: [cid, hash as `0x${string}`, memoryType, visibility],
+          args: [name, cid, hash as `0x${string}`, memoryType, visibility],
           account,
         });
         const txHash = await walletClient.writeContract(request);
@@ -365,14 +371,14 @@ export function createMemoryRegistryAdapter(): MemoryRegistryContract {
           functionName: "getMemory",
           args: [memoryId as `0x${string}`],
         });
-        const [owner, version, cid, hash, memoryType, visibility, status] = result as any[];
+        const [owner, version, cid, hash, name, memoryType, visibility, status] = result as any[];
         const meta = memoryMetaStore.get(memoryId as string);
         return {
           success: true,
           data: {
             memoryId,
             owner: owner as string,
-            name: meta?.name ?? "",
+            name: (name as string) || (meta?.name ?? ""),
             description: meta?.description ?? "",
             cid: cid as string,
             hash: bytes32ToHex(hash),
@@ -581,7 +587,7 @@ export function createCreditManagerAdapter(): CreditManagerContract {
 
     async getFees(): Promise<ContractResult<FeeSchedule>> {
       try {
-        const ops = [0, 1, 2, 3, 4, 5, 6];
+        const ops = [0, 1, 2, 3, 4, 5, 6, 7, 8];
         const results = await Promise.all(
           ops.map((op) =>
             publicClient.readContract({
@@ -602,6 +608,8 @@ export function createCreditManagerAdapter(): CreditManagerContract {
             updateAgent: Number(results[4]),
             executeAgent: Number(results[5]),
             linkMemory: Number(results[6]),
+            createChat: Number(results[7]),
+            updateChat: Number(results[8]),
           },
         };
       } catch (err: any) {
@@ -715,6 +723,167 @@ export function createContextRegistryAdapter(): ContextRegistryContract {
         }
       }
       return { success: true, data: all.slice(offset, offset + limit) };
+    },
+  };
+}
+
+export function createChatRegistryAdapter(): ChatRegistryContract {
+  const address = deployments["chat-registry"].address as `0x${string}`;
+
+  return {
+    async createChat(owner, name, cid, hash): Promise<ContractResult<string>> {
+      try {
+        const { request } = await publicClient.simulateContract({
+          address,
+          abi: chatAbi,
+          functionName: "createChat",
+          args: [name, cid, hash as `0x${string}`],
+          account,
+        });
+        const hash_ = await walletClient.writeContract(request);
+        await publicClient.waitForTransactionReceipt({ hash: hash_ });
+
+        // Read the new chat ID from event or totalChats
+        const total = await publicClient.readContract({
+          address,
+          abi: chatAbi,
+          functionName: "totalChats",
+        });
+        const chatId = await publicClient.readContract({
+          address,
+          abi: chatAbi,
+          functionName: "getChatByOwnerIndex",
+          args: [owner as `0x${string}`, BigInt(toNumber(total) - 1)],
+        });
+
+        const chatIdHex = bytes32ToHex(chatId);
+        chatMetaStore.set(chatIdHex, { name });
+        saveMeta(chatMetaPath, Object.fromEntries(chatMetaStore));
+
+        return { success: true, data: chatIdHex };
+      } catch (err: any) {
+        console.error("createChat error:", err.message);
+        return { success: false, error: err.message };
+      }
+    },
+
+    async updateChat(owner, chatId, cid, hash, name): Promise<ContractResult<void>> {
+      try {
+        const { request } = await publicClient.simulateContract({
+          address,
+          abi: chatAbi,
+          functionName: "updateChat",
+          args: [chatId as `0x${string}`, cid, hash as `0x${string}`, name],
+          account,
+        });
+        const txHash = await walletClient.writeContract(request);
+        await publicClient.waitForTransactionReceipt({ hash: txHash });
+
+        chatMetaStore.set(chatId, { name });
+        saveMeta(chatMetaPath, Object.fromEntries(chatMetaStore));
+
+        return { success: true };
+      } catch (err: any) {
+        return { success: false, error: err.message };
+      }
+    },
+
+    async archiveChat(owner, chatId): Promise<ContractResult<void>> {
+      try {
+        const { request } = await publicClient.simulateContract({
+          address,
+          abi: chatAbi,
+          functionName: "archiveChat",
+          args: [chatId as `0x${string}`],
+          account,
+        });
+        const txHash = await walletClient.writeContract(request);
+        await publicClient.waitForTransactionReceipt({ hash: txHash });
+        return { success: true };
+      } catch (err: any) {
+        return { success: false, error: err.message };
+      }
+    },
+
+    async restoreChat(owner, chatId): Promise<ContractResult<void>> {
+      try {
+        const { request } = await publicClient.simulateContract({
+          address,
+          abi: chatAbi,
+          functionName: "restoreChat",
+          args: [chatId as `0x${string}`],
+          account,
+        });
+        const txHash = await walletClient.writeContract(request);
+        await publicClient.waitForTransactionReceipt({ hash: txHash });
+        return { success: true };
+      } catch (err: any) {
+        return { success: false, error: err.message };
+      }
+    },
+
+    async getChat(chatId): Promise<ContractResult<ChatData>> {
+      try {
+        const result = await publicClient.readContract({
+          address,
+          abi: chatAbi,
+          functionName: "getChat",
+          args: [chatId as `0x${string}`],
+        });
+        const [owner, version, cid, hash, name, status, createdAt, updatedAt] = result as any[];
+        const meta = chatMetaStore.get(chatId as string);
+        return {
+          success: true,
+          data: {
+            chatId,
+            owner: owner as string,
+            name: meta?.name || (name as string) || "",
+            cid: cid as string,
+            hash: bytes32ToHex(hash),
+            status: toNumber(status),
+            version: toNumber(version),
+            createdAt: toNumber(createdAt),
+            updatedAt: toNumber(updatedAt),
+          },
+        };
+      } catch (err: any) {
+        return { success: false, error: err.message };
+      }
+    },
+
+    async getChatCountByOwner(owner): Promise<ContractResult<number>> {
+      try {
+        const count = await publicClient.readContract({
+          address,
+          abi: chatAbi,
+          functionName: "getChatCountByOwner",
+          args: [owner as `0x${string}`],
+        });
+        return { success: true, data: toNumber(count) };
+      } catch (err: any) {
+        return { success: false, error: err.message };
+      }
+    },
+
+    async getChatsByOwner(owner, offset, limit): Promise<ContractResult<ChatData[]>> {
+      try {
+        const chats: ChatData[] = [];
+        for (let i = offset; i < offset + limit; i++) {
+          const chatId = await publicClient.readContract({
+            address,
+            abi: chatAbi,
+            functionName: "getChatByOwnerIndex",
+            args: [owner as `0x${string}`, BigInt(i)],
+          });
+          const hexId = bytes32ToHex(chatId);
+          if (hexId === "0x" + "00".repeat(32)) break;
+          const result = await this.getChat(hexId);
+          if (result.success && result.data) chats.push(result.data);
+        }
+        return { success: true, data: chats };
+      } catch (err: any) {
+        return { success: false, error: err.message };
+      }
     },
   };
 }

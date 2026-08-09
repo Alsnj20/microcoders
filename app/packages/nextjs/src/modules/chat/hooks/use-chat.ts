@@ -5,9 +5,9 @@ import { api } from "~~/services/api/client";
 import { useGlobalState } from "~~/services/store/store";
 import {
   saveConversation,
-  loadConversation,
   listConversations,
-  deleteConversationLocal,
+  deleteConversation,
+  createConversation,
 } from "~~/services/api/chat-storage";
 import type { AgentBlueprint, ChatConversation, ChatMessage, UserProtocolState } from "../types/chat";
 
@@ -36,7 +36,7 @@ export function useChat() {
 
   useEffect(() => {
     loadAgents();
-    setConversations(listConversations());
+    loadConversations();
   }, []);
 
   // Load welcome message on first visit
@@ -102,6 +102,15 @@ export function useChat() {
     }
   };
 
+  const loadConversations = async () => {
+    try {
+      const convs = await listConversations();
+      setConversations(convs);
+    } catch {
+      setConversations([]);
+    }
+  };
+
   const loadLinkedMemories = useCallback(async (agentId: string) => {
     try {
       const res = await api.context.agent[agentId].memories.$get();
@@ -135,11 +144,9 @@ export function useChat() {
         const res = await api.context.link.$post({
           json: { agentId: userState.activeAgentId, memoryId, priority: 0 },
         });
-        // Fetch memory info regardless of link result (already linked = still show it)
         const memRes = await api.memories[":id"].$get({ param: { id: memoryId } });
         if (memRes.ok) {
           const memData = await memRes.json();
-          // Only add if not already in the list
           setLinkedMemories((prev) => {
             if (prev.some((m) => m.memoryId === memoryId)) return prev;
             return [...prev, { memoryId, title: memData.name || memoryId, cid: memData.cid }];
@@ -169,22 +176,21 @@ export function useChat() {
 
   const selectConversation = useCallback(async (id: string) => {
     setSelectedConversationId(id);
-    const conv = await loadConversation(id);
-    setMessages(conv?.messages || []);
+    // Messages are now loaded from state or welcome message
+    // The on-chain chat only stores metadata, not individual messages
   }, []);
 
-  const createConversation = () => {
-    const id = Date.now().toString();
+  const createNewConversation = useCallback(async () => {
     const conv: ChatConversation = {
-      id,
+      id: Date.now().toString(),
       title: "Nueva conversación",
       timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
     };
     setConversations((prev) => [conv, ...prev]);
-    setSelectedConversationId(id);
+    setSelectedConversationId(conv.id);
     setMessages([]);
     welcomeLoaded.current = false;
-  };
+  }, []);
 
   const sendMessage = useCallback(
     async (text: string) => {
@@ -192,10 +198,16 @@ export function useChat() {
 
       const convId = selectedConversationId || Date.now().toString();
       const isNew = !selectedConversationId;
+      let onChainId = conversations.find((c) => c.id === convId)?.onChainId;
 
       if (isNew) {
+        // Create conversation on-chain
+        const chatId = await createConversation(text.slice(0, 40) + (text.length > 40 ? "..." : ""));
+        onChainId = chatId || undefined;
+
         const conv: ChatConversation = {
           id: convId,
+          onChainId,
           title: text.slice(0, 40) + (text.length > 40 ? "..." : ""),
           timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         };
@@ -209,6 +221,7 @@ export function useChat() {
         avatarUrl: USER_AVATAR,
         content: text,
         timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        agentId: userState.activeAgentId,
       };
 
       setMessages((prev) => [...prev, userMsg]);
@@ -219,6 +232,7 @@ export function useChat() {
           json: {
             message: text,
             agentId: userState.activeAgentId || undefined,
+            chatId: onChainId || undefined,
           },
         });
 
@@ -230,18 +244,23 @@ export function useChat() {
             avatarUrl: ASSISTANT_AVATAR,
             content: data.reply,
             timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+            agentId: userState.activeAgentId,
             systemLog: `> MODEL: ${data.model}`,
-            creditsUsed: 2,
+            creditsUsed: data.creditsUsed || 2,
           };
           const newMessages = [...messages, userMsg, botMsg];
           setMessages(newMessages);
 
-          saveConversation({
-            id: convId,
-            title: (isNew ? text.slice(0, 40) : conversations.find((c) => c.id === convId)?.title) || "Chat",
-            messages: newMessages,
-            createdAt: new Date().toISOString(),
-          }).catch(() => {});
+          // Save to on-chain chat
+          if (onChainId) {
+            saveConversation({
+              id: convId,
+              onChainId,
+              title: (isNew ? text.slice(0, 40) : conversations.find((c) => c.id === convId)?.title) || "Chat",
+              messages: newMessages,
+              createdAt: new Date().toISOString(),
+            }).catch(() => {});
+          }
         } else {
           const errData = await res.json();
           const errorMsg: ChatMessage = {
@@ -271,7 +290,7 @@ export function useChat() {
 
       refreshBalance();
     },
-    [selectedConversationId, agents, userState.activeAgentId, conversations, refreshBalance],
+    [selectedConversationId, agents, userState.activeAgentId, conversations, refreshBalance, messages],
   );
 
   const saveAsMemory = useCallback(
@@ -303,9 +322,12 @@ export function useChat() {
     [messages],
   );
 
-  const deleteConversation = useCallback(
-    (id: string) => {
-      deleteConversationLocal(id);
+  const deleteConversationHandler = useCallback(
+    async (id: string) => {
+      const conv = conversations.find((c) => c.id === id);
+      if (conv?.onChainId) {
+        await deleteConversation(conv.onChainId);
+      }
       setConversations((prev) => prev.filter((c) => c.id !== id));
       if (selectedConversationId === id) {
         setSelectedConversationId(null);
@@ -313,7 +335,7 @@ export function useChat() {
         welcomeLoaded.current = false;
       }
     },
-    [selectedConversationId],
+    [selectedConversationId, conversations],
   );
 
   return {
@@ -323,8 +345,8 @@ export function useChat() {
     selectedConversationId,
     linkedMemories,
     onSelectConversation: selectConversation,
-    onCreateConversation: createConversation,
-    onDeleteConversation: deleteConversation,
+    onCreateConversation: createNewConversation,
+    onDeleteConversation: deleteConversationHandler,
     onSelectAgent: selectAgent,
     onLinkMemory: linkMemory,
     onUnlinkMemory: unlinkMemory,

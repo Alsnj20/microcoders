@@ -53,6 +53,8 @@ pub enum MemoryError {
     Archived,
     /// Memory is not archived (when trying to restore).
     NotArchived,
+    /// Invalid name (empty).
+    InvalidName,
     /// Invalid CID (empty).
     InvalidCid,
     /// Invalid hash (zero).
@@ -116,6 +118,29 @@ pub enum ContextError {
 pub enum UserError {
     /// Username is already taken.
     UsernameTaken { username: alloc::string::String },
+}
+
+/// Errors specific to ChatRegistry.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ChatError {
+    /// Chat not found.
+    NotFound,
+    /// Caller does not own this chat.
+    NotOwner,
+    /// Chat is archived.
+    Archived,
+    /// Chat is not archived (when trying to restore).
+    NotArchived,
+    /// Invalid CID (empty).
+    InvalidCid,
+    /// Invalid hash (zero).
+    InvalidHash,
+    /// Invalid name (empty).
+    InvalidName,
+    /// ID collision during generation.
+    IdCollision,
+    /// Credit consumption failed (cross-contract call).
+    CreditConsumptionFailed,
 }
 
 /// Errors specific to AuditRegistry.
@@ -190,6 +215,7 @@ impl From<MemoryError> for String {
             MemoryError::NotOwner => String::from("MemoryError: not owner"),
             MemoryError::Archived => String::from("MemoryError: archived"),
             MemoryError::NotArchived => String::from("MemoryError: not archived"),
+            MemoryError::InvalidName => String::from("MemoryError: empty name"),
             MemoryError::InvalidCid => String::from("MemoryError: empty CID"),
             MemoryError::InvalidHash => String::from("MemoryError: zero hash"),
             MemoryError::IdCollision => String::from("MemoryError: ID collision"),
@@ -242,6 +268,24 @@ impl From<AuditError> for String {
         match err {
             AuditError::UnauthorizedRecorder { caller } => {
                 alloc::format!("AuditError: unauthorized recorder ({})", caller)
+            }
+        }
+    }
+}
+
+impl From<ChatError> for String {
+    fn from(err: ChatError) -> Self {
+        match err {
+            ChatError::NotFound => String::from("ChatError: not found"),
+            ChatError::NotOwner => String::from("ChatError: not owner"),
+            ChatError::Archived => String::from("ChatError: archived"),
+            ChatError::NotArchived => String::from("ChatError: not archived"),
+            ChatError::InvalidCid => String::from("ChatError: empty CID"),
+            ChatError::InvalidHash => String::from("ChatError: zero hash"),
+            ChatError::InvalidName => String::from("ChatError: empty name"),
+            ChatError::IdCollision => String::from("ChatError: ID collision"),
+            ChatError::CreditConsumptionFailed => {
+                String::from("ChatError: credit consumption failed")
             }
         }
     }

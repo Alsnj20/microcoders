@@ -29,6 +29,7 @@ const NAME_MAP: Record<string, string> = {
   "user-registry": "UserRegistry",
   "memory-registry": "MemoryRegistry",
   "agent-registry": "AgentRegistry",
+  "chat-registry": "ChatRegistry",
   "context-registry": "ContextRegistry",
   "audit-registry": "AuditRegistry",
 };
@@ -109,6 +110,7 @@ export default async function deployScript(deployOptions: DeployOptions) {
     { name: "user-registry", args: [] },
     { name: "memory-registry", args: [] },
     { name: "agent-registry", args: [] },
+    { name: "chat-registry", args: [] },
     { name: "context-registry", args: [] },
     { name: "audit-registry", args: [] },
   ];

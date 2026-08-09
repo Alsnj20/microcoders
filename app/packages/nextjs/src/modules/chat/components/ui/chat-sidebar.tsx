@@ -16,7 +16,7 @@ interface ChatSidebarProps {
   userState: UserProtocolState;
   agents: AgentBlueprint[];
   conversations: ChatConversation[];
-  selectedConversationId: string;
+  selectedConversationId: string | null;
   onSelectConversation: (id: string) => void;
   onCreateConversation: () => void;
   onDeleteConversation?: (id: string) => void;

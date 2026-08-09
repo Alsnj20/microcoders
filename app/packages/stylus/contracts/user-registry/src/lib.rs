@@ -33,6 +33,7 @@ sol_storage! {
         bool active;
         uint32 total_agents;
         uint32 total_memories;
+        uint32 total_chats;
     }
 }
 
@@ -84,6 +85,7 @@ impl UserRegistry {
         user.active.set(true);
         user.total_agents.set(Uint::from(0u32));
         user.total_memories.set(Uint::from(0u32));
+        user.total_chats.set(Uint::from(0u32));
 
         self.username_taken.setter(username.clone()).set(true);
         self.total_users.set(self.total_users.get() + U256::from(1));
@@ -224,6 +226,41 @@ impl UserRegistry {
         Ok(())
     }
 
+    /// Increments the chat count for a user. Only callable by authorized contracts or admin.
+    pub fn increment_chats(&mut self, owner: Address) -> Result<(), String> {
+        self.require_not_paused()?;
+
+        let caller = self.vm().msg_sender();
+        if !self.authorized_updaters.get(caller) && caller != self.admin.get() {
+            return Err(CommonError::NotAdmin { caller }.into());
+        }
+
+        let current: Uint<32, 1> = self.users.getter(owner).total_chats.get();
+        let new_val = current
+            .checked_add(Uint::from(1u32))
+            .ok_or(CommonError::InvalidInput { reason: "chat count overflow" })?;
+
+        self.users.setter(owner).total_chats.set(new_val);
+        Ok(())
+    }
+
+    /// Decrements the chat count for a user.
+    pub fn decrement_chats(&mut self, owner: Address) -> Result<(), String> {
+        self.require_not_paused()?;
+
+        let caller = self.vm().msg_sender();
+        if !self.authorized_updaters.get(caller) && caller != self.admin.get() {
+            return Err(CommonError::NotAdmin { caller }.into());
+        }
+
+        let current: Uint<32, 1> = self.users.getter(owner).total_chats.get();
+        if current > Uint::ZERO {
+            self.users.setter(owner).total_chats.set(current - Uint::from(1u32));
+        }
+
+        Ok(())
+    }
+
     /// Authorizes a contract to update user stats. Admin only.
     pub fn authorize_updater(&mut self, updater: Address) -> Result<(), String> {
         self.require_not_paused()?;
@@ -255,7 +292,7 @@ impl UserRegistry {
     // ════════════════════════════════════════════════════════════════════════
 
     /// Returns full profile details for a given address.
-    pub fn get_user(&self, owner: Address) -> (Address, String, u64, bool, u32, u32) {
+    pub fn get_user(&self, owner: Address) -> (Address, String, u64, bool, u32, u32, u32) {
         let user = self.users.getter(owner);
         (
             user.owner.get(),
@@ -264,6 +301,7 @@ impl UserRegistry {
             user.active.get(),
             u32::try_from(user.total_agents.get()).unwrap_or(0),
             u32::try_from(user.total_memories.get()).unwrap_or(0),
+            u32::try_from(user.total_chats.get()).unwrap_or(0),
         )
     }
 
@@ -305,6 +343,11 @@ impl UserRegistry {
     /// Returns the memory count for a user.
     pub fn get_memory_count(&self, owner: Address) -> u32 {
         u32::try_from(self.users.getter(owner).total_memories.get()).unwrap_or(0)
+    }
+
+    /// Returns the chat count for a user.
+    pub fn get_chat_count(&self, owner: Address) -> u32 {
+        u32::try_from(self.users.getter(owner).total_chats.get()).unwrap_or(0)
     }
 
     /// Returns the admin address.
