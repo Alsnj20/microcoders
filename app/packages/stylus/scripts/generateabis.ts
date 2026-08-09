@@ -321,6 +321,27 @@ const USER_REGISTRY_ABI: AbiItem[] = [
     outputs: [{ type: "uint32" }],
     stateMutability: "view",
   },
+  {
+    type: "function",
+    name: "incrementChats",
+    inputs: [{ name: "owner", type: "address" }],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "decrementChats",
+    inputs: [{ name: "owner", type: "address" }],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "getChatCount",
+    inputs: [{ name: "owner", type: "address" }],
+    outputs: [{ type: "uint32" }],
+    stateMutability: "view",
+  },
   { type: "function", name: "admin", inputs: [], outputs: [{ type: "address" }], stateMutability: "view" },
 ];
 
@@ -353,6 +374,7 @@ const MEMORY_REGISTRY_ABI: AbiItem[] = [
     type: "function",
     name: "createMemory",
     inputs: [
+      { name: "name", type: "string" },
       { name: "cid", type: "string" },
       { name: "hash", type: "bytes32" },
       { name: "memoryType", type: "uint8" },
@@ -395,6 +417,7 @@ const MEMORY_REGISTRY_ABI: AbiItem[] = [
       { type: "uint32" },
       { type: "string" },
       { type: "bytes32" },
+      { type: "string" },
       { type: "uint8" },
       { type: "uint8" },
       { type: "uint8" },
@@ -452,6 +475,7 @@ const AGENT_REGISTRY_ABI: AbiItem[] = [
     type: "function",
     name: "createAgent",
     inputs: [
+      { name: "name", type: "string" },
       { name: "cid", type: "string" },
       { name: "hash", type: "bytes32" },
     ],
@@ -492,6 +516,7 @@ const AGENT_REGISTRY_ABI: AbiItem[] = [
       { type: "uint32" },
       { type: "string" },
       { type: "bytes32" },
+      { type: "string" },
       { type: "uint8" },
       { type: "uint64" },
       { type: "uint64" },
@@ -692,6 +717,128 @@ const AUDIT_REGISTRY_ABI: AbiItem[] = [
   { type: "function", name: "admin", inputs: [], outputs: [{ type: "address" }], stateMutability: "view" },
 ];
 
+// ── ChatRegistry ──────────────────────────────────────────────────────────
+
+const CHAT_REGISTRY_ABI: AbiItem[] = [
+  {
+    type: "function",
+    name: "initialize",
+    inputs: [
+      { name: "creditManager", type: "address" },
+      { name: "userRegistry", type: "address" },
+    ],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  { type: "function", name: "pause", inputs: [], outputs: [], stateMutability: "nonpayable" },
+  { type: "function", name: "unpause", inputs: [], outputs: [], stateMutability: "nonpayable" },
+  { type: "function", name: "isPaused", inputs: [], outputs: [{ type: "bool" }], stateMutability: "view" },
+  {
+    type: "function",
+    name: "proposeAdmin",
+    inputs: [{ name: "newAdmin", type: "address" }],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  { type: "function", name: "acceptAdmin", inputs: [], outputs: [], stateMutability: "nonpayable" },
+  { type: "function", name: "pendingAdmin", inputs: [], outputs: [{ type: "address" }], stateMutability: "view" },
+  {
+    type: "function",
+    name: "setCreditManager",
+    inputs: [{ name: "newAddress", type: "address" }],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "setUserRegistry",
+    inputs: [{ name: "newAddress", type: "address" }],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "createChat",
+    inputs: [
+      { name: "name", type: "string" },
+      { name: "cid", type: "string" },
+      { name: "hash", type: "bytes32" },
+    ],
+    outputs: [{ type: "bytes32" }],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "updateChat",
+    inputs: [
+      { name: "chatId", type: "bytes32" },
+      { name: "newCid", type: "string" },
+      { name: "newHash", type: "bytes32" },
+      { name: "newName", type: "string" },
+    ],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "archiveChat",
+    inputs: [{ name: "chatId", type: "bytes32" }],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "restoreChat",
+    inputs: [{ name: "chatId", type: "bytes32" }],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "getChat",
+    inputs: [{ name: "chatId", type: "bytes32" }],
+    outputs: [
+      { type: "address" },
+      { type: "uint32" },
+      { type: "string" },
+      { type: "bytes32" },
+      { type: "string" },
+      { type: "uint8" },
+      { type: "uint64" },
+      { type: "uint64" },
+    ],
+    stateMutability: "view",
+  },
+  { type: "function", name: "totalChats", inputs: [], outputs: [{ type: "uint256" }], stateMutability: "view" },
+  { type: "function", name: "admin", inputs: [], outputs: [{ type: "address" }], stateMutability: "view" },
+  {
+    type: "function",
+    name: "getChatCountByOwner",
+    inputs: [{ name: "owner", type: "address" }],
+    outputs: [{ type: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "getNonce",
+    inputs: [{ name: "owner", type: "address" }],
+    outputs: [{ type: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "getChatByOwnerIndex",
+    inputs: [
+      { name: "owner", type: "address" },
+      { name: "index", type: "uint256" },
+    ],
+    outputs: [{ type: "bytes32" }],
+    stateMutability: "view",
+  },
+  { type: "function", name: "creditManager", inputs: [], outputs: [{ type: "address" }], stateMutability: "view" },
+  { type: "function", name: "userRegistry", inputs: [], outputs: [{ type: "address" }], stateMutability: "view" },
+];
+
 // ── ABI Map ────────────────────────────────────────────────────────────────
 
 const CONTRACT_ABIS: Record<string, AbiItem[]> = {
@@ -701,6 +848,7 @@ const CONTRACT_ABIS: Record<string, AbiItem[]> = {
   "agent-registry": AGENT_REGISTRY_ABI,
   "context-registry": CONTEXT_REGISTRY_ABI,
   "audit-registry": AUDIT_REGISTRY_ABI,
+  "chat-registry": CHAT_REGISTRY_ABI,
 };
 
 /**
