@@ -13,9 +13,7 @@ import type { Agent, AgentChatMessage, Conversation, CreateAgent, UpdateAgent } 
 // On-chain only stores: name, description (plain), cid, hash
 interface AgentBlueprint {
   personality: string;
-  model: string;
   icon: string;
-  tools: string[];
   persistentMemory: boolean;
 }
 
@@ -66,9 +64,7 @@ export function useAgent() {
           name: a.name,
           description: a.description || "",
           icon: "🤖",
-          model: "gpt-5.5" as any,
           personality: "",
-          tools: [],
           connectedMemories: [],
           persistentMemory: true,
           cid: a.cid,
@@ -107,9 +103,7 @@ export function useAgent() {
         const fullAgent: Agent = {
           ...localMeta,
           icon: "🤖",
-          model: "gpt-5.5" as any,
           personality: "",
-          tools: [],
           persistentMemory: true,
         };
         setAgents(prev => prev.map(a => (a.id === id ? fullAgent : a)));
@@ -130,9 +124,7 @@ export function useAgent() {
         const fullAgent: Agent = {
           ...localMeta,
           icon: blueprint.icon || "🤖",
-          model: blueprint.model as any,
           personality: blueprint.personality || "",
-          tools: blueprint.tools || [],
           persistentMemory: blueprint.persistentMemory ?? true,
         };
 
@@ -157,9 +149,7 @@ export function useAgent() {
 
         const blueprint: AgentBlueprint = {
           personality: data.personality || "",
-          model: data.model || "gpt-5.5",
           icon: data.icon || "🤖",
-          tools: data.tools || [],
           persistentMemory: data.persistentMemory ?? true,
         };
 
@@ -201,9 +191,7 @@ export function useAgent() {
           name: data.name,
           description: data.description || "",
           icon: blueprint.icon,
-          model: blueprint.model as any,
           personality: blueprint.personality,
-          tools: blueprint.tools,
           connectedMemories: [],
           persistentMemory: blueprint.persistentMemory,
           createdAt: new Date().toISOString().split("T")[0],
@@ -239,9 +227,7 @@ export function useAgent() {
 
         const blueprint: AgentBlueprint = {
           personality: data.personality ?? localAgent.personality ?? "",
-          model: data.model ?? localAgent.model ?? "gpt-5.5",
           icon: data.icon ?? localAgent.icon ?? "🤖",
-          tools: data.tools ?? localAgent.tools ?? [],
           persistentMemory: data.persistentMemory ?? localAgent.persistentMemory ?? true,
         };
 
@@ -282,9 +268,7 @@ export function useAgent() {
                   name: data.name ?? a.name,
                   description: data.description ?? a.description,
                   icon: blueprint.icon,
-                  model: blueprint.model as any,
                   personality: blueprint.personality,
-                  tools: blueprint.tools,
                   persistentMemory: blueprint.persistentMemory,
                   updatedAt: new Date().toISOString().split("T")[0],
                 }

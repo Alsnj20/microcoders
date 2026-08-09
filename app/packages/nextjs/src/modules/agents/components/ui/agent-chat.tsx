@@ -25,7 +25,6 @@ export function AgentChat({ agent, messages, onSendMessage }: AgentChatProps) {
         {messages.length === 0 ? (
           <ChatEmptyState
             description={agent?.description || "Selecciona un agente o inicia una nueva conversación."}
-            tools={agent?.tools}
           />
         ) : (
           messages.map(msg => (

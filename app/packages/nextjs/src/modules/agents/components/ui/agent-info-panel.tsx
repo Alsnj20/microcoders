@@ -43,7 +43,6 @@ export function AgentInfoPanel({ agent, onEdit, onLinkMemory, onStartChat }: Age
           </div>
           <div>
             <h2 className="font-bold text-foreground text-lg">{agent.name}</h2>
-            <p className="text-sm text-muted-foreground">{agent.model}</p>
           </div>
         </div>
 
@@ -60,22 +59,6 @@ export function AgentInfoPanel({ agent, onEdit, onLinkMemory, onStartChat }: Age
             <p className="text-sm text-foreground leading-relaxed">{agent.personality}</p>
           </div>
         )}
-
-        {/* Tools */}
-        <div>
-          <h4 className="text-xs font-semibold text-muted-foreground tracking-wider mb-2">HERRAMIENTAS PERMITIDAS</h4>
-          <div className="flex flex-wrap gap-2">
-            {agent.tools.map(tool => (
-              <span
-                key={tool}
-                className="px-3 py-1.5 rounded-full bg-muted border border-border/60 text-xs text-foreground font-medium"
-              >
-                {tool}
-              </span>
-            ))}
-            {agent.tools.length === 0 && <p className="text-sm text-muted-foreground">Sin herramientas configuradas</p>}
-          </div>
-        </div>
 
         {/* Connected Memories */}
         <div>

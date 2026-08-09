@@ -7,19 +7,16 @@ import { z } from "zod";
 import { Button } from "~~/components/ui/button";
 import { Input } from "~~/components/ui/input";
 import { api } from "~~/services/api/client";
-import type { Agent, AgentModel } from "../../types/agent";
+import type { Agent } from "../../types/agent";
 
 const AGENT_ICONS = ["🤖", "🧠", "📈", "💻", "🎯", "🔬", "📚", "✍️", "🎨", "🔧"];
-const AVAILABLE_TOOLS = ["SearchTool", "PDFLoader", "VectorStore", "BlockchainReader", "CodeAnalyzer", "WebSearch"];
 
 const agentFormSchema = z.object({
   name: z.string().min(1, "El nombre es requerido"),
   description: z.string().optional(),
   icon: z.string().default("🤖"),
-  model: z.enum(["gpt-5.5", "claude", "gemini", "llama3"]).default("gpt-5.5"),
   personality: z.string().optional(),
   instructions: z.string().optional(),
-  tools: z.array(z.string()).default([]),
   persistentMemory: z.boolean().default(true),
 });
 
@@ -42,7 +39,6 @@ interface MemoryItem {
 }
 
 export function AgentForm({ agent, onSubmit, onClose, linkedMemories = [], onLinkMemory, onUnlinkMemory }: AgentFormProps) {
-  const [selectedTools, setSelectedTools] = useState<string[]>(agent?.tools || []);
   const [showMemorySelector, setShowMemorySelector] = useState(false);
   const [availableMemories, setAvailableMemories] = useState<MemoryItem[]>([]);
 
@@ -59,10 +55,8 @@ export function AgentForm({ agent, onSubmit, onClose, linkedMemories = [], onLin
       name: "",
       description: "",
       icon: "🤖",
-      model: "gpt-5.5",
       personality: "",
       instructions: "",
-      tools: [],
       persistentMemory: true,
     },
   });
@@ -83,27 +77,16 @@ export function AgentForm({ agent, onSubmit, onClose, linkedMemories = [], onLin
         name: agent.name,
         description: agent.description || "",
         icon: agent.icon || "🤖",
-        model: agent.model || "gpt-5.5",
         personality: agent.personality || "",
         instructions: (agent as any).instructions || "",
-        tools: agent.tools,
         persistentMemory: agent.persistentMemory,
       });
-      setSelectedTools(agent.tools);
     }
   }, [agent, reset]);
 
   const handleFormSubmit = (data: AgentFormData) => {
     const personalityText = [data.personality, data.instructions].filter(Boolean).join(": ");
-    onSubmit({ ...data, tools: selectedTools, personality: personalityText });
-  };
-
-  const toggleTool = (tool: string) => {
-    setSelectedTools(prev => {
-      const newTools = prev.includes(tool) ? prev.filter(t => t !== tool) : [...prev, tool];
-      setValue("tools", newTools);
-      return newTools;
-    });
+    onSubmit({ ...data, personality: personalityText });
   };
 
   return (
@@ -150,21 +133,6 @@ export function AgentForm({ agent, onSubmit, onClose, linkedMemories = [], onLin
         </h3>
         <div className="space-y-3">
           <div>
-            <label htmlFor="model" className="block text-sm font-medium text-foreground mb-1">
-              Modelo de IA
-            </label>
-            <select
-              id="model"
-              {...register("model")}
-              className="w-full px-3 py-2 rounded-lg border border-input bg-transparent text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-            >
-              <option value="gpt-5.5">GPT-4o</option>
-              <option value="claude">Claude</option>
-              <option value="gemini">Gemini</option>
-              <option value="llama3">Llama 3</option>
-            </select>
-          </div>
-          <div>
             <label htmlFor="personality" className="block text-sm font-medium text-foreground mb-1">
               Personalidad <span className="text-muted-foreground font-normal">(opcional)</span>
             </label>
@@ -195,30 +163,6 @@ export function AgentForm({ agent, onSubmit, onClose, linkedMemories = [], onLin
               {(watch("instructions") || "").length}/500
             </p>
           </div>
-        </div>
-      </div>
-
-      {/* Tools */}
-      <div>
-        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-          Herramientas permitidas
-        </h3>
-        <div className="flex flex-wrap gap-2">
-          {AVAILABLE_TOOLS.map(tool => (
-            <button
-              key={tool}
-              type="button"
-              onClick={() => toggleTool(tool)}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
-                selectedTools.includes(tool)
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-muted-foreground hover:bg-muted/80 border border-border"
-              }`}
-            >
-              {tool}
-              {selectedTools.includes(tool) && <span className="ml-1">×</span>}
-            </button>
-          ))}
         </div>
       </div>
 

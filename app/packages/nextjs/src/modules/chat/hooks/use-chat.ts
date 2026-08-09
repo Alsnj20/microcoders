@@ -27,6 +27,7 @@ export function useChat() {
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [linkedMemories, setLinkedMemories] = useState<LinkedMemory[]>([]);
+  const [selectedModel, setSelectedModel] = useState<string>("gpt-4o-mini");
   const [userState, setUserState] = useState<UserProtocolState>({
     username: session.username || "",
     memoryCredits: 0,
@@ -234,6 +235,7 @@ export function useChat() {
             message: text,
             agentId: userState.activeAgentId || undefined,
             chatId: onChainId || undefined,
+            model: selectedModel,
           },
         });
 
@@ -345,6 +347,8 @@ export function useChat() {
     conversations,
     selectedConversationId,
     linkedMemories,
+    selectedModel,
+    setSelectedModel,
     onSelectConversation: selectConversation,
     onCreateConversation: createNewConversation,
     onDeleteConversation: deleteConversationHandler,

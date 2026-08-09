@@ -55,9 +55,7 @@ export function AgentsPage() {
     name: string;
     description?: string;
     icon: string;
-    model: "gpt-5.5" | "claude" | "gemini" | "llama3";
     personality?: string;
-    tools: string[];
     persistentMemory: boolean;
   }) => {
     try {

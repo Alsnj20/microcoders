@@ -22,6 +22,8 @@ export function ChatPage() {
     conversations,
     selectedConversationId,
     linkedMemories,
+    selectedModel,
+    setSelectedModel,
     onSelectConversation,
     onCreateConversation,
     onDeleteConversation,
@@ -64,7 +66,11 @@ export function ChatPage() {
         </ChatMessages>
 
         {/* Bottom Input Composer */}
-        <ChatInput onSendMessage={sendMessage} />
+        <ChatInput
+          onSendMessage={sendMessage}
+          selectedModel={selectedModel}
+          onModelChange={setSelectedModel}
+        />
       </main>
 
       {/* Right Panel: Context + Memories */}

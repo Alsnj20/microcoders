@@ -37,6 +37,7 @@ export function createChatRoutes(
     message: z.string().min(1),
     agentId: z.string().optional(),
     chatId: z.string().optional(),
+    model: z.string().optional(),
   });
 
   // ── CREATE CHAT ────────────────────────────────────────────────────────
@@ -198,7 +199,7 @@ Puedo ayudarte a:
       return c.json({ code: "VALIDATION_ERROR", message: "Invalid request" }, 400);
     }
 
-    const { message, agentId, chatId } = parsed.data;
+    const { message, agentId, chatId, model } = parsed.data;
 
     // Gather context: agent info + linked memories
     let systemPrompt = `Eres MemoryChain AI, un asistente de IA especializado en conocimiento descentralizado.
@@ -246,7 +247,7 @@ Si el usuario pregunta sobre sus memorias o agentes, ayúdale a entender qué pu
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "mistral-small-latest",
+          model: model || "gpt-4o-mini",
           messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: message },

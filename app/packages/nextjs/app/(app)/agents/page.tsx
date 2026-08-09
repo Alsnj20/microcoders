@@ -274,7 +274,6 @@ export default function AgentsPage() {
               </div>
               <div>
                 <p className="text-base font-bold text-foreground">{selectedAgent.name}</p>
-                <p className="text-xs text-muted-foreground">{selectedAgent.model}</p>
               </div>
             </div>
           </div>
@@ -293,20 +292,6 @@ export default function AgentsPage() {
                 <p className="text-sm text-foreground">{selectedAgent.personality}</p>
               </div>
             )}
-
-            {/* Tools */}
-            <div>
-              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Herramientas</h4>
-              <div className="flex flex-wrap gap-1.5">
-                {selectedAgent.tools.length > 0 ? selectedAgent.tools.map(tool => (
-                  <span key={tool} className="px-2 py-1 rounded-full bg-muted border border-border text-xs text-foreground">
-                    {tool}
-                  </span>
-                )) : (
-                  <p className="text-xs text-muted-foreground">Sin herramientas</p>
-                )}
-              </div>
-            </div>
 
             {/* Connected Memories */}
             <div>
