@@ -6,7 +6,7 @@ import { useAccount } from "wagmi";
 import { Button } from "~~/components/ui/button";
 import { Input } from "~~/components/ui/input";
 import { api } from "~~/services/api/client";
-import { useSmartAccount } from "~/modules/smart-account/hooks/useSmartAccount";
+import { useSmartAccount } from "~~/modules/smart-account/hooks/useSmartAccount";
 import { useSiwe } from "../hooks/useSiwe";
 
 const CREDIT_PACKS = [
@@ -26,6 +26,7 @@ export function OnboardingFlow({ startStep = "welcome" }: OnboardingFlowProps) {
   const [selectedPack, setSelectedPack] = useState<number | null>(null);
   const [step, setStep] = useState<OnboardingStep>(startStep);
   const [registering, setRegistering] = useState(false);
+  const [registerError, setRegisterError] = useState<string | null>(null);
   const { isConnected, address } = useAccount();
   const { login: siweLogin, loading: siweLoading, error: siweError } = useSiwe();
   const { smartAccountAddress, isDeployed } = useSmartAccount();
@@ -33,8 +34,14 @@ export function OnboardingFlow({ startStep = "welcome" }: OnboardingFlowProps) {
   console.log("[Onboarding] Render | step:", step, "isConnected:", isConnected, "address:", address, "startStep:", startStep);
 
   const handleCompleteUsername = () => {
-    localStorage.setItem("mc_username", username.trim());
-    console.log("[Onboarding] Username:", username || "(none)", "| isConnected:", isConnected);
+    const trimmed = username.trim();
+    if (trimmed.length > 0 && trimmed.length < 3) {
+      setRegisterError("Username must be at least 3 characters");
+      return;
+    }
+    setRegisterError(null);
+    localStorage.setItem("mc_username", trimmed);
+    console.log("[Onboarding] Username:", trimmed || "(none)", "| isConnected:", isConnected);
 
     // If wallet is already connected, go to SIWE step
     if (isConnected) {
@@ -77,6 +84,7 @@ export function OnboardingFlow({ startStep = "welcome" }: OnboardingFlowProps) {
 
   const handleSiweAndRegister = async () => {
     console.log("[Onboarding] handleSiweAndRegister called");
+    setRegisterError(null);
     try {
       console.log("[Onboarding] Step 1: Calling siweLogin()...");
       await siweLogin();
@@ -100,21 +108,35 @@ export function OnboardingFlow({ startStep = "welcome" }: OnboardingFlowProps) {
 
   const registerAndComplete = async (regUsername: string, pack: number | null) => {
     setRegistering(true);
+    setRegisterError(null);
     try {
       console.log("[Onboarding] registerAndComplete: registering user:", regUsername);
       const regRes = await api.user.register.$post({ json: { username: regUsername } });
       console.log("[Onboarding] registerAndComplete: register response:", regRes.status, regRes.ok);
 
+      if (!regRes.ok) {
+        const errBody = await regRes.json().catch(() => null);
+        const msg = errBody?.message ?? `Registration failed (${regRes.status})`;
+        console.error("[Onboarding] registerAndComplete: register failed:", msg);
+        setRegisterError(msg);
+        return;
+      }
+
       if (pack && pack > 0) {
         console.log("[Onboarding] registerAndComplete: buying", pack, "MC...");
         const buyRes = await api.credits.buy.$post({ json: { amount: pack } });
         console.log("[Onboarding] registerAndComplete: buy response:", buyRes.status, buyRes.ok);
+        if (!buyRes.ok) {
+          const errBody = await buyRes.json().catch(() => null);
+          setRegisterError(errBody?.message ?? `Credit purchase failed (${buyRes.status})`);
+        }
         localStorage.removeItem("mc_selected_pack");
       }
 
       console.log("[Onboarding] registerAndComplete: done, AuthGate will re-render");
     } catch (err: any) {
       console.error("[Onboarding] registerAndComplete error:", err.message);
+      setRegisterError(err.message);
     } finally {
       setRegistering(false);
     }
@@ -225,6 +247,11 @@ export function OnboardingFlow({ startStep = "welcome" }: OnboardingFlowProps) {
                 Omitir
               </Button>
             </div>
+            {registerError && (
+              <div className="p-3 bg-destructive/10 border border-destructive/20 text-destructive text-xs rounded-lg text-center">
+                {registerError}
+              </div>
+            )}
           </div>
         )}
 
@@ -285,6 +312,11 @@ export function OnboardingFlow({ startStep = "welcome" }: OnboardingFlowProps) {
             {siweError && (
               <div className="p-3 bg-destructive/10 border border-destructive/20 text-destructive text-xs rounded-lg text-center">
                 {siweError}
+              </div>
+            )}
+            {registerError && (
+              <div className="p-3 bg-destructive/10 border border-destructive/20 text-destructive text-xs rounded-lg text-center">
+                {registerError}
               </div>
             )}
           </div>
