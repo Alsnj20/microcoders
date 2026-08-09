@@ -1,9 +1,10 @@
-import { createPublicClient, createWalletClient, http, type Hex } from "viem";
+import { createPublicClient, createWalletClient, http, type Hex, encodeFunctionData } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { defineChain } from "viem";
 import * as fs from "fs";
 import * as path from "path";
 import { fileURLToPath } from "url";
+import { buildAndSendUserOp, waitForUserOp } from "./userop-builder.js";
 import type {
   AgentRegistryContract,
   AgentData,
@@ -953,6 +954,283 @@ export function createAuditRegistryAdapter(): AuditRegistryContract {
       } catch (err: any) {
         return { success: false, error: err.message };
       }
+    },
+  };
+}
+
+// UserOp-based adapters: wraps existing adapters to send transactions via bundler
+export interface UserOpAdapterFactory {
+  createUserRegistryUserOpAdapter(sessionKeyPrivateKey: Hex): UserRegistryContract;
+  createMemoryRegistryUserOpAdapter(sessionKeyPrivateKey: Hex): MemoryRegistryContract;
+  createAgentRegistryUserOpAdapter(sessionKeyPrivateKey: Hex): AgentRegistryContract;
+  createChatRegistryUserOpAdapter(sessionKeyPrivateKey: Hex): ChatRegistryContract;
+  createCreditManagerUserOpAdapter(sessionKeyPrivateKey: Hex): CreditManagerContract;
+}
+
+export function createUserOpAdapters(): UserOpAdapterFactory {
+  return {
+    createUserRegistryUserOpAdapter(sessionKeyPrivateKey) {
+      const address = deployments["user-registry"].address as `0x${string}`;
+      return {
+        async registerUser(owner, username) {
+          try {
+            const calldata = encodeFunctionData({ abi: userAbi, functionName: "registerUser", args: [username] });
+            const { userOpHash } = await buildAndSendUserOp({ target: address, calldata, sessionKeyPrivateKey });
+            await waitForUserOp(userOpHash);
+            return { success: true };
+          } catch (err: any) {
+            return { success: false, error: err.message };
+          }
+        },
+        async updateUsername(owner, username) {
+          try {
+            const calldata = encodeFunctionData({ abi: userAbi, functionName: "updateUsername", args: [username] });
+            const { userOpHash } = await buildAndSendUserOp({ target: address, calldata, sessionKeyPrivateKey });
+            await waitForUserOp(userOpHash);
+            return { success: true };
+          } catch (err: any) {
+            return { success: false, error: err.message };
+          }
+        },
+        async getUser(owner) {
+          return createUserRegistryAdapter().getUser(owner);
+        },
+      };
+    },
+
+    createMemoryRegistryUserOpAdapter(sessionKeyPrivateKey) {
+      const address = deployments["memory-registry"].address as `0x${string}`;
+      return {
+        async createMemory(owner, name, description, cid, hash, memoryType, visibility) {
+          try {
+            const calldata = encodeFunctionData({
+              abi: memoryAbi,
+              functionName: "createMemory",
+              args: [name, cid, hash as `0x${string}`, memoryType, visibility],
+            });
+            const { userOpHash } = await buildAndSendUserOp({ target: address, calldata, sessionKeyPrivateKey });
+            await waitForUserOp(userOpHash);
+            const total = await publicClient.readContract({ address, abi: memoryAbi, functionName: "totalMemories" });
+            const memoryId = await publicClient.readContract({
+              address, abi: memoryAbi, functionName: "getMemoryByOwnerIndex",
+              args: [owner as `0x${string}`, BigInt(toNumber(total) - 1)],
+            });
+            const memoryIdHex = bytes32ToHex(memoryId);
+            memoryMetaStore.set(memoryIdHex, { name, description });
+            saveMeta(memoryMetaPath, Object.fromEntries(memoryMetaStore));
+            return { success: true, data: memoryIdHex };
+          } catch (err: any) {
+            return { success: false, error: err.message };
+          }
+        },
+        async updateMemory(owner, memoryId, cid, hash) {
+          try {
+            const calldata = encodeFunctionData({
+              abi: memoryAbi, functionName: "updateMemory",
+              args: [memoryId as `0x${string}`, cid, hash as `0x${string}`],
+            });
+            const { userOpHash } = await buildAndSendUserOp({ target: address, calldata, sessionKeyPrivateKey });
+            await waitForUserOp(userOpHash);
+            return { success: true };
+          } catch (err: any) {
+            return { success: false, error: err.message };
+          }
+        },
+        async archiveMemory(owner, memoryId) {
+          try {
+            const calldata = encodeFunctionData({
+              abi: memoryAbi, functionName: "archiveMemory",
+              args: [memoryId as `0x${string}`],
+            });
+            const { userOpHash } = await buildAndSendUserOp({ target: address, calldata, sessionKeyPrivateKey });
+            await waitForUserOp(userOpHash);
+            return { success: true };
+          } catch (err: any) {
+            return { success: false, error: err.message };
+          }
+        },
+        async restoreMemory(owner, memoryId) {
+          try {
+            const calldata = encodeFunctionData({
+              abi: memoryAbi, functionName: "restoreMemory",
+              args: [memoryId as `0x${string}`],
+            });
+            const { userOpHash } = await buildAndSendUserOp({ target: address, calldata, sessionKeyPrivateKey });
+            await waitForUserOp(userOpHash);
+            return { success: true };
+          } catch (err: any) {
+            return { success: false, error: err.message };
+          }
+        },
+        async getMemory(memoryId) { return createMemoryRegistryAdapter().getMemory(memoryId); },
+        async getMemoryVersion(memoryId, version) { return createMemoryRegistryAdapter().getMemoryVersion(memoryId, version); },
+        async getMemoryCountByOwner(owner) { return createMemoryRegistryAdapter().getMemoryCountByOwner(owner); },
+        async getMemoriesByOwner(owner, offset, limit) { return createMemoryRegistryAdapter().getMemoriesByOwner(owner, offset, limit); },
+      };
+    },
+
+    createAgentRegistryUserOpAdapter(sessionKeyPrivateKey) {
+      const address = deployments["agent-registry"].address as `0x${string}`;
+      return {
+        async createAgent(owner, name, description, cid, hash) {
+          try {
+            const calldata = encodeFunctionData({
+              abi: agentAbi, functionName: "createAgent",
+              args: [name, cid, hash as `0x${string}`],
+            });
+            const { userOpHash } = await buildAndSendUserOp({ target: address, calldata, sessionKeyPrivateKey });
+            await waitForUserOp(userOpHash);
+            const total = await publicClient.readContract({ address, abi: agentAbi, functionName: "totalAgents" });
+            const agentId = await publicClient.readContract({
+              address, abi: agentAbi, functionName: "getAgentByOwnerIndex",
+              args: [owner as `0x${string}`, BigInt(toNumber(total) - 1)],
+            });
+            const agentIdHex = bytes32ToHex(agentId);
+            agentMetaStore.set(agentIdHex, { name, description });
+            saveMeta(agentMetaPath, Object.fromEntries(agentMetaStore));
+            return { success: true, data: agentIdHex };
+          } catch (err: any) {
+            return { success: false, error: err.message };
+          }
+        },
+        async updateAgent(owner, agentId, cid, hash) {
+          try {
+            const calldata = encodeFunctionData({
+              abi: agentAbi, functionName: "updateAgent",
+              args: [agentId as `0x${string}`, cid, hash as `0x${string}`],
+            });
+            const { userOpHash } = await buildAndSendUserOp({ target: address, calldata, sessionKeyPrivateKey });
+            await waitForUserOp(userOpHash);
+            return { success: true };
+          } catch (err: any) {
+            return { success: false, error: err.message };
+          }
+        },
+        async archiveAgent(owner, agentId) {
+          try {
+            const calldata = encodeFunctionData({
+              abi: agentAbi, functionName: "archiveAgent",
+              args: [agentId as `0x${string}`],
+            });
+            const { userOpHash } = await buildAndSendUserOp({ target: address, calldata, sessionKeyPrivateKey });
+            await waitForUserOp(userOpHash);
+            return { success: true };
+          } catch (err: any) {
+            return { success: false, error: err.message };
+          }
+        },
+        async restoreAgent(owner, agentId) {
+          try {
+            const calldata = encodeFunctionData({
+              abi: agentAbi, functionName: "restoreAgent",
+              args: [agentId as `0x${string}`],
+            });
+            const { userOpHash } = await buildAndSendUserOp({ target: address, calldata, sessionKeyPrivateKey });
+            await waitForUserOp(userOpHash);
+            return { success: true };
+          } catch (err: any) {
+            return { success: false, error: err.message };
+          }
+        },
+        async getAgent(agentId) { return createAgentRegistryAdapter().getAgent(agentId); },
+        async getAgentVersion(agentId, version) { return createAgentRegistryAdapter().getAgentVersion(agentId, version); },
+        async getAgentCountByOwner(owner) { return createAgentRegistryAdapter().getAgentCountByOwner(owner); },
+        async getAgentsByOwner(owner, offset, limit) { return createAgentRegistryAdapter().getAgentsByOwner(owner, offset, limit); },
+      };
+    },
+
+    createChatRegistryUserOpAdapter(sessionKeyPrivateKey) {
+      const address = deployments["chat-registry"].address as `0x${string}`;
+      return {
+        async createChat(owner, name, cid, hash) {
+          try {
+            const calldata = encodeFunctionData({
+              abi: chatAbi, functionName: "createChat",
+              args: [name, cid, hash as `0x${string}`],
+            });
+            const { userOpHash } = await buildAndSendUserOp({ target: address, calldata, sessionKeyPrivateKey });
+            await waitForUserOp(userOpHash);
+            const total = await publicClient.readContract({ address, abi: chatAbi, functionName: "totalChats" });
+            const chatId = await publicClient.readContract({
+              address, abi: chatAbi, functionName: "getChatByOwnerIndex",
+              args: [owner as `0x${string}`, BigInt(toNumber(total) - 1)],
+            });
+            const chatIdHex = bytes32ToHex(chatId);
+            chatMetaStore.set(chatIdHex, { name });
+            saveMeta(chatMetaPath, Object.fromEntries(chatMetaStore));
+            return { success: true, data: chatIdHex };
+          } catch (err: any) {
+            return { success: false, error: err.message };
+          }
+        },
+        async updateChat(owner, chatId, cid, hash, name) {
+          try {
+            const calldata = encodeFunctionData({
+              abi: chatAbi, functionName: "updateChat",
+              args: [chatId as `0x${string}`, cid, hash as `0x${string}`, name],
+            });
+            const { userOpHash } = await buildAndSendUserOp({ target: address, calldata, sessionKeyPrivateKey });
+            await waitForUserOp(userOpHash);
+            chatMetaStore.set(chatId, { name });
+            saveMeta(chatMetaPath, Object.fromEntries(chatMetaStore));
+            return { success: true };
+          } catch (err: any) {
+            return { success: false, error: err.message };
+          }
+        },
+        async archiveChat(owner, chatId) {
+          try {
+            const calldata = encodeFunctionData({
+              abi: chatAbi, functionName: "archiveChat",
+              args: [chatId as `0x${string}`],
+            });
+            const { userOpHash } = await buildAndSendUserOp({ target: address, calldata, sessionKeyPrivateKey });
+            await waitForUserOp(userOpHash);
+            return { success: true };
+          } catch (err: any) {
+            return { success: false, error: err.message };
+          }
+        },
+        async restoreChat(owner, chatId) {
+          try {
+            const calldata = encodeFunctionData({
+              abi: chatAbi, functionName: "restoreChat",
+              args: [chatId as `0x${string}`],
+            });
+            const { userOpHash } = await buildAndSendUserOp({ target: address, calldata, sessionKeyPrivateKey });
+            await waitForUserOp(userOpHash);
+            return { success: true };
+          } catch (err: any) {
+            return { success: false, error: err.message };
+          }
+        },
+        async getChat(chatId) { return createChatRegistryAdapter().getChat(chatId); },
+        async getChatCountByOwner(owner) { return createChatRegistryAdapter().getChatCountByOwner(owner); },
+        async getChatsByOwner(owner, offset, limit) { return createChatRegistryAdapter().getChatsByOwner(owner, offset, limit); },
+      };
+    },
+
+    createCreditManagerUserOpAdapter(sessionKeyPrivateKey) {
+      const address = deployments["credit-manager"].address as `0x${string}`;
+      return {
+        async balanceOf(user) { return createCreditManagerAdapter().balanceOf(user); },
+        async hasSufficientCredits(user, amount) { return createCreditManagerAdapter().hasSufficientCredits(user, amount); },
+        async buyCredits(user, amount, valueWei) {
+          try {
+            const calldata = encodeFunctionData({
+              abi: creditAbi, functionName: "buyCredits",
+              args: [BigInt(amount)],
+            });
+            const { userOpHash } = await buildAndSendUserOp({ target: address, calldata, sessionKeyPrivateKey });
+            await waitForUserOp(userOpHash);
+            return { success: true };
+          } catch (err: any) {
+            return { success: false, error: err.message };
+          }
+        },
+        async getFees() { return createCreditManagerAdapter().getFees(); },
+        async getPricing() { return createCreditManagerAdapter().getPricing(); },
+      };
     },
   };
 }

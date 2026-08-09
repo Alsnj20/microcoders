@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { z } from "zod";
+import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import type { SessionKeyStore } from "../types/session.js";
 import type { AppEnv } from "../index.js";
 
@@ -20,8 +21,57 @@ function requireSession(c: { get: (key: string) => unknown; json: (body: unknown
   return session as { address: string; chainId: number; username: string | null };
 }
 
-export function createSessionKeyRoutes(sessionKeyStore: SessionKeyStore): Hono<AppEnv> {
+const GenerateSessionKeySchema = z.object({
+  permissionsContext: z.string().min(1),
+  expiry: z.number().int().positive(),
+  scopes: z.array(z.string()).min(1),
+});
+
+export function createSessionKeyRoutes(sessionKeyStore: SessionKeyStore, _sessionKeyManager?: unknown): Hono<AppEnv> {
   const routes = new Hono<AppEnv>();
+
+  routes.post("/generate", async (c) => {
+    const session = requireSession(c);
+    if (!session) {
+      return c.json({ code: "AUTH_REQUIRED", message: "No valid session" }, 401);
+    }
+
+    const body = await c.req.json();
+    const parsed = GenerateSessionKeySchema.safeParse(body);
+    if (!parsed.success) {
+      return c.json(
+        { code: "VALIDATION_ERROR", message: "Invalid request", details: parsed.error.flatten() },
+        400,
+      );
+    }
+
+    if (parsed.data.expiry <= Math.floor(Date.now() / 1000)) {
+      return c.json({ code: "VALIDATION_ERROR", message: "Expiry must be in the future" }, 400);
+    }
+
+    const privateKey = generatePrivateKey();
+    const account = privateKeyToAccount(privateKey);
+    const keyId = `sk-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+    await sessionKeyStore.save({
+      keyId,
+      address: session.address,
+      sessionKeyAddress: account.address,
+      permissionsContext: parsed.data.permissionsContext,
+      expiry: parsed.data.expiry,
+      scopes: parsed.data.scopes,
+      grantedAt: Math.floor(Date.now() / 1000),
+    });
+
+    return c.json({
+      keyId,
+      sessionKeyAddress: account.address,
+      privateKey,
+      expiry: parsed.data.expiry,
+      scopes: parsed.data.scopes,
+      grantedAt: Math.floor(Date.now() / 1000),
+    });
+  });
 
   routes.post("/", async (c) => {
     const session = requireSession(c);

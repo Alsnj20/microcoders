@@ -1,14 +1,24 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { useAccount, useDisconnect, useSignMessage } from "wagmi";
+import { useAccount, useDisconnect, useSignMessage, useWalletClient } from "wagmi";
 import { api } from "~~/services/api/client";
 import { deriveKWallet } from "~~/services/crypto/keys";
 import { useGlobalState } from "~~/services/store/store";
+
+interface GrantPermissionsResult {
+  permissionsContext: string;
+  grantedPermissions: Array<{
+    target: string;
+    operator?: string;
+    limits?: unknown;
+  }>;
+}
 
 export function useSiwe() {
   const { address, isConnected } = useAccount();
   const { signMessageAsync } = useSignMessage();
   const { disconnect } = useDisconnect();
+  const { data: walletClient } = useWalletClient();
   const { session, setSession } = useGlobalState();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -142,6 +152,47 @@ export function useSiwe() {
     }
   };
 
+  const grantPermissions = useCallback(async (): Promise<GrantPermissionsResult | null> => {
+    if (!walletClient || !address) {
+      console.error("[SIWE] grantPermissions: no wallet client or address");
+      return null;
+    }
+
+    try {
+      // Call wallet_grantPermissions (ERC-7715)
+      const smartAccountAddress = localStorage.getItem("mc_smart_account");
+      const targetAddress = smartAccountAddress || address;
+
+      const result = await walletClient.request({
+        method: "wallet_grantPermissions",
+        params: [
+          {
+            permissions: [
+              {
+                target: targetAddress,
+                operator: "0x0000000000000000000000000000000000000000000000000000000000000000",
+                capabilities: {
+                  policies: [
+                    {
+                      policy: "0x0000000000000000000000000000000000000000000000000000000000000000",
+                    },
+                  ],
+                },
+              },
+            ],
+            expiry: Math.floor(Date.now() / 1000) + 86400, // 24 hours
+          },
+        ],
+      });
+
+      console.log("[SIWE] grantPermissions result:", result);
+      return result as GrantPermissionsResult;
+    } catch (err) {
+      console.error("[SIWE] grantPermissions error:", err);
+      return null;
+    }
+  }, [walletClient, address]);
+
   const logout = async () => {
     setLoading(true);
     try {
@@ -188,6 +239,7 @@ export function useSiwe() {
   return {
     login,
     logout,
+    grantPermissions,
     loading,
     error,
     session,

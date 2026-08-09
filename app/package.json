@@ -8,6 +8,8 @@
     "clean-contracts": "pnpm --filter @ss/stylus clean-contracts",
     "compile": "pnpm --filter @ss/stylus compile",
     "predeploy:contracts": "pnpm --filter @ss/stylus predeploy:contracts",
+    "deploy:aa": "cd packages/stylus/contracts/aa && ./script/deploy.sh",
+    "bundler": "cd packages/stylus/aa && docker compose up -d",
     "deploy:contracts": "pnpm --filter @ss/stylus deploy:contracts",
     "export-abi": "pnpm --filter @ss/stylus export-abi",
     "flatten": "pnpm --filter @ss/stylus flatten",

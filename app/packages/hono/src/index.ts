@@ -15,6 +15,7 @@ import { createAuthRoutes } from "./routes/auth.js";
 import { createSessionKeyRoutes } from "./routes/session-keys.js";
 import { createAuditRoutes } from "./routes/audit.js";
 import { createChatRoutes } from "./routes/chat.js";
+import { createRedisSessionKeyStore } from "./lib/session-keys.js";
 import type {
   MemoryRegistryContract,
   AgentRegistryContract,
@@ -25,6 +26,7 @@ import type {
   ChatRegistryContract,
 } from "./types/contracts.js";
 import type { SessionStore, SessionData, SessionKeyStore } from "./types/session.js";
+import type { SessionKeyManager } from "./lib/session-key-manager.js";
 
 export type { SessionData, SessionStore, SessionKeyStore } from "./types/session.js";
 
@@ -45,6 +47,7 @@ export type AppDependencies = {
   auditRegistry?: AuditRegistryContract;
   sessionStore?: SessionStore;
   sessionKeyStore?: SessionKeyStore;
+  sessionKeyManager?: SessionKeyManager;
   session?: SessionData | null;
 };
 
@@ -79,6 +82,7 @@ export function createApp(deps: AppDependencies = {}): Hono<AppEnv> {
   const userRegistry = deps.userRegistry;
   const sessionStore = deps.sessionStore ?? createMemorySessionStore();
   const sessionKeyStore = deps.sessionKeyStore;
+  const sessionKeyManager = deps.sessionKeyManager;
 
   const app = new Hono<AppEnv>();
 
@@ -145,7 +149,7 @@ export function createApp(deps: AppDependencies = {}): Hono<AppEnv> {
 
   // Session key routes
   if (sessionKeyStore) {
-    app.route("/session-keys", createSessionKeyRoutes(sessionKeyStore));
+    app.route("/session-keys", createSessionKeyRoutes(sessionKeyStore, sessionKeyManager));
   }
 
   app.route("/ipfs", createIpfsRoutes(ipfs));
@@ -191,7 +195,22 @@ const creditManager = isDev ? createCreditManagerAdapter() : undefined;
 const contextRegistry = isDev ? createContextRegistryAdapter() : undefined;
 const auditRegistry = isDev ? createAuditRegistryAdapter() : undefined;
 
-serve({ fetch: createApp({ agentRegistry, memoryRegistry, chatRegistry, userRegistry, creditManager, contextRegistry, auditRegistry }).fetch, port: PORT }, (info) => {
+// Session key store: in-memory for dev, Redis for production
+const sessionKeyStore: SessionKeyStore | undefined = (() => {
+  if (process.env.REDIS_URL || process.env.NODE_ENV === "production") {
+    try {
+      const Redis = require("ioredis");
+      const redis = new Redis(process.env.REDIS_URL || "redis://localhost:6379");
+      return createRedisSessionKeyStore(redis);
+    } catch (err) {
+      console.warn("[SessionKeyStore] Redis not available, session keys disabled");
+      return undefined;
+    }
+  }
+  return undefined;
+})();
+
+serve({ fetch: createApp({ agentRegistry, memoryRegistry, chatRegistry, userRegistry, creditManager, contextRegistry, auditRegistry, sessionKeyStore }).fetch, port: PORT }, (info) => {
   console.log(`🚀 Hono server running on http://localhost:${info.port}`);
   if (agentRegistry) console.log(`⛓️  AgentRegistry connected`);
   if (memoryRegistry) console.log(`⛓️  MemoryRegistry connected`);

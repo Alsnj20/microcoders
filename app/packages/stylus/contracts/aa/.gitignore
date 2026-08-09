@@ -1,0 +1,19 @@
+# Compiler files
+cache/
+out/
+
+# Commonly ignored directories
+.logs/
+.ignore/
+
+# Ignores development broadcast logs
+!/broadcast
+/broadcast/*/412346/
+
+# Docs
+docs/
+
+# Dotenv file
+.env
+.env.*
+!.env.example

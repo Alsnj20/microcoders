@@ -6,6 +6,7 @@ import { useAccount } from "wagmi";
 import { Button } from "~~/components/ui/button";
 import { Input } from "~~/components/ui/input";
 import { api } from "~~/services/api/client";
+import { useSmartAccount } from "~/modules/smart-account/hooks/useSmartAccount";
 import { useSiwe } from "../hooks/useSiwe";
 
 const CREDIT_PACKS = [
@@ -27,6 +28,7 @@ export function OnboardingFlow({ startStep = "welcome" }: OnboardingFlowProps) {
   const [registering, setRegistering] = useState(false);
   const { isConnected, address } = useAccount();
   const { login: siweLogin, loading: siweLoading, error: siweError } = useSiwe();
+  const { smartAccountAddress, isDeployed } = useSmartAccount();
 
   console.log("[Onboarding] Render | step:", step, "isConnected:", isConnected, "address:", address, "startStep:", startStep);
 
@@ -84,7 +86,13 @@ export function OnboardingFlow({ startStep = "welcome" }: OnboardingFlowProps) {
       const packNum = pack ? Number(pack) : 0;
       const finalPack = packNum > 0 ? packNum : selectedPack;
       console.log("[Onboarding] Step 2: registerAndComplete(", username.trim() || "user", ",", finalPack, ")");
-      registerAndComplete(username.trim() || "user", finalPack);
+      await registerAndComplete(username.trim() || "user", finalPack);
+
+      // Store smart account address for session key flow
+      if (smartAccountAddress) {
+        localStorage.setItem("mc_smart_account", smartAccountAddress);
+        console.log("[Onboarding] Smart account address stored:", smartAccountAddress);
+      }
     } catch (err) {
       console.error("[Onboarding] SIWE failed:", err);
     }
