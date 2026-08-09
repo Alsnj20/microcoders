@@ -16,12 +16,16 @@ export function useSiwe() {
 
   // Check current session on mount or when address changes
   const checkSession = useCallback(async () => {
+    console.log("[SIWE] checkSession called | address:", address, "isConnected:", isConnected);
     try {
       const res = await api.auth.session.$get();
+      console.log("[SIWE] checkSession response:", res.status, res.ok);
       if (res.ok) {
         const data = (await res.json()) as any;
+        console.log("[SIWE] checkSession data:", data);
         // Check if address matches the connected wallet address
         if (address && data.address.toLowerCase() === address.toLowerCase()) {
+          console.log("[SIWE] checkSession: session valid, setting isAuthenticated=true");
           setSession({
             address: data.address,
             chainId: data.chainId,
@@ -31,13 +35,16 @@ export function useSiwe() {
             kRecovery: session.kRecovery,
           });
           return;
+        } else {
+          console.log("[SIWE] checkSession: address mismatch");
         }
       }
     } catch (e) {
-      // Not authenticated, ignore error
+      console.log("[SIWE] checkSession: no session (caught):", e);
     }
 
     // Clear session if checks fail
+    console.log("[SIWE] checkSession: clearing session");
     setSession({
       address: null,
       chainId: null,
@@ -49,9 +56,11 @@ export function useSiwe() {
   }, [address, setSession, session.kWallet, session.kRecovery]);
 
   useEffect(() => {
+    console.log("[SIWE] useEffect: isConnected:", isConnected, "address:", address);
     if (isConnected && address) {
       checkSession();
     } else {
+      console.log("[SIWE] useEffect: clearing session (not connected)");
       setSession({
         address: null,
         chainId: null,
@@ -64,30 +73,40 @@ export function useSiwe() {
   }, [isConnected, address, checkSession, setSession]);
 
   const login = async () => {
+    console.log("[SIWE] login() called | address:", address, "isConnected:", isConnected);
     if (!address) {
+      console.error("[SIWE] login: no address");
       throw new Error("Wallet not connected");
     }
     setLoading(true);
     setError(null);
     try {
       // 1. Get SIWE challenge from Hono backend
+      console.log("[SIWE] login step 1: fetching challenge for address:", address);
       const challengeRes = await api.auth.challenge.$get({
         query: { address },
       });
+      console.log("[SIWE] login step 1: challenge response:", challengeRes.status, challengeRes.ok);
       if (!challengeRes.ok) {
         throw new Error("Failed to get sign-in challenge");
       }
       const challenge = (await challengeRes.json()) as any;
+      console.log("[SIWE] login step 1: challenge message:", challenge.message?.substring(0, 80) + "...");
 
       // 2. Sign the challenge message using the user's wallet
+      console.log("[SIWE] login step 2: calling signMessageAsync...");
       const signature = await signMessageAsync({
         message: challenge.message,
       });
+      console.log("[SIWE] login step 2: signature obtained:", signature?.substring(0, 20) + "...");
 
       // 3. Derive the kWallet from signature
+      console.log("[SIWE] login step 3: deriving kWallet...");
       const kWallet = await deriveKWallet(signature);
+      console.log("[SIWE] login step 3: kWallet derived");
 
       // 4. Verify signature and create session on Hono backend
+      console.log("[SIWE] login step 4: verifying signature...");
       const verifyRes = await api.auth.verify.$post({
         json: {
           message: challenge.message,
@@ -95,13 +114,16 @@ export function useSiwe() {
           address,
         },
       });
+      console.log("[SIWE] login step 4: verify response:", verifyRes.status, verifyRes.ok);
 
       if (!verifyRes.ok) {
         const errData = (await verifyRes.json()) as any;
+        console.error("[SIWE] login step 4: verify failed:", errData);
         throw new Error(errData.message || "Failed to verify signature");
       }
 
       const sessionData = (await verifyRes.json()) as any;
+      console.log("[SIWE] login step 4: session created:", sessionData);
       setSession({
         address: sessionData.address,
         chainId: sessionData.chainId,
@@ -110,8 +132,9 @@ export function useSiwe() {
         kWallet,
         kRecovery: null,
       });
+      console.log("[SIWE] login: complete, session set");
     } catch (err: unknown) {
-      console.error("SIWE Login Error:", err);
+      console.error("[SIWE] login error:", err);
       setError(err instanceof Error ? err.message : "Authentication failed");
       throw err;
     } finally {

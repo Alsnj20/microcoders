@@ -88,11 +88,13 @@ export function createApp(deps: AppDependencies = {}): Hono<AppEnv> {
   }));
 
   // Dev session middleware: auto-auth with wallet address from header
-  const isDev = process.env.NODE_ENV !== "production";
+  const devWalletAuthEnabled = process.env.ENABLE_DEV_WALLET_AUTH === "true";
+  console.log("[Middleware] ENABLE_DEV_WALLET_AUTH:", devWalletAuthEnabled);
   app.use("*", async (c, next) => {
-    if (isDev) {
+    if (devWalletAuthEnabled) {
       const devAddress = c.req.header("X-Dev-Wallet");
       if (devAddress) {
+        console.log("[Middleware] Dev wallet auth: setting session for", devAddress);
         c.set("session", { address: devAddress, chainId: 412346, username: "dev-user" });
       }
     }
@@ -106,10 +108,30 @@ export function createApp(deps: AppDependencies = {}): Hono<AppEnv> {
     console.log(`← ${c.req.method} ${c.req.url} ${c.res.status}`);
   });
 
-  // Session middleware (only set if not already set by dev middleware)
+  // Session middleware: resolve session from cookie
   app.use("*", async (c, next) => {
     if (!c.get("session")) {
-      c.set("session", deps.session ?? null);
+      const cookieHeader = c.req.header("Cookie");
+      const sessionId = cookieHeader?.split(";")
+        .map((entry) => entry.trim())
+        .find((entry) => entry.startsWith("session="))
+        ?.split("=")[1];
+
+      console.log("[Middleware] Session lookup | cookie:", sessionId || "(none)");
+
+      if (sessionId) {
+        const sessionData = await sessionStore.get(sessionId);
+        console.log("[Middleware] Session lookup | store.get:", sessionData ? `found (${sessionData.address})` : "miss");
+        if (sessionData) {
+          c.set("session", sessionData);
+        } else {
+          c.set("session", null);
+        }
+      } else {
+        c.set("session", deps.session ?? null);
+      }
+    } else {
+      console.log("[Middleware] Session already set:", c.get("session")?.address || "(none)");
     }
     await next();
   });

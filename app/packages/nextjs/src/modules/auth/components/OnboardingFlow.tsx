@@ -6,6 +6,7 @@ import { useAccount } from "wagmi";
 import { Button } from "~~/components/ui/button";
 import { Input } from "~~/components/ui/input";
 import { api } from "~~/services/api/client";
+import { useSiwe } from "../hooks/useSiwe";
 
 const CREDIT_PACKS = [
   { amount: 50, price: "0.005", label: "Plan Starter", description: "Para empezar" },
@@ -13,7 +14,7 @@ const CREDIT_PACKS = [
   { amount: 200, price: "0.02", label: "Plan Pro", description: "Power user" },
 ];
 
-type OnboardingStep = "welcome" | "credits" | "username" | "connect";
+type OnboardingStep = "welcome" | "credits" | "username" | "connect" | "siwe";
 
 interface OnboardingFlowProps {
   startStep?: OnboardingStep;
@@ -24,27 +25,35 @@ export function OnboardingFlow({ startStep = "welcome" }: OnboardingFlowProps) {
   const [selectedPack, setSelectedPack] = useState<number | null>(null);
   const [step, setStep] = useState<OnboardingStep>(startStep);
   const [registering, setRegistering] = useState(false);
-  const { isConnected } = useAccount();
+  const { isConnected, address } = useAccount();
+  const { login: siweLogin, loading: siweLoading, error: siweError } = useSiwe();
+
+  console.log("[Onboarding] Render | step:", step, "isConnected:", isConnected, "address:", address, "startStep:", startStep);
 
   const handleCompleteUsername = () => {
     localStorage.setItem("mc_username", username.trim());
-    console.log("[Onboarding] Username:", username || "(none)");
+    console.log("[Onboarding] Username:", username || "(none)", "| isConnected:", isConnected);
 
-    // If wallet is already connected, register on-chain and complete
+    // If wallet is already connected, go to SIWE step
     if (isConnected) {
-      registerAndComplete(username.trim() || "user", selectedPack);
+      console.log("[Onboarding] → Transitioning to siwe step");
+      setStep("siwe");
     } else {
+      console.log("[Onboarding] → Transitioning to connect step");
       setStep("connect");
     }
   };
 
   const handleSkipUsername = () => {
     localStorage.setItem("mc_username", "");
+    console.log("[Onboarding] Username skipped | isConnected:", isConnected);
 
-    // If wallet is already connected, register on-chain and complete
+    // If wallet is already connected, go to SIWE step
     if (isConnected) {
-      registerAndComplete("user", selectedPack);
+      console.log("[Onboarding] → Transitioning to siwe step");
+      setStep("siwe");
     } else {
+      console.log("[Onboarding] → Transitioning to connect step");
       setStep("connect");
     }
   };
@@ -52,34 +61,52 @@ export function OnboardingFlow({ startStep = "welcome" }: OnboardingFlowProps) {
   const handleSkipAll = () => {
     localStorage.setItem("mc_username", "");
     localStorage.setItem("mc_selected_pack", "0");
-    console.log("[Onboarding] Skipped");
+    console.log("[Onboarding] Skipped all | isConnected:", isConnected);
 
-    // If wallet is already connected, register on-chain and complete
+    // If wallet is already connected, go to SIWE step
     if (isConnected) {
-      registerAndComplete("user", 0);
+      console.log("[Onboarding] → Transitioning to siwe step");
+      setStep("siwe");
     } else {
-      // Store username/pack for when wallet connects
+      console.log("[Onboarding] → Transitioning to connect step");
       setStep("connect");
+    }
+  };
+
+  const handleSiweAndRegister = async () => {
+    console.log("[Onboarding] handleSiweAndRegister called");
+    try {
+      console.log("[Onboarding] Step 1: Calling siweLogin()...");
+      await siweLogin();
+      console.log("[Onboarding] Step 1 complete: siweLogin() returned");
+
+      const pack = localStorage.getItem("mc_selected_pack");
+      const packNum = pack ? Number(pack) : 0;
+      const finalPack = packNum > 0 ? packNum : selectedPack;
+      console.log("[Onboarding] Step 2: registerAndComplete(", username.trim() || "user", ",", finalPack, ")");
+      registerAndComplete(username.trim() || "user", finalPack);
+    } catch (err) {
+      console.error("[Onboarding] SIWE failed:", err);
     }
   };
 
   const registerAndComplete = async (regUsername: string, pack: number | null) => {
     setRegistering(true);
     try {
-      console.log("[Onboarding] Registering user...");
-      await api.user.register.$post({ json: { username: regUsername } });
-      console.log("[Onboarding] Registered");
+      console.log("[Onboarding] registerAndComplete: registering user:", regUsername);
+      const regRes = await api.user.register.$post({ json: { username: regUsername } });
+      console.log("[Onboarding] registerAndComplete: register response:", regRes.status, regRes.ok);
 
       if (pack && pack > 0) {
-        console.log("[Onboarding] Buying", pack, "MC...");
-        await api.credits.buy.$post({ json: { amount: pack } });
-        console.log("[Onboarding] Credits bought");
+        console.log("[Onboarding] registerAndComplete: buying", pack, "MC...");
+        const buyRes = await api.credits.buy.$post({ json: { amount: pack } });
+        console.log("[Onboarding] registerAndComplete: buy response:", buyRes.status, buyRes.ok);
         localStorage.removeItem("mc_selected_pack");
       }
 
-      // AuthGate will detect isRegistered on-chain and re-render to show children
+      console.log("[Onboarding] registerAndComplete: done, AuthGate will re-render");
     } catch (err: any) {
-      console.error("[Onboarding] Registration error:", err.message);
+      console.error("[Onboarding] registerAndComplete error:", err.message);
     } finally {
       setRegistering(false);
     }
@@ -100,7 +127,7 @@ export function OnboardingFlow({ startStep = "welcome" }: OnboardingFlowProps) {
                 Tu conocimiento de IA, descentralizado. Configura tu cuenta para empezar.
               </p>
             </div>
-            <Button size="lg" onClick={() => setStep("credits")}>
+            <Button size="lg" onClick={() => { console.log("[Onboarding] → Transitioning to credits step"); setStep("credits"); }}>
               Comenzar
             </Button>
           </div>
@@ -119,7 +146,7 @@ export function OnboardingFlow({ startStep = "welcome" }: OnboardingFlowProps) {
               {CREDIT_PACKS.map(pack => (
                 <button
                   key={pack.amount}
-                  onClick={() => setSelectedPack(pack.amount)}
+                  onClick={() => { setSelectedPack(pack.amount); console.log("[Onboarding] Pack selected:", pack.amount, "MC"); }}
                   className={`p-4 rounded-xl border text-center transition-all ${
                     selectedPack === pack.amount
                       ? "border-primary bg-primary/5 ring-2 ring-primary/20"
@@ -139,7 +166,7 @@ export function OnboardingFlow({ startStep = "welcome" }: OnboardingFlowProps) {
                 size="lg"
                 onClick={() => {
                   localStorage.setItem("mc_selected_pack", selectedPack?.toString() || "0");
-                  console.log("[Onboarding] Pack:", selectedPack, "MC");
+                  console.log("[Onboarding] Pack:", selectedPack, "MC → Transitioning to username step");
                   setStep("username");
                 }}
               >
@@ -150,6 +177,7 @@ export function OnboardingFlow({ startStep = "welcome" }: OnboardingFlowProps) {
                 size="lg"
                 onClick={() => {
                   localStorage.setItem("mc_selected_pack", "0");
+                  console.log("[Onboarding] Pack: skipped → Transitioning to username step");
                   setStep("username");
                 }}
               >
@@ -202,11 +230,55 @@ export function OnboardingFlow({ startStep = "welcome" }: OnboardingFlowProps) {
             <div className="flex justify-center">
               <ConnectButton label="Conectar Wallet" showBalance={false} chainStatus="none" accountStatus="address" />
             </div>
+            {isConnected && (
+              <div className="text-center">
+                <Button size="lg" onClick={() => { console.log("[Onboarding] → Transitioning to siwe step"); setStep("siwe"); }} className="w-full">
+                  Continuar a firma
+                </Button>
+              </div>
+            )}
             <div className="text-center">
               <Button variant="ghost" size="sm" onClick={handleSkipAll}>
                 Omitir por ahora
               </Button>
             </div>
+          </div>
+        )}
+
+        {/* Step 5: SIWE Sign */}
+        {step === "siwe" && (
+          <div className="space-y-6">
+            <div className="text-center">
+              <div className="w-16 h-16 mx-auto rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mb-4">
+                <span className="material-symbols-outlined text-3xl text-primary">draw</span>
+              </div>
+              <h2 className="text-xl font-bold text-foreground mb-1">Firma tu acceso</h2>
+              <p className="text-sm text-muted-foreground">
+                Firma el mensaje criptográfico para autenticar tu sesión de forma segura.
+              </p>
+            </div>
+            <Button
+              size="lg"
+              className="w-full"
+              onClick={handleSiweAndRegister}
+              disabled={siweLoading || registering}
+            >
+              {siweLoading ? (
+                <>
+                  <span className="animate-spin h-4 w-4 border-2 border-primary-foreground border-t-transparent rounded-full mr-2" />
+                  Firmando desafío...
+                </>
+              ) : registering ? (
+                "Registrando..."
+              ) : (
+                "Firmar Acceso (SIWE)"
+              )}
+            </Button>
+            {siweError && (
+              <div className="p-3 bg-destructive/10 border border-destructive/20 text-destructive text-xs rounded-lg text-center">
+                {siweError}
+              </div>
+            )}
           </div>
         )}
       </div>

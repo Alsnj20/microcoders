@@ -5,6 +5,7 @@ import { useAccount } from "wagmi";
 import { useScaffoldReadContract } from "~~/hooks/scaffold-eth";
 import { api, setWalletAddress } from "~~/services/api/client";
 import { useGlobalState } from "~~/services/store/store";
+import { useSiwe } from "../hooks/useSiwe";
 import { OnboardingFlow } from "./OnboardingFlow";
 
 interface AuthGateProps {
@@ -14,6 +15,7 @@ interface AuthGateProps {
 export function AuthGate({ children }: AuthGateProps) {
   const { session, setSession, setCreditBalance } = useGlobalState();
   const { address, isConnected } = useAccount();
+  const { isAuthenticated: siweAuthenticated } = useSiwe();
   const [ready, setReady] = useState(false);
 
   // Check on-chain registration status
@@ -33,34 +35,33 @@ export function AuthGate({ children }: AuthGateProps) {
   useEffect(() => {
     if (isConnected && address) {
       setWalletAddress(address);
-      console.log("[Auth] Wallet:", address);
+      console.log("[Auth] Wallet connected:", address);
     } else {
       setWalletAddress(null);
+      console.log("[Auth] Wallet disconnected");
     }
   }, [isConnected, address]);
 
-  // Register user when wallet connects and user is registered on-chain
+  // After SIWE auth and on-chain registration, sync session and buy pending credits
   useEffect(() => {
+    console.log("[Auth] Session sync effect:", { ready, isConnected, address, isRegistered, siweAuthenticated, sessionAddress: session.address });
     if (!ready || !isConnected || !address || isRegistered === undefined) return;
-
-    // If not registered on-chain, OnboardingFlow handles registration
     if (!isRegistered) return;
+    if (!siweAuthenticated) return;
 
     const username = localStorage.getItem("mc_username") || "user";
 
-    // Update session with current wallet address
     if (session.address !== address) {
-      console.log("[Auth] Session:", { address, username });
+      console.log("[Auth] Setting session:", { address, username });
       setSession({
         address,
         chainId: 412346,
         username,
         isAuthenticated: true,
-        kWallet: null,
-        kRecovery: null,
+        kWallet: session.kWallet,
+        kRecovery: session.kRecovery,
       });
 
-      // Buy credits if pack was selected during onboarding
       const setup = async () => {
         try {
           const pack = localStorage.getItem("mc_selected_pack");
@@ -78,12 +79,12 @@ export function AuthGate({ children }: AuthGateProps) {
             setCreditBalance(data.balance ?? 0);
           }
         } catch (err: any) {
-          console.error("[Auth] Error:", err.message);
+          console.error("[Auth] Setup error:", err.message);
         }
       };
       setup();
     }
-  }, [ready, isConnected, address, isRegistered, session.address]);
+  }, [ready, isConnected, address, isRegistered, siweAuthenticated, session.address]);
 
   // Sync balance
   useEffect(() => {
@@ -102,20 +103,28 @@ export function AuthGate({ children }: AuthGateProps) {
     return () => clearInterval(i);
   }, [session.isAuthenticated, session.address]);
 
-  if (!ready) return null;
+  if (!ready) {
+    console.log("[Auth] Not ready yet");
+    return null;
+  }
+
+  console.log("[Auth] Render decision:", { isConnected, isRegistered, siweAuthenticated });
 
   // Wallet not connected → show onboarding (full flow including connect step)
   if (!isConnected) {
+    console.log("[Auth] → Rendering OnboardingFlow (startStep=welcome)");
     return <OnboardingFlow />;
   }
 
-  // Wallet connected but not registered on-chain → show onboarding (skip connect step)
+  // Wallet connected but not registered on-chain → show onboarding (skip connect step, still requires SIWE)
   if (isRegistered === false) {
+    console.log("[Auth] → Rendering OnboardingFlow (startStep=credits)");
     return <OnboardingFlow startStep="credits" />;
   }
 
   // Loading on-chain state
   if (isRegistered === undefined) {
+    console.log("[Auth] → Rendering loading state (isRegistered=undefined)");
     return (
       <div className="flex-1 flex items-center justify-center min-h-[calc(100vh-5rem)] px-4">
         <div className="w-full max-w-md text-center text-muted-foreground">Cargando...</div>
@@ -123,5 +132,12 @@ export function AuthGate({ children }: AuthGateProps) {
     );
   }
 
+  // Registered on-chain but SIWE not completed → show onboarding SIWE step
+  if (!siweAuthenticated) {
+    console.log("[Auth] → Rendering OnboardingFlow (startStep=siwe)");
+    return <OnboardingFlow startStep="siwe" />;
+  }
+
+  console.log("[Auth] → Rendering children (fully authenticated)");
   return <>{children}</>;
 }

@@ -16,6 +16,7 @@ export function createAuthRoutes(sessionStore: SessionStore): Hono<AppEnv> {
 
   routes.get("/challenge", async (c) => {
     const address = c.req.query("address");
+    console.log("[Auth] GET /challenge | address:", address);
     if (!address) {
       return c.json({ code: "VALIDATION_ERROR", message: "address query param required" }, 400);
     }
@@ -35,6 +36,7 @@ export function createAuthRoutes(sessionStore: SessionStore): Hono<AppEnv> {
       nonce,
     });
 
+    console.log("[Auth] GET /challenge | nonce:", nonce, "| domain:", domain);
     return c.json({
       nonce,
       message: siweMessage.prepareMessage(),
@@ -45,20 +47,25 @@ export function createAuthRoutes(sessionStore: SessionStore): Hono<AppEnv> {
   routes.post("/verify", async (c) => {
     const body = await c.req.json();
     const { message, signature, address } = body;
+    console.log("[Auth] POST /verify | address:", address, "| sig:", signature?.substring(0, 20) + "...");
 
     if (!message || !signature || !address) {
+      console.error("[Auth] POST /verify | missing fields");
       return c.json({ code: "VALIDATION_ERROR", message: "message, signature, and address required" }, 400);
     }
 
     // Verify nonce
     const stored = nonces.get(address.toLowerCase());
+    console.log("[Auth] POST /verify | stored nonce:", stored ? stored.nonce : "(none)", "| expired:", stored ? stored.expiresAt < Date.now() : "n/a");
     if (!stored || stored.expiresAt < Date.now()) {
       return c.json({ code: "NONCE_EXPIRED", message: "Nonce expired or not found" }, 400);
     }
 
     // Verify SIWE message
     const siweMessage = new SiweMessage(message);
+    console.log("[Auth] POST /verify | verifying SIWE message...");
     const result = await siweMessage.verify({ signature, nonce: stored.nonce });
+    console.log("[Auth] POST /verify | verify result:", result.success);
 
     if (!result.success) {
       return c.json({ code: "INVALID_SIGNATURE", message: "Signature verification failed" }, 401);
@@ -75,10 +82,13 @@ export function createAuthRoutes(sessionStore: SessionStore): Hono<AppEnv> {
       username: null,
     };
 
+    console.log("[Auth] POST /verify | creating session:", sessionId, "| address:", sessionData.address);
     await sessionStore.set(sessionId, sessionData, 24 * 60 * 60); // 24 hours
 
     // Set session cookie
-    c.header("Set-Cookie", `session=${sessionId}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${24 * 60 * 60}`);
+    const cookieValue = `session=${sessionId}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${24 * 60 * 60}`;
+    console.log("[Auth] POST /verify | Set-Cookie:", cookieValue);
+    c.header("Set-Cookie", cookieValue);
 
     return c.json({
       address: sessionData.address,
@@ -89,6 +99,7 @@ export function createAuthRoutes(sessionStore: SessionStore): Hono<AppEnv> {
 
   routes.get("/session", async (c) => {
     const session = c.get("session");
+    console.log("[Auth] GET /session | session:", session ? `${session.address}` : "(none)");
     if (!session) {
       return c.json({ code: "AUTH_REQUIRED", message: "No valid session" }, 401);
     }

@@ -20,9 +20,13 @@ rainbowkitBurnerWallet.rpcUrls = {
   [arbitrumNitro.id]: arbitrumNitro.rpcUrls.default.http[0],
 };
 
+const devWalletAuth = process.env.NEXT_PUBLIC_ENABLE_DEV_WALLET_AUTH === "true";
+
 const wallets = [
   ...(!targetNetworks.some(network => network.id !== (arbitrumNitro as chains.Chain).id) || !onlyLocalBurnerWallet
-    ? [rainbowkitBurnerWallet]
+    ? devWalletAuth
+      ? [rainbowkitBurnerWallet]
+      : []
     : []),
   braveWallet,
   metaMaskWallet,
