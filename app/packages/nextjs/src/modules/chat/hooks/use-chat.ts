@@ -4,6 +4,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { keccak256, toHex } from "viem";
 import { api } from "~~/services/api/client";
 import { useGlobalState } from "~~/services/store/store";
+import { retrieveFromIpfs } from "~~/services/api/ipfs";
+import { decryptData, decryptWalletEnvelope } from "~~/services/crypto/envelope";
+import { base64ToArrayBuffer } from "~~/services/crypto/utils";
 import {
   saveConversation,
   listConversations,
@@ -23,6 +26,50 @@ interface LinkedMemory {
   memoryId: string;
   title: string;
   cid: string;
+  content?: string;
+}
+
+interface AgentBlueprintContent {
+  name?: string;
+  personality?: string;
+  instructions?: string;
+  description?: string;
+  icon?: string;
+  persistentMemory?: boolean;
+}
+
+// The agent blueprint is a JSON envelope stored encrypted on IPFS. It holds the
+// agent persona (personality/instructions). Only the frontend can decrypt it.
+async function fetchDecryptedAgentBlueprint(cid: string, kWallet: Uint8Array): Promise<AgentBlueprintContent> {
+  const base64Data = await retrieveFromIpfs(cid);
+  const jsonStr = new TextDecoder().decode(base64ToArrayBuffer(base64Data));
+  const envelope = JSON.parse(jsonStr);
+  const kData = await decryptWalletEnvelope(base64ToArrayBuffer(envelope.walletEnvelope), kWallet);
+  const plaintext = await decryptData(base64ToArrayBuffer(envelope.ciphertext), kData);
+  return JSON.parse(plaintext) as AgentBlueprintContent;
+}
+
+// Memory blueprints hold the raw memory content as plaintext ciphertext.
+async function fetchDecryptedMemoryContent(cid: string, kWallet: Uint8Array): Promise<string> {
+  const base64Data = await retrieveFromIpfs(cid);
+  const jsonStr = new TextDecoder().decode(base64ToArrayBuffer(base64Data));
+  const envelope = JSON.parse(jsonStr);
+  const kData = await decryptWalletEnvelope(base64ToArrayBuffer(envelope.walletEnvelope), kWallet);
+  return decryptData(base64ToArrayBuffer(envelope.ciphertext), kData);
+}
+
+const NEUTRAL_SYSTEM_PROMPT = "Eres un asistente útil. Responde en español.";
+const MEMORYCHAIN_BRANDING =
+  "Eres un agente de IA de MemoryChain, una plataforma de conocimiento descentralizado donde los usuarios guardan y gestionan su información personal.";
+
+function buildSystemPrompt(agent: AgentBlueprintContent | null): string {
+  if (!agent) return NEUTRAL_SYSTEM_PROMPT;
+  const personality = agent.personality?.trim();
+  const instructions = agent.instructions?.trim();
+  if (!personality && !instructions) return NEUTRAL_SYSTEM_PROMPT;
+  const name = agent.name?.trim() || "Agente";
+  const persona = [`Eres ${name}.`, personality, instructions].filter(Boolean).join("\n");
+  return `${MEMORYCHAIN_BRANDING}\n\n${persona}`;
 }
 
 export function useChat() {
@@ -118,26 +165,42 @@ export function useChat() {
     }
   };
 
-  const loadLinkedMemories = useCallback(async (agentId: string) => {
-    try {
-      const res = await api.context.agent[agentId].memories.$get();
-      if (res.ok) {
-        const data = await res.json();
-        const links = data.links || [];
-        const memories: LinkedMemory[] = [];
-        for (const link of links) {
-          const memRes = await api.memories[":id"].$get({ param: { id: link.memoryId } });
-          if (memRes.ok) {
-            const memData = await memRes.json();
-            memories.push({ memoryId: link.memoryId, title: memData.name || link.memoryId, cid: memData.cid });
+  const loadLinkedMemories = useCallback(
+    async (agentId: string) => {
+      try {
+        const res = await api.context.agent[agentId].memories.$get();
+        if (res.ok) {
+          const data = await res.json();
+          const links = data.links || [];
+          const memories: LinkedMemory[] = [];
+          for (const link of links) {
+            const memRes = await api.memories[":id"].$get({ param: { id: link.memoryId } });
+            if (memRes.ok) {
+              const memData = await memRes.json();
+              let content = "";
+              if (session.kWallet && memData.cid && !memData.cid.startsWith("dev-")) {
+                try {
+                  content = await fetchDecryptedMemoryContent(memData.cid, session.kWallet);
+                } catch (err) {
+                  console.error("Failed to decrypt linked memory:", err);
+                }
+              }
+              memories.push({
+                memoryId: link.memoryId,
+                title: memData.name || link.memoryId,
+                cid: memData.cid,
+                content,
+              });
+            }
           }
+          setLinkedMemories(memories);
         }
-        setLinkedMemories(memories);
+      } catch (err) {
+        console.error("Failed to load linked memories:", err);
       }
-    } catch (err) {
-      console.error("Failed to load linked memories:", err);
-    }
-  }, []);
+    },
+    [session.kWallet],
+  );
 
   const selectAgent = useCallback((agentId: string) => {
     setUserState((prev) => ({ ...prev, activeAgentId: agentId }));
@@ -154,16 +217,24 @@ export function useChat() {
         const memRes = await api.memories[":id"].$get({ param: { id: memoryId } });
         if (memRes.ok) {
           const memData = await memRes.json();
+          let content = "";
+          if (session.kWallet && memData.cid && !memData.cid.startsWith("dev-")) {
+            try {
+              content = await fetchDecryptedMemoryContent(memData.cid, session.kWallet);
+            } catch (err) {
+              console.error("Failed to decrypt linked memory:", err);
+            }
+          }
           setLinkedMemories((prev) => {
             if (prev.some((m) => m.memoryId === memoryId)) return prev;
-            return [...prev, { memoryId, title: memData.name || memoryId, cid: memData.cid }];
+            return [...prev, { memoryId, title: memData.name || memoryId, cid: memData.cid, content }];
           });
         }
       } catch (err) {
         console.error("Failed to link memory:", err);
       }
     },
-    [userState.activeAgentId],
+    [userState.activeAgentId, session.kWallet],
   );
 
   const unlinkMemory = useCallback(
@@ -233,6 +304,25 @@ export function useChat() {
 
       setMessages((prev) => [...prev, userMsg]);
 
+      // Resolve the selected agent's persona from its decrypted blueprint.
+      let systemPrompt: string | undefined;
+      if (userState.activeAgentId) {
+        const agent = agents.find((a) => a.id === userState.activeAgentId);
+        if (agent?.blueprintCid && !agent.blueprintCid.startsWith("dev-") && session.kWallet) {
+          try {
+            const blueprint = await fetchDecryptedAgentBlueprint(agent.blueprintCid, session.kWallet);
+            systemPrompt = buildSystemPrompt(blueprint);
+          } catch (err) {
+            console.error("Failed to decrypt agent persona:", err);
+          }
+        }
+        if (!systemPrompt) {
+          systemPrompt = buildSystemPrompt(
+            agent ? { name: agent.name, personality: "", instructions: "" } : null,
+          );
+        }
+      }
+
       // Send to AI
       try {
         const res = await api.chat.send.$post({
@@ -241,6 +331,11 @@ export function useChat() {
             agentId: userState.activeAgentId || undefined,
             chatId: onChainId || undefined,
             model: selectedModel,
+            systemPrompt: systemPrompt || undefined,
+            memories: linkedMemories.filter((m) => m.content).map((m) => ({ title: m.title, content: m.content })),
+            history: messages
+              .filter((m) => m.id !== "welcome" && (m.role === "user" || m.role === "assistant"))
+              .map((m) => ({ role: m.role, content: m.content })),
           },
         });
 
@@ -298,7 +393,7 @@ export function useChat() {
 
       refreshBalance();
     },
-    [selectedConversationId, agents, userState.activeAgentId, conversations, refreshBalance, messages, selectedModel],
+    [selectedConversationId, agents, userState.activeAgentId, conversations, refreshBalance, messages, selectedModel, linkedMemories, session.kWallet],
   );
 
   const saveAsMemory = useCallback(

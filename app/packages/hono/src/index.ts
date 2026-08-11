@@ -182,7 +182,7 @@ export function createApp(deps: AppDependencies = {}): Hono<AppEnv> {
   }
 
   // Chat routes (always available)
-  app.route("/chat", createChatRoutes(agentRegistry, memoryRegistry, contextRegistry, chatRegistry));
+  app.route("/chat", createChatRoutes(chatRegistry));
 
   return app;
 }

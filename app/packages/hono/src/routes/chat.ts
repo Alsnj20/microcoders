@@ -1,7 +1,7 @@
+import { createOpenAI } from "@ai-sdk/openai";
+import { generateText, type ModelMessage } from "ai";
 import { Hono } from "hono";
 import { z } from "zod";
-import { createOpenAI } from "@ai-sdk/openai";
-import { generateText } from "ai";
 import type { AppEnv } from "../index.js";
 
 const FOUNDRY_OPENAI_URL = process.env.FOUNDRY_OPENAI_URL || "";
@@ -25,12 +25,7 @@ function generateId(): string {
   return "0x" + Array.from({ length: 32 }, () => Math.floor(Math.random() * 256).toString(16).padStart(2, "0")).join("");
 }
 
-export function createChatRoutes(
-  agentRegistry: any,
-  memoryRegistry: any,
-  contextRegistry: any,
-  chatRegistry: any,
-): Hono<AppEnv> {
+export function createChatRoutes(chatRegistry: any): Hono<AppEnv> {
   const routes = new Hono<AppEnv>();
 
   const CreateChatSchema = z.object({
@@ -48,6 +43,18 @@ export function createChatRoutes(
     agentId: z.string().optional(),
     chatId: z.string().optional(),
     model: z.string().optional(),
+    systemPrompt: z.string().optional(),
+    memories: z
+      .array(z.object({ title: z.string().optional(), content: z.string().min(1) }))
+      .optional(),
+    history: z
+      .array(
+        z.object({
+          role: z.enum(["user", "assistant"]),
+          content: z.string().min(1),
+        }),
+      )
+      .optional(),
   });
 
   // ── CREATE CHAT ────────────────────────────────────────────────────────
@@ -209,41 +216,7 @@ Puedo ayudarte a:
       return c.json({ code: "VALIDATION_ERROR", message: "Invalid request" }, 400);
     }
 
-    const { message, agentId, model } = parsed.data;
-
-    // Gather context: agent info + linked memories
-    let systemPrompt = `Eres MemoryChain AI, un asistente de IA especializado en conocimiento descentralizado.
-Tu usuario tiene una wallet en Arbitrum Stylus y utiliza MemoryChain para gestionar memorias y agentes de IA.
-Responde en español de forma concisa y útil.
-Si el usuario pregunta sobre crear un agente o memoria, sugiérele usar la interfaz.
-Si el usuario pregunta sobre sus memorias o agentes, ayúdale a entender qué puede hacer con ellos.`;
-
-    if (agentId) {
-      try {
-        const agent = await agentRegistry.getAgent(agentId);
-        if (agent.success && agent.data) {
-          systemPrompt += `\n\nEl usuario está hablando con el agente "${agent.data.name || 'Agente'}".`;
-          systemPrompt += `\nDescripción del agente: ${agent.data.description || 'Sin descripción'}.`;
-
-          // Fetch linked memories for this agent
-          try {
-            const links = await contextRegistry.getAgentContexts(agentId, 0, 100);
-            if (links.success && links.data && links.data.length > 0) {
-              systemPrompt += `\n\nEl agente tiene acceso a las siguientes memorias:`;
-              for (const link of links.data) {
-                try {
-                  const memResult = await memoryRegistry.getMemory(link.memoryId);
-                  if (memResult.success && memResult.data) {
-                    systemPrompt += `\n- "${memResult.data.name || 'Sin nombre'}": ${memResult.data.description || 'Sin descripción'}`;
-                  }
-                } catch {}
-              }
-              systemPrompt += `\nUsa esta información para responder al usuario de forma contextualizada.`;
-            }
-          } catch {}
-        }
-      } catch {}
-    }
+    const { message, model, systemPrompt, memories = [], history = [] } = parsed.data;
 
     try {
       if (!FOUNDRY_OPENAI_URL || !FOUNDRY_KEY) {
@@ -251,10 +224,30 @@ Si el usuario pregunta sobre sus memorias o agentes, ayúdale a entender qué pu
       }
 
       const modelId = model || "gpt-5-nano";
+      const system = systemPrompt?.trim() || "Eres un asistente útil. Responde en español.";
+
+      // Linked memories are injected as a leading context message so the model
+      // sees them as persistent info about the user, without touching the system prompt.
+      const messages: ModelMessage[] = [];
+      if (memories.length > 0) {
+        const memoryBlock = memories
+          .map((m) => `- ${m.title || "Sin título"}: ${m.content}`)
+          .join("\n");
+        messages.push({
+          role: "system",
+          content: `Información persistente sobre el usuario:\n${memoryBlock}`,
+        });
+      }
+      for (const h of history) {
+        messages.push({ role: h.role, content: h.content });
+      }
+      messages.push({ role: "user", content: message });
+
       const result = await generateText({
         model: foundry(modelId),
-        system: systemPrompt,
-        prompt: message,
+        system,
+        messages,
+        allowSystemInMessages: true,
         maxOutputTokens: 2000,
       });
 
