@@ -14,7 +14,7 @@ interface ChatInputProps {
 
 export function ChatInput({ onSendMessage, disabled }: ChatInputProps) {
   return (
-    <div className="fixed bottom-0 left-0 lg:left-70 right-0 z-30">
+    <div className="shrink-0 bg-background z-30">
       <ChatInputBase
         onSendMessage={onSendMessage}
         disabled={disabled}

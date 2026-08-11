@@ -10,6 +10,7 @@ interface LateralBarProps {
   children: ReactNode;
   className?: string;
   width?: "sm" | "md" | "lg" | "xl";
+  forceVisible?: boolean;
 }
 
 const widthMap = {
@@ -19,10 +20,10 @@ const widthMap = {
   xl: "w-80",
 };
 
-export function LateralBar({ children, className = "", width = "md" }: LateralBarProps) {
+export function LateralBar({ children, className = "", width = "md", forceVisible = false }: LateralBarProps) {
   return (
     <aside
-      className={`hidden lg:flex flex-col h-full ${widthMap[width]} bg-muted border-r border-border shrink-0 ${className}`}
+      className={`flex flex-col h-full ${widthMap[width]} bg-muted border-r border-border shrink-0 pt-2 ${forceVisible ? "" : "hidden lg:flex"} ${className}`}
     >
       {children}
     </aside>
@@ -97,7 +98,7 @@ export function LateralBarSectionButton({
     <button
       type="button"
       onClick={onClick}
-      className={`w-full flex items-center gap-3 px-4 py-3 rounded-r-lg text-left transition-all duration-200 overflow-hidden ${
+      className={`w-full flex items-center gap-2 px-3 py-2 pr-2 rounded-r-lg text-left transition-all duration-200 ${
         isActive
           ? "border-l-4 border-primary bg-input text-primary font-bold"
           : "border-l-4 border-transparent text-muted-foreground hover:text-foreground hover:bg-surface-container-low hover:border-border"
@@ -111,7 +112,7 @@ export function LateralBarSectionButton({
           {icon}
         </span>
       )}
-      <span className="text-sm">{children}</span>
+      <span className="text-sm flex-1 min-w-0">{children}</span>
     </button>
   );
 }
@@ -167,5 +168,9 @@ interface LateralBarContentProps {
 }
 
 export function LateralBarContent({ children, className = "" }: LateralBarContentProps) {
-  return <div className={`flex-1 overflow-y-auto overflow-x-hidden px-2 py-6 space-y-6 scrollbar-hide ${className}`}>{children}</div>;
+  return (
+    <div className={`flex-1 overflow-y-auto overflow-x-hidden px-2 py-6 space-y-6 scrollbar-hide ${className}`}>
+      {children}
+    </div>
+  );
 }

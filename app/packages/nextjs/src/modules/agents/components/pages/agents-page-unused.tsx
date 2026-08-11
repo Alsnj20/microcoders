@@ -105,7 +105,7 @@ export function AgentsPage() {
               onClick={handleCreateAgent}
               className="p-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
             >
-              <span className="material-symbols-outlined text-lg">add</span>
+              <span className="material-symbols-outlined text-lg">add </span>
             </button>
           </div>
         </div>

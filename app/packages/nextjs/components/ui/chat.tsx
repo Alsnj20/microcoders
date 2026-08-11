@@ -1,7 +1,7 @@
 "use client";
 
 import { User } from "lucide-react";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useRef, useState } from "react";
 import { SharedBotAvatar } from "../shared/SharedBotAvatar";
 
 // ============================================================
@@ -32,7 +32,7 @@ export function ChatMessages({ children, className = "", empty = false }: ChatMe
     <div
       className={`flex-1 overflow-y-auto p-6 scrollbar-hide ${empty ? "flex items-center justify-center" : ""} ${className}`}
     >
-      <div className={`w-full max-w-4xl mx-auto ${empty ? "" : "flex flex-col gap-6 pt-4 pb-28"}`}>{children}</div>
+      <div className={`w-full max-w-4xl mx-auto ${empty ? "" : "flex flex-col gap-6 pt-4 pb-4"}`}>{children}</div>
     </div>
   );
 }
@@ -68,7 +68,7 @@ export function ChatBubble({ role, content, timestamp, className = "" }: ChatBub
             : "bg-muted text-foreground border border-border rounded-bl-md"
         }`}
       >
-        <p className="text-sm whitespace-pre-wrap font-sans">{content}</p>
+        <p className="text-sm whitespace-pre-wrap font-sans break-words overflow-hidden">{content}</p>
         {timestamp && (
           <p className={`text-xs mt-1 ${isUser ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
             {timestamp}
@@ -99,31 +99,63 @@ export function ChatInput({
   className = "",
 }: ChatInputProps) {
   const [input, setInput] = useState("");
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = () => {
     if (!input.trim() || disabled) return;
     onSendMessage(input);
     setInput("");
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+    }
+  };
+
+  const handleFormSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    handleSubmit();
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // Enter alone → send
+    // Shift+Enter or Ctrl+Enter → new line
+    if (e.key === "Enter" && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
+      e.preventDefault();
+      handleSubmit();
+    }
+  };
+
+  const handleInput = () => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    textarea.style.height = "auto";
+    textarea.style.height = `${Math.min(textarea.scrollHeight, 200)}px`;
   };
 
   return (
-    <div className={`border-t border-border/40 bg-background/95 backdrop-blur-sm p-4 ${className}`}>
-      <form
-        onSubmit={handleSubmit}
-        className="flex items-center gap-2 w-full max-w-4xl mx-auto bg-card rounded-3xl border border-border p-2 shadow-md hover:shadow-lg transition-all duration-200"
-      >
-        {children}
-        <input
-          type="text"
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          placeholder={placeholder}
-          disabled={disabled}
-          className="flex-1 bg-transparent border-none outline-none font-sans text-base text-foreground placeholder:text-muted-foreground px-2"
-        />
-        <ChatSubmitButton disabled={!input.trim() || disabled} />
-      </form>
+    <div className={`bg-background/95 backdrop-blur-sm p-4 ${className}`}>
+      <div className="w-full max-w-4xl mx-auto bg-card rounded-3xl border border-border shadow-md hover:shadow-lg transition-all duration-200">
+        {/* Textarea grows upward */}
+        <div className="px-4 pt-3">
+          <textarea
+            ref={textareaRef}
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            onInput={handleInput}
+            placeholder={placeholder}
+            disabled={disabled}
+            rows={1}
+            className="w-full bg-transparent border-none outline-none font-sans text-base text-foreground placeholder:text-muted-foreground resize-none leading-relaxed min-h-[24px] max-h-[200px]"
+          />
+        </div>
+
+        {/* Buttons fixed at bottom */}
+        <form onSubmit={handleFormSubmit} className="flex items-center gap-2 px-3 pb-2 pt-1">
+          {children}
+          <div className="flex-1" />
+          <ChatSubmitButton disabled={!input.trim() || disabled} />
+        </form>
+      </div>
     </div>
   );
 }

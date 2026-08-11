@@ -13,8 +13,4 @@ export { AgentSchema, AgentModelSchema, CreateAgentSchema, UpdateAgentSchema, Co
 export { useAgent } from "./hooks/use-agent";
 
 // Components
-export { AgentsPage } from "./components/pages/agents-page";
-export { AgentSidebar } from "./components/ui/agent-sidebar";
-export { AgentChat } from "./components/ui/agent-chat";
-export { AgentInfoPanel } from "./components/ui/agent-info-panel";
 export { AgentForm } from "./components/ui/agent-form";

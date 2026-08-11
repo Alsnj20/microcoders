@@ -35,6 +35,53 @@
   --spacing-7xl: 40px;
 }
 
+.dark {
+  --background: #1a1c1a;
+  --on-background: #e2e3dc;
+  --primary: #8fd494;
+  --on-primary: #00390c;
+  --primary-container: #1a5c20;
+  --on-primary-container: #a8f09c;
+  --secondary: #e0bda4;
+  --on-secondary: #432a14;
+  --secondary-container: #5c3f27;
+  --on-secondary-container: #fdc39a;
+  --tertiary: #cac4bc;
+  --on-tertiary: #33302a;
+  --surface: #1a1c1a;
+  --surface-container: #2a2c2a;
+  --surface-container-low: #232523;
+  --surface-container-high: #313331;
+  --surface-container-highest: #3c3e3c;
+  --surface-container-lowest: #121412;
+  --outline: #8d918a;
+  --outline-variant: #424840;
+  --on-surface: #e2e3dc;
+  --on-surface-variant: #c2c8bf;
+  --error: #ffb4ab;
+  --color-primary: #8fd494;
+  --color-primary-foreground: #00390c;
+  --color-secondary: #e0bda4;
+  --color-secondary-foreground: #432a14;
+  --color-accent: #8fd494;
+  --color-accent-foreground: #00390c;
+  --color-background: #1a1c1a;
+  --color-foreground: #e2e3dc;
+  --color-muted: #2a2c2a;
+  --color-muted-foreground: #a0a49d;
+  --color-border: #424840;
+  --color-input: #313331;
+  --color-ring: #8fd494;
+  --color-destructive: #ffb4ab;
+  --color-card: #232523;
+  --color-card-foreground: #e2e3dc;
+  --color-popover: #232523;
+  --color-popover-foreground: #e2e3dc;
+  --color-success: #8fd494;
+  --color-warning: #e0bda4;
+  --color-info: #8fd494;
+}
+
 @source "../app";
 @source "../components";
 @source "../utils";
@@ -44,35 +91,35 @@
   /* Body, UI, chat, buttons → Hanken Grotesk */
   --font-sans: var(--font-hanken-grotesk), system-ui, sans-serif;
   /* Headings, hero text, editorial titles → Source Serif 4 */
-  --font-serif: var(--font-source-serif), Georgia, serif;
-  --font-headline-md: var(--font-source-serif), Georgia, serif;
-  --font-display-lg: var(--font-source-serif), Georgia, serif;
+  --font-serif: var(--font-orbitron), Georgia, serif;
+  --font-headline-md: var(--font-orbitron), Georgia, serif;
+  --font-display-lg: var(--font-orbitron), Georgia, serif;
   /* Body copy explicit alias */
   --font-body-md: var(--font-hanken-grotesk), system-ui, sans-serif;
   --shadow-center: 0 0 12px -2px rgb(0 0 0 / 0.05);
   --animate-pulse-fast: pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 
-  --color-primary: #273f2b;
-  --color-primary-foreground: #ffffff;
-  --color-secondary: #805533;
-  --color-secondary-foreground: #ffffff;
-  --color-accent: #3e5641;
-  --color-accent-foreground: #afcaaf;
-  --color-background: #fcf9f4;
-  --color-foreground: #1c1c19;
-  --color-muted: #f0ede8;
-  --color-muted-foreground: #434842;
-  --color-border: #c3c8c0;
-  --color-input: #ebe8e3;
-  --color-ring: #273f2b;
-  --color-destructive: #ba1a1a;
-  --color-card: #ffffff;
-  --color-card-foreground: #1c1c19;
-  --color-popover: #ffffff;
-  --color-popover-foreground: #1c1c19;
-  --color-success: #3e5641;
-  --color-warning: #fdc39a;
-  --color-info: #273f2b;
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--on-primary);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--on-secondary);
+  --color-accent: var(--primary-container);
+  --color-accent-foreground: var(--on-primary-container);
+  --color-background: var(--background);
+  --color-foreground: var(--on-background);
+  --color-muted: var(--surface-container);
+  --color-muted-foreground: var(--on-surface-variant);
+  --color-border: var(--outline-variant);
+  --color-input: var(--surface-container-high);
+  --color-ring: var(--primary);
+  --color-destructive: var(--error);
+  --color-card: var(--surface-container-lowest);
+  --color-card-foreground: var(--on-surface);
+  --color-popover: var(--surface-container-lowest);
+  --color-popover-foreground: var(--on-surface);
+  --color-success: var(--primary-container);
+  --color-warning: var(--secondary-container);
+  --color-info: var(--primary);
 }
 
 @utility font-orbitron {
@@ -103,16 +150,17 @@ body {
 h1,
 h2,
 h3 {
-  font-family: var(--font-source-serif), Georgia, serif;
+  font-family: var(--font-orbitron), Georgia, serif;
   margin-bottom: 0.5rem;
-  line-height: 1.15;
+  line-height: 1.05;
+  /*letter-spacing: 0.5;*/
 }
 
 /* h4 and smaller stay in sans for UI contexts */
 h4,
 h5,
 h6 {
-  font-family: var(--font-hanken-grotesk), system-ui, sans-serif;
+  font-family: var(--font-orbitron), system-ui, sans-serif;
   margin-bottom: 0.5rem;
   line-height: 1.25;
 }
@@ -122,7 +170,7 @@ h6 {
 }
 
 .link:hover {
-  opacity: 80%;
+  opacity: 20%;
 }
 
 /* Contract Card Styles */
@@ -387,6 +435,24 @@ h6 {
   }
   --animate-marquee: marquee 30s linear infinite;
 
+  /* Typing cursor blink */
+  @keyframes blink-caret {
+    from, to { border-color: transparent; }
+    50% { border-color: var(--color-primary); }
+  }
+
+  /* Fade in up */
+  @keyframes fade-in-up {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
   /* Page fade-in/out via View Transitions API */
   @keyframes vt-fade-in {
     from {
@@ -412,6 +478,25 @@ h6 {
       filter: blur(2px);
     }
   }
+}
+
+/* ── Marquee carousel ── */
+.marquee-track {
+  display: flex;
+  gap: 1.5rem;
+  animation: marquee 30s linear infinite;
+}
+.marquee-track:hover {
+  animation-play-state: paused;
+}
+
+/* ── Hide scrollbar for carousels ── */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
 }
 
 /* ── View Transitions: smooth fade between pages ── */
