@@ -78,12 +78,30 @@ function getDeployments(): any {
  * Lets the module import cleanly (tests) before any deployment exists.
  */
 // biome-ignore lint/suspicious/noExplicitAny: viem works with loose ABI arrays here.
-function lazyAbi(name: string): any[] {
-  let loaded: any;
+export function lazyAbi(name: string): any[] {
+  let loaded: any[];
+  function getLoaded() {
+    if (!loaded) loaded = loadAbi(name);
+    return loaded;
+  }
   return new Proxy([] as any[], {
-    get(_, prop) {
-      if (!loaded) loaded = loadAbi(name);
-      return Reflect.get(loaded, prop, loaded);
+    get(_target, prop) {
+      const l = getLoaded();
+      return Reflect.get(l, prop, l);
+    },
+    has(_target, prop) {
+      const l = getLoaded();
+      return Reflect.has(l, prop);
+    },
+    ownKeys(_target) {
+      const l = getLoaded();
+      return Reflect.ownKeys(l);
+    },
+    getOwnPropertyDescriptor(_target, prop) {
+      const l = getLoaded();
+      const desc = Reflect.getOwnPropertyDescriptor(l, prop);
+      if (desc) desc.configurable = true;
+      return desc;
     },
   });
 }

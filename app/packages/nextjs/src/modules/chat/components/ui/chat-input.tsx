@@ -3,8 +3,6 @@
 import { useEffect, useState } from "react";
 import { api } from "~~/services/api/client";
 import {
-  ChatAgentBadge,
-  ChatAttachButton,
   ChatHelperText,
   ChatInput as ChatInputBase,
 } from "../../../../../components/ui/chat";
@@ -76,8 +74,6 @@ export function ChatInput({ onSendMessage, selectedModel, onModelChange, disable
             ))
           )}
         </select>
-        <ChatAttachButton />
-        <ChatAgentBadge agentName="Agent-v1.4" />
       </ChatInputBase>
       <div className="bg-background/95 backdrop-blur-sm px-4 pb-4">
         {noProviders ? (

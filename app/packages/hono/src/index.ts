@@ -15,7 +15,8 @@ import { createAuthRoutes } from "./routes/auth.js";
 import { createSessionKeyRoutes } from "./routes/session-keys.js";
 import { createAuditRoutes } from "./routes/audit.js";
 import { createChatRoutes } from "./routes/chat.js";
-import { createRedisSessionKeyStore } from "./lib/session-keys.js";
+import Redis from "ioredis";
+import { createRedisSessionKeyStore, createMemorySessionKeyStore } from "./lib/session-keys.js";
 import { listFoundryDeployments, type FoundryDeployment } from "./lib/foundry.js";
 import type {
   MemoryRegistryContract,
@@ -148,7 +149,7 @@ export function createApp(deps: AppDependencies = {}): Hono<AppEnv> {
   });
 
   // Auth routes (session management)
-  app.route("/auth", createAuthRoutes(sessionStore));
+  app.route("/auth", createAuthRoutes(sessionStore, userRegistry));
 
   // Session key routes
   if (sessionKeyStore) {
@@ -191,18 +192,23 @@ const PORT = Number(process.env.PORT) || 3001;
 
 // Session key store: in-memory for dev, Redis for production.
 // Production requires Redis (session keys + encrypted private keys live there).
-const sessionKeyStore: SessionKeyStore | undefined = (() => {
-  if (process.env.REDIS_URL || process.env.NODE_ENV === "production") {
-    try {
-      const Redis = require("ioredis");
-      const redis = new Redis(process.env.REDIS_URL || "redis://localhost:6379");
-      return createRedisSessionKeyStore(redis);
-    } catch (err) {
-      console.warn("[SessionKeyStore] Redis not available, session keys disabled");
-      return undefined;
-    }
+const sessionKeyStore: SessionKeyStore = (() => {
+  const redisUrl = process.env.REDIS_URL || "redis://localhost:6379";
+  try {
+    const redis = new Redis(redisUrl, {
+      maxRetriesPerRequest: 2,
+      retryStrategy(times: number) {
+        if (times > 3) return null;
+        return Math.min(times * 100, 1000);
+      },
+    });
+    return createRedisSessionKeyStore(redis);
+  } catch (err: any) {
+    throw new Error(
+      `[SessionKeyStore] FATAL: Failed to initialize Redis session key store (${redisUrl}): ${err.message}. ` +
+      "Redis is required for session keys. Ensure container 'memorychain-redis' is running via docker-compose.",
+    );
   }
-  return undefined;
 })();
 
 /**

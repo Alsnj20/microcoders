@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useAccount } from "wagmi";
 import { useScaffoldReadContract } from "~~/hooks/scaffold-eth";
 import { api, setWalletAddress } from "~~/services/api/client";
@@ -18,6 +18,7 @@ export function AuthGate({ children }: AuthGateProps) {
   const { address, isConnected } = useAccount();
   const { isAuthenticated: siweAuthenticated } = useSiwe();
   const [ready, setReady] = useState(false);
+  const [sessionKeyDone, setSessionKeyDone] = useState(false);
 
   // Check on-chain registration status
   const { data: isRegistered } = useScaffoldReadContract({
@@ -26,9 +27,20 @@ export function AuthGate({ children }: AuthGateProps) {
     args: [address],
   });
 
+  // Read on-chain username directly from UserRegistry smart contract
+  const { data: onChainUsername } = useScaffoldReadContract({
+    contractName: "UserRegistry",
+    functionName: "getUsername",
+    args: [address],
+  });
+
   // Read onboarding status synchronously on mount
   useEffect(() => {
     console.log("[Auth] Mounted");
+    const active = localStorage.getItem("mc_session_key_active");
+    if (active === "true") {
+      setSessionKeyDone(true);
+    }
     setReady(true);
   }, []);
 
@@ -43,21 +55,29 @@ export function AuthGate({ children }: AuthGateProps) {
     }
   }, [isConnected, address]);
 
-  // After SIWE auth and on-chain registration, sync session and buy pending credits
+  // After SIWE auth and on-chain registration, sync session & balance
   useEffect(() => {
-    console.log("[Auth] Session sync effect:", { ready, isConnected, address, isRegistered, siweAuthenticated, sessionAddress: session.address });
+    console.log("[Auth] Session sync effect:", {
+      ready,
+      isConnected,
+      address,
+      isRegistered,
+      siweAuthenticated,
+      onChainUsername,
+      sessionAddress: session.address,
+    });
     if (!ready || !isConnected || !address || isRegistered === undefined) return;
     if (!isRegistered) return;
     if (!siweAuthenticated) return;
 
-    const username = localStorage.getItem("mc_username") || "user";
+    const resolvedUsername = onChainUsername || localStorage.getItem("mc_username") || session.username || "user";
 
-    if (session.address !== address) {
-      console.log("[Auth] Setting session:", { address, username });
+    if (session.address !== address || session.username !== resolvedUsername) {
+      console.log("[Auth] Setting session with on-chain username:", { address, username: resolvedUsername });
       setSession({
         address,
         chainId: 412346,
-        username,
+        username: resolvedUsername,
         isAuthenticated: true,
         kWallet: session.kWallet || loadKWallet(address) || null,
         kRecovery: session.kRecovery || loadKRecovery(address) || null,
@@ -85,12 +105,12 @@ export function AuthGate({ children }: AuthGateProps) {
       };
       setup();
     }
-  }, [ready, isConnected, address, isRegistered, siweAuthenticated, session.address]);
+  }, [ready, isConnected, address, isRegistered, siweAuthenticated, onChainUsername, session.address, session.username, session.kWallet, session.kRecovery, setSession, setCreditBalance]);
 
-  // Sync balance
+  // Periodic balance sync
   useEffect(() => {
     if (!session.isAuthenticated || !session.address) return;
-    const fetch = async () => {
+    const fetchBalance = async () => {
       try {
         const res = await api.credits.balance.$get();
         if (res.ok) {
@@ -99,46 +119,55 @@ export function AuthGate({ children }: AuthGateProps) {
         }
       } catch {}
     };
-    fetch();
-    const i = setInterval(fetch, 30000);
-    return () => clearInterval(i);
-  }, [session.isAuthenticated, session.address]);
+    fetchBalance();
+    const interval = setInterval(fetchBalance, 30000);
+    return () => clearInterval(interval);
+  }, [session.isAuthenticated, session.address, setCreditBalance]);
+
+  const handleOnboardingComplete = useCallback(() => {
+    console.log("[Auth] Onboarding completed callback triggered");
+    localStorage.setItem("mc_session_key_active", "true");
+    setSessionKeyDone(true);
+  }, []);
 
   if (!ready) {
-    console.log("[Auth] Not ready yet");
     return null;
   }
 
-  console.log("[Auth] Render decision:", { isConnected, isRegistered, siweAuthenticated });
+  console.log("[Auth] Render decision:", { isConnected, isRegistered, siweAuthenticated, sessionKeyDone });
 
-  // Wallet not connected → show onboarding (full flow including connect step)
-  if (!isConnected) {
-    console.log("[Auth] → Rendering OnboardingFlow (startStep=welcome)");
-    return <OnboardingFlow />;
+  // 1. Wallet not connected or SIWE not completed → Step 1: SIWE
+  if (!isConnected || !siweAuthenticated) {
+    console.log("[Auth] → Rendering OnboardingFlow (startStep=siwe)");
+    return <OnboardingFlow startStep="siwe" onComplete={handleOnboardingComplete} />;
   }
 
-  // Wallet connected but not registered on-chain → show onboarding (skip connect step, still requires SIWE)
-  if (isRegistered === false) {
-    console.log("[Auth] → Rendering OnboardingFlow (startStep=credits)");
-    return <OnboardingFlow startStep="credits" />;
-  }
-
-  // Loading on-chain state
+  // 2. SIWE completed, loading on-chain account status
   if (isRegistered === undefined) {
     console.log("[Auth] → Rendering loading state (isRegistered=undefined)");
     return (
       <div className="flex-1 flex items-center justify-center min-h-[calc(100vh-5rem)] px-4">
-        <div className="w-full max-w-md text-center text-muted-foreground">Cargando...</div>
+        <div className="w-full max-w-md text-center text-muted-foreground">
+          <span className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full inline-block mb-2" />
+          <p>Verificando cuenta on-chain...</p>
+        </div>
       </div>
     );
   }
 
-  // Registered on-chain but SIWE not completed → show onboarding SIWE step
-  if (!siweAuthenticated) {
-    console.log("[Auth] → Rendering OnboardingFlow (startStep=siwe)");
-    return <OnboardingFlow startStep="siwe" />;
+  // 3. User does NOT have account on-chain → Step 2: Initial MC purchase & Username -> Session key
+  if (isRegistered === false) {
+    console.log("[Auth] → Rendering OnboardingFlow (startStep=credits)");
+    return <OnboardingFlow startStep="credits" onComplete={handleOnboardingComplete} />;
   }
 
+  // 4. User ALREADY HAS account on-chain, but session key contract not signed yet → Step 3: Session key contract
+  if (!sessionKeyDone) {
+    console.log("[Auth] → Rendering OnboardingFlow (startStep=session-key)");
+    return <OnboardingFlow startStep="session-key" onComplete={handleOnboardingComplete} />;
+  }
+
+  // 5. Fully onboarded and authenticated → Render app
   console.log("[Auth] → Rendering children (fully authenticated)");
   return <>{children}</>;
 }

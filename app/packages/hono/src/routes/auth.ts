@@ -2,13 +2,14 @@ import { Hono } from "hono";
 import { SiweMessage } from "siwe";
 import { randomBytes } from "node:crypto";
 import type { SessionStore, SessionData } from "../types/session.js";
+import type { UserRegistryContract } from "../types/contracts.js";
 import type { AppEnv } from "../index.js";
 
 function generateNonce(): string {
   return randomBytes(16).toString("hex");
 }
 
-export function createAuthRoutes(sessionStore: SessionStore): Hono<AppEnv> {
+export function createAuthRoutes(sessionStore: SessionStore, userRegistry?: UserRegistryContract): Hono<AppEnv> {
   const routes = new Hono<AppEnv>();
 
   // Store nonces temporarily (in production, use Redis with TTL)
@@ -75,15 +76,28 @@ export function createAuthRoutes(sessionStore: SessionStore): Hono<AppEnv> {
     // Clean up nonce
     nonces.delete(address.toLowerCase());
 
+    // Fetch on-chain username from UserRegistry contract if available
+    let initialUsername: string | null = null;
+    if (userRegistry) {
+      try {
+        const userRes = await userRegistry.getUser(siweMessage.address);
+        if (userRes.success && userRes.data?.username) {
+          initialUsername = userRes.data.username;
+        }
+      } catch (err: any) {
+        console.warn("[Auth] Failed to fetch on-chain username on verify:", err?.message);
+      }
+    }
+
     // Create session
     const sessionId = generateNonce();
     const sessionData: SessionData = {
       address: siweMessage.address,
       chainId: siweMessage.chainId,
-      username: null,
+      username: initialUsername,
     };
 
-    console.log("[Auth] POST /verify | creating session:", sessionId, "| address:", sessionData.address);
+    console.log("[Auth] POST /verify | creating session:", sessionId, "| address:", sessionData.address, "| username:", sessionData.username);
     await sessionStore.set(sessionId, sessionData, 24 * 60 * 60); // 24 hours
 
     // Set session cookie
@@ -104,6 +118,25 @@ export function createAuthRoutes(sessionStore: SessionStore): Hono<AppEnv> {
     if (!session) {
       return c.json({ code: "AUTH_REQUIRED", message: "No valid session" }, 401);
     }
+
+    // Always attempt to populate/sync username from on-chain UserRegistry if currently null or empty
+    if (userRegistry && session.address && !session.username) {
+      try {
+        const userRes = await userRegistry.getUser(session.address);
+        if (userRes.success && userRes.data?.username) {
+          session.username = userRes.data.username;
+          // Sync updated username to session store
+          const cookieHeader = c.req.header("Cookie");
+          const sessionId = cookieHeader?.split(";").map(s => s.trim()).find(s => s.startsWith("session="))?.split("=")[1];
+          if (sessionId) {
+            await sessionStore.set(sessionId, session, 24 * 60 * 60).catch(() => {});
+          }
+        }
+      } catch (err: any) {
+        console.warn("[Auth] Failed to fetch on-chain username on /session:", err?.message);
+      }
+    }
+
     return c.json(session);
   });
 

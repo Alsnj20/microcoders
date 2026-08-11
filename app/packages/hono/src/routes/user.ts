@@ -60,6 +60,7 @@ export function createUserRoutes(userRegistry: UserRegistryContract): Hono<AppEn
       return c.json({ code, message: result.error }, status);
     }
 
+    session.username = parsed.data.username;
     const user = await userRegistry.getUser(session.address);
     return c.json({
       address: session.address,
