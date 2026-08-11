@@ -65,6 +65,8 @@ Toda la información privada permanece cifrada fuera de la cadena.
   CreditManager                 AuditRegistry
 ```
 
+> 📐 Diagramas técnicos detallados (capa web3, backend, frontend, flujo del usuario y vista de 3 capas) en Mermaid: **[docs/architecture.md](docs/architecture.md)**
+
 ---
 
 # 🌐 Componentes Off-chain
