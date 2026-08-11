@@ -17,7 +17,7 @@ export function createIpfsClient(config: { apiUrl: string }): IpfsClient {
   const ipfs = create(config.apiUrl);
 
   return {
-    async pin(data: Buffer, name: string): Promise<PinResult> {
+    async pin(data: Buffer, _name: string): Promise<PinResult> {
       const hash = "0x" + createHash("sha256").update(data).digest("hex");
 
       const result = await ipfs.add(data, {

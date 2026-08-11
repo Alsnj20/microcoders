@@ -77,46 +77,11 @@ function toNumber(val: unknown): number {
   return 0;
 }
 
-// File-based metadata store (persists across server restarts)
-const META_DIR = path.resolve(DEPLOYMENTS_DIR, "../metadata");
-const agentMetaPath = path.join(META_DIR, "agents.json");
-const memoryMetaPath = path.join(META_DIR, "memories.json");
-const chatMetaPath = path.join(META_DIR, "chats.json");
-
-function ensureMetaDir() {
-  if (!fs.existsSync(META_DIR)) fs.mkdirSync(META_DIR, { recursive: true });
-}
-
-function loadMeta(filePath: string): Record<string, any> {
-  try {
-    ensureMetaDir();
-    if (!fs.existsSync(filePath)) return {};
-    return JSON.parse(fs.readFileSync(filePath, "utf8"));
-  } catch { return {}; }
-}
-
-function saveMeta(filePath: string, data: Record<string, any>) {
-  ensureMetaDir();
-  fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
-}
-
-const agentMetaStore = new Map<string, { name: string; description: string }>();
-const memoryMetaStore = new Map<string, { name: string; description: string }>();
-const chatMetaStore = new Map<string, { name: string }>();
-const linkMetaPath = path.join(META_DIR, "links.json");
-const linkStore = new Map<string, { agentId: string; memoryId: string; priority: number; contextId: string }>();
-
-// Load from disk on startup
-for (const [k, v] of Object.entries(loadMeta(agentMetaPath))) agentMetaStore.set(k, v);
-for (const [k, v] of Object.entries(loadMeta(memoryMetaPath))) memoryMetaStore.set(k, v);
-for (const [k, v] of Object.entries(loadMeta(chatMetaPath))) chatMetaStore.set(k, v);
-for (const [k, v] of Object.entries(loadMeta(linkMetaPath))) linkStore.set(k, v);
-
 export function createAgentRegistryAdapter(): AgentRegistryContract {
   const address = deployments["agent-registry"].address as `0x${string}`;
 
   return {
-    async createAgent(owner, name, description, cid, hash): Promise<ContractResult<string>> {
+    async createAgent(owner, name, _description, cid, hash): Promise<ContractResult<string>> {
       try {
         const { request } = await publicClient.simulateContract({
           address,
@@ -126,7 +91,7 @@ export function createAgentRegistryAdapter(): AgentRegistryContract {
           account,
         });
         const hash_ = await walletClient.writeContract(request);
-        const receipt = await publicClient.waitForTransactionReceipt({ hash: hash_ });
+        await publicClient.waitForTransactionReceipt({ hash: hash_ });
 
         // Read the new agent ID from event or totalAgents
         const total = await publicClient.readContract({
@@ -142,8 +107,6 @@ export function createAgentRegistryAdapter(): AgentRegistryContract {
         });
 
         const agentIdHex = bytes32ToHex(agentId);
-        agentMetaStore.set(agentIdHex, { name, description });
-        saveMeta(agentMetaPath, Object.fromEntries(agentMetaStore));
 
         return { success: true, data: agentIdHex };
       } catch (err: any) {
@@ -152,7 +115,7 @@ export function createAgentRegistryAdapter(): AgentRegistryContract {
       }
     },
 
-    async updateAgent(owner, agentId, cid, hash): Promise<ContractResult<void>> {
+    async updateAgent(_owner, agentId, cid, hash): Promise<ContractResult<void>> {
       try {
         const { request } = await publicClient.simulateContract({
           address,
@@ -169,7 +132,7 @@ export function createAgentRegistryAdapter(): AgentRegistryContract {
       }
     },
 
-    async archiveAgent(owner, agentId): Promise<ContractResult<void>> {
+    async archiveAgent(_owner, agentId): Promise<ContractResult<void>> {
       try {
         const { request } = await publicClient.simulateContract({
           address,
@@ -186,7 +149,7 @@ export function createAgentRegistryAdapter(): AgentRegistryContract {
       }
     },
 
-    async restoreAgent(owner, agentId): Promise<ContractResult<void>> {
+    async restoreAgent(_owner, agentId): Promise<ContractResult<void>> {
       try {
         const { request } = await publicClient.simulateContract({
           address,
@@ -212,14 +175,13 @@ export function createAgentRegistryAdapter(): AgentRegistryContract {
           args: [agentId as `0x${string}`],
         });
         const [owner, version, cid, hash, name, status, createdAt, updatedAt] = result as any[];
-        const meta = agentMetaStore.get(agentId as string);
         return {
           success: true,
           data: {
             agentId,
             owner: owner as string,
-            name: (name as string) || (meta?.name ?? ""),
-            description: meta?.description ?? "",
+            name: name as string,
+            description: "",
             cid: cid as string,
             hash: bytes32ToHex(hash),
             status: toNumber(status),
@@ -233,7 +195,7 @@ export function createAgentRegistryAdapter(): AgentRegistryContract {
       }
     },
 
-    async getAgentVersion(agentId, version): Promise<ContractResult<{ version: number; cid: string; hash: string; createdAt: number }>> {
+    async getAgentVersion(_agentId, _version): Promise<ContractResult<{ version: number; cid: string; hash: string; createdAt: number }>> {
       return { success: false, error: "NOT_IMPLEMENTED" };
     },
 
@@ -285,7 +247,7 @@ export function createMemoryRegistryAdapter(): MemoryRegistryContract {
   const address = deployments["memory-registry"].address as `0x${string}`;
 
   return {
-    async createMemory(owner, name, description, cid, hash, memoryType, visibility): Promise<ContractResult<string>> {
+    async createMemory(owner, name, _description, cid, hash, memoryType, visibility): Promise<ContractResult<string>> {
       try {
         const { request } = await publicClient.simulateContract({
           address,
@@ -310,8 +272,6 @@ export function createMemoryRegistryAdapter(): MemoryRegistryContract {
         });
 
         const memoryIdHex = bytes32ToHex(memoryId);
-        memoryMetaStore.set(memoryIdHex, { name, description });
-        saveMeta(memoryMetaPath, Object.fromEntries(memoryMetaStore));
 
         return { success: true, data: memoryIdHex };
       } catch (err: any) {
@@ -320,7 +280,7 @@ export function createMemoryRegistryAdapter(): MemoryRegistryContract {
       }
     },
 
-    async updateMemory(owner, memoryId, cid, hash): Promise<ContractResult<void>> {
+    async updateMemory(_owner, memoryId, cid, hash): Promise<ContractResult<void>> {
       try {
         const { request } = await publicClient.simulateContract({
           address,
@@ -337,7 +297,7 @@ export function createMemoryRegistryAdapter(): MemoryRegistryContract {
       }
     },
 
-    async archiveMemory(owner, memoryId): Promise<ContractResult<void>> {
+    async archiveMemory(_owner, memoryId): Promise<ContractResult<void>> {
       try {
         const { request } = await publicClient.simulateContract({
           address,
@@ -354,7 +314,7 @@ export function createMemoryRegistryAdapter(): MemoryRegistryContract {
       }
     },
 
-    async restoreMemory(owner, memoryId): Promise<ContractResult<void>> {
+    async restoreMemory(_owner, memoryId): Promise<ContractResult<void>> {
       try {
         const { request } = await publicClient.simulateContract({
           address,
@@ -380,14 +340,13 @@ export function createMemoryRegistryAdapter(): MemoryRegistryContract {
           args: [memoryId as `0x${string}`],
         });
         const [owner, version, cid, hash, name, memoryType, visibility, status] = result as any[];
-        const meta = memoryMetaStore.get(memoryId as string);
         return {
           success: true,
           data: {
             memoryId,
             owner: owner as string,
-            name: (name as string) || (meta?.name ?? ""),
-            description: meta?.description ?? "",
+            name: name as string,
+            description: "",
             cid: cid as string,
             hash: bytes32ToHex(hash),
             memoryType: toNumber(memoryType),
@@ -403,7 +362,7 @@ export function createMemoryRegistryAdapter(): MemoryRegistryContract {
       }
     },
 
-    async getMemoryVersion(memoryId, version): Promise<ContractResult<{ version: number; cid: string; hash: string; createdAt: number }>> {
+    async getMemoryVersion(_memoryId, _version): Promise<ContractResult<{ version: number; cid: string; hash: string; createdAt: number }>> {
       return { success: false, error: "NOT_IMPLEMENTED" };
     },
 
@@ -455,7 +414,7 @@ export function createUserRegistryAdapter(): UserRegistryContract {
   const address = deployments["user-registry"].address as `0x${string}`;
 
   return {
-    async registerUser(owner, username): Promise<ContractResult<void>> {
+    async registerUser(_owner, username): Promise<ContractResult<void>> {
       try {
         const { request } = await publicClient.simulateContract({
           address,
@@ -472,7 +431,7 @@ export function createUserRegistryAdapter(): UserRegistryContract {
       }
     },
 
-    async updateUsername(owner, username): Promise<ContractResult<void>> {
+    async updateUsername(_owner, username): Promise<ContractResult<void>> {
       try {
         const { request } = await publicClient.simulateContract({
           address,
@@ -582,7 +541,7 @@ export function createCreditManagerAdapter(): CreditManagerContract {
       }
     },
 
-    async buyCredits(user, amount, valueWei): Promise<ContractResult<void>> {
+    async buyCredits(_user, amount, valueWei): Promise<ContractResult<void>> {
       try {
         const { request } = await publicClient.simulateContract({
           address,
@@ -658,86 +617,184 @@ export function createCreditManagerAdapter(): CreditManagerContract {
 }
 
 export function createContextRegistryAdapter(): ContextRegistryContract {
+  const address = deployments["context-registry"].address as `0x${string}`;
+
   return {
-    async linkMemory(owner, agentId, memoryId, priority): Promise<ContractResult<string>> {
-      const key = `${agentId}:${memoryId}`;
-      if (linkStore.has(key)) {
-        return { success: false, error: "ALREADY_LINKED" };
+    async linkMemory(_owner, agentId, memoryId, priority): Promise<ContractResult<string>> {
+      try {
+        const { request } = await publicClient.simulateContract({
+          address,
+          abi: contextAbi,
+          functionName: "linkMemory",
+          args: [agentId as `0x${string}`, memoryId as `0x${string}`, priority],
+          account,
+        });
+        const txHash = await walletClient.writeContract(request);
+        await publicClient.waitForTransactionReceipt({ hash: txHash });
+
+        const contextId = await publicClient.readContract({
+          address,
+          abi: contextAbi,
+          functionName: "getLink",
+          args: [agentId as `0x${string}`, memoryId as `0x${string}`],
+        });
+        return { success: true, data: bytes32ToHex(contextId) };
+      } catch (err: any) {
+        const msg = (err?.message || "").toLowerCase();
+        if (msg.includes("already linked")) return { success: false, error: "ALREADY_LINKED" };
+        if (msg.includes("memory not found")) return { success: false, error: "MEMORY_NOT_FOUND" };
+        if (msg.includes("agent not found")) return { success: false, error: "AGENT_NOT_FOUND" };
+        console.error("linkMemory error:", err?.message);
+        return { success: false, error: err?.message };
       }
-      const contextId = `ctx-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-      linkStore.set(key, { agentId, memoryId, priority, contextId });
-      saveMeta(linkMetaPath, Object.fromEntries(linkStore));
-      return { success: true, data: contextId };
     },
 
-    async unlinkMemory(owner, agentId, memoryId): Promise<ContractResult<void>> {
-      const key = `${agentId}:${memoryId}`;
-      linkStore.delete(key);
-      saveMeta(linkMetaPath, Object.fromEntries(linkStore));
-      return { success: true, data: undefined };
-    },
-
-    async changePriority(owner, contextId, newPriority): Promise<ContractResult<void>> {
-      for (const [key, link] of linkStore.entries()) {
-        if (link.contextId === contextId) {
-          link.priority = newPriority;
-          saveMeta(linkMetaPath, Object.fromEntries(linkStore));
-          break;
-        }
+    async unlinkMemory(_owner, agentId, memoryId): Promise<ContractResult<void>> {
+      try {
+        const { request } = await publicClient.simulateContract({
+          address,
+          abi: contextAbi,
+          functionName: "unlinkMemory",
+          args: [agentId as `0x${string}`, memoryId as `0x${string}`],
+          account,
+        });
+        const txHash = await walletClient.writeContract(request);
+        await publicClient.waitForTransactionReceipt({ hash: txHash });
+        return { success: true, data: undefined };
+      } catch (err: any) {
+        const msg = (err?.message || "").toLowerCase();
+        if (msg.includes("link not found")) return { success: false, error: "LINK_NOT_FOUND" };
+        return { success: false, error: err?.message };
       }
-      return { success: true, data: undefined };
     },
 
-    async disableLink(owner, contextId): Promise<ContractResult<void>> {
-      return { success: true, data: undefined };
+    async changePriority(_owner, contextId, newPriority): Promise<ContractResult<void>> {
+      try {
+        const { request } = await publicClient.simulateContract({
+          address,
+          abi: contextAbi,
+          functionName: "changePriority",
+          args: [contextId as `0x${string}`, newPriority],
+          account,
+        });
+        const txHash = await walletClient.writeContract(request);
+        await publicClient.waitForTransactionReceipt({ hash: txHash });
+        return { success: true, data: undefined };
+      } catch (err: any) {
+        const msg = (err?.message || "").toLowerCase();
+        if (msg.includes("link not found")) return { success: false, error: "LINK_NOT_FOUND" };
+        if (msg.includes("link not active")) return { success: false, error: "LINK_NOT_ACTIVE" };
+        return { success: false, error: err?.message };
+      }
     },
 
-    async enableLink(owner, contextId): Promise<ContractResult<void>> {
-      return { success: true, data: undefined };
+    async disableLink(_owner, contextId): Promise<ContractResult<void>> {
+      try {
+        const { request } = await publicClient.simulateContract({
+          address,
+          abi: contextAbi,
+          functionName: "disableLink",
+          args: [contextId as `0x${string}`],
+          account,
+        });
+        const txHash = await walletClient.writeContract(request);
+        await publicClient.waitForTransactionReceipt({ hash: txHash });
+        return { success: true, data: undefined };
+      } catch (err: any) {
+        const msg = (err?.message || "").toLowerCase();
+        if (msg.includes("link not found")) return { success: false, error: "LINK_NOT_FOUND" };
+        if (msg.includes("already disabled")) return { success: false, error: "ALREADY_DISABLED" };
+        return { success: false, error: err?.message };
+      }
+    },
+
+    async enableLink(_owner, contextId): Promise<ContractResult<void>> {
+      try {
+        const { request } = await publicClient.simulateContract({
+          address,
+          abi: contextAbi,
+          functionName: "enableLink",
+          args: [contextId as `0x${string}`],
+          account,
+        });
+        const txHash = await walletClient.writeContract(request);
+        await publicClient.waitForTransactionReceipt({ hash: txHash });
+        return { success: true, data: undefined };
+      } catch (err: any) {
+        const msg = (err?.message || "").toLowerCase();
+        if (msg.includes("link not found")) return { success: false, error: "LINK_NOT_FOUND" };
+        if (msg.includes("already enabled")) return { success: false, error: "ALREADY_ENABLED" };
+        return { success: false, error: err?.message };
+      }
     },
 
     async getContext(contextId): Promise<ContractResult<ContextData>> {
-      for (const [, link] of linkStore.entries()) {
-        if (link.contextId === contextId) {
-          return {
-            success: true,
-            data: {
-              contextId,
-              agentId: link.agentId,
-              memoryId: link.memoryId,
-              priority: link.priority,
-              enabled: true,
-              createdAt: 0,
-            },
-          };
-        }
+      try {
+        const result = await publicClient.readContract({
+          address,
+          abi: contextAbi,
+          functionName: "getContext",
+          args: [contextId as `0x${string}`],
+        });
+        const [agentId, memoryId, priority, enabled, createdAt] = result as any[];
+        return {
+          success: true,
+          data: {
+            contextId,
+            agentId: bytes32ToHex(agentId),
+            memoryId: bytes32ToHex(memoryId),
+            priority: toNumber(priority),
+            enabled: enabled as boolean,
+            createdAt: toNumber(createdAt),
+          },
+        };
+      } catch (err: any) {
+        const msg = (err?.message || "").toLowerCase();
+        if (msg.includes("link not found")) return { success: false, error: "LINK_NOT_FOUND" };
+        return { success: false, error: err?.message };
       }
-      return { success: false, error: "LINK_NOT_FOUND" };
     },
 
     async getAgentContextCount(agentId): Promise<ContractResult<number>> {
-      let count = 0;
-      for (const [, link] of linkStore.entries()) {
-        if (link.agentId === agentId) count++;
+      try {
+        const count = await publicClient.readContract({
+          address,
+          abi: contextAbi,
+          functionName: "getAgentContextCount",
+          args: [agentId as `0x${string}`],
+        });
+        return { success: true, data: toNumber(count) };
+      } catch (err: any) {
+        return { success: false, error: err.message };
       }
-      return { success: true, data: count };
     },
 
     async getAgentContexts(agentId, offset, limit): Promise<ContractResult<ContextData[]>> {
-      const all: ContextData[] = [];
-      for (const [, link] of linkStore.entries()) {
-        if (link.agentId === agentId) {
-          all.push({
-            contextId: link.contextId,
-            agentId: link.agentId,
-            memoryId: link.memoryId,
-            priority: link.priority,
-            enabled: true,
-            createdAt: 0,
+      try {
+        const count = await publicClient.readContract({
+          address,
+          abi: contextAbi,
+          functionName: "getAgentContextCount",
+          args: [agentId as `0x${string}`],
+        });
+        const total = Number(count);
+        const contexts: ContextData[] = [];
+        for (let i = offset; i < Math.min(offset + limit, total); i++) {
+          const contextId = await publicClient.readContract({
+            address,
+            abi: contextAbi,
+            functionName: "getAgentContextByIndex",
+            args: [agentId as `0x${string}`, BigInt(i)],
           });
+          const hexId = bytes32ToHex(contextId);
+          if (hexId === "0x" + "00".repeat(32)) break;
+          const result = await this.getContext(hexId);
+          if (result.success && result.data && result.data.enabled) contexts.push(result.data);
         }
+        return { success: true, data: contexts };
+      } catch (err: any) {
+        return { success: false, error: err.message };
       }
-      return { success: true, data: all.slice(offset, offset + limit) };
     },
   };
 }
@@ -772,8 +829,6 @@ export function createChatRegistryAdapter(): ChatRegistryContract {
         });
 
         const chatIdHex = bytes32ToHex(chatId);
-        chatMetaStore.set(chatIdHex, { name });
-        saveMeta(chatMetaPath, Object.fromEntries(chatMetaStore));
 
         return { success: true, data: chatIdHex };
       } catch (err: any) {
@@ -782,7 +837,7 @@ export function createChatRegistryAdapter(): ChatRegistryContract {
       }
     },
 
-    async updateChat(owner, chatId, cid, hash, name): Promise<ContractResult<void>> {
+    async updateChat(_owner, chatId, cid, hash, name): Promise<ContractResult<void>> {
       try {
         const { request } = await publicClient.simulateContract({
           address,
@@ -794,16 +849,13 @@ export function createChatRegistryAdapter(): ChatRegistryContract {
         const txHash = await walletClient.writeContract(request);
         await publicClient.waitForTransactionReceipt({ hash: txHash });
 
-        chatMetaStore.set(chatId, { name });
-        saveMeta(chatMetaPath, Object.fromEntries(chatMetaStore));
-
         return { success: true };
       } catch (err: any) {
         return { success: false, error: err.message };
       }
     },
 
-    async archiveChat(owner, chatId): Promise<ContractResult<void>> {
+    async archiveChat(_owner, chatId): Promise<ContractResult<void>> {
       try {
         const { request } = await publicClient.simulateContract({
           address,
@@ -820,7 +872,7 @@ export function createChatRegistryAdapter(): ChatRegistryContract {
       }
     },
 
-    async restoreChat(owner, chatId): Promise<ContractResult<void>> {
+    async restoreChat(_owner, chatId): Promise<ContractResult<void>> {
       try {
         const { request } = await publicClient.simulateContract({
           address,
@@ -846,13 +898,12 @@ export function createChatRegistryAdapter(): ChatRegistryContract {
           args: [chatId as `0x${string}`],
         });
         const [owner, version, cid, hash, name, status, createdAt, updatedAt] = result as any[];
-        const meta = chatMetaStore.get(chatId as string);
         return {
           success: true,
           data: {
             chatId,
             owner: owner as string,
-            name: meta?.name || (name as string) || "",
+            name: (name as string) || "",
             cid: cid as string,
             hash: bytes32ToHex(hash),
             status: toNumber(status),
@@ -985,6 +1036,7 @@ export interface UserOpAdapterFactory {
   createMemoryRegistryUserOpAdapter(sessionKeyPrivateKey: Hex): MemoryRegistryContract;
   createAgentRegistryUserOpAdapter(sessionKeyPrivateKey: Hex): AgentRegistryContract;
   createChatRegistryUserOpAdapter(sessionKeyPrivateKey: Hex): ChatRegistryContract;
+  createContextRegistryUserOpAdapter(sessionKeyPrivateKey: Hex): ContextRegistryContract;
   createCreditManagerUserOpAdapter(sessionKeyPrivateKey: Hex): CreditManagerContract;
 }
 
@@ -993,7 +1045,7 @@ export function createUserOpAdapters(): UserOpAdapterFactory {
     createUserRegistryUserOpAdapter(sessionKeyPrivateKey) {
       const address = deployments["user-registry"].address as `0x${string}`;
       return {
-        async registerUser(owner, username) {
+        async registerUser(_owner, username) {
           try {
             const calldata = encodeFunctionData({ abi: userAbi, functionName: "registerUser", args: [username] });
             const { userOpHash } = await buildAndSendUserOp({ target: address, calldata, sessionKeyPrivateKey });
@@ -1003,7 +1055,7 @@ export function createUserOpAdapters(): UserOpAdapterFactory {
             return { success: false, error: err.message };
           }
         },
-        async updateUsername(owner, username) {
+        async updateUsername(_owner, username) {
           try {
             const calldata = encodeFunctionData({ abi: userAbi, functionName: "updateUsername", args: [username] });
             const { userOpHash } = await buildAndSendUserOp({ target: address, calldata, sessionKeyPrivateKey });
@@ -1022,7 +1074,7 @@ export function createUserOpAdapters(): UserOpAdapterFactory {
     createMemoryRegistryUserOpAdapter(sessionKeyPrivateKey) {
       const address = deployments["memory-registry"].address as `0x${string}`;
       return {
-        async createMemory(owner, name, description, cid, hash, memoryType, visibility) {
+        async createMemory(owner, name, _description, cid, hash, memoryType, visibility) {
           try {
             const calldata = encodeFunctionData({
               abi: memoryAbi,
@@ -1037,14 +1089,12 @@ export function createUserOpAdapters(): UserOpAdapterFactory {
               args: [owner as `0x${string}`, BigInt(toNumber(total) - 1)],
             });
             const memoryIdHex = bytes32ToHex(memoryId);
-            memoryMetaStore.set(memoryIdHex, { name, description });
-            saveMeta(memoryMetaPath, Object.fromEntries(memoryMetaStore));
             return { success: true, data: memoryIdHex };
           } catch (err: any) {
             return { success: false, error: err.message };
           }
         },
-        async updateMemory(owner, memoryId, cid, hash) {
+        async updateMemory(_owner, memoryId, cid, hash) {
           try {
             const calldata = encodeFunctionData({
               abi: memoryAbi, functionName: "updateMemory",
@@ -1057,7 +1107,7 @@ export function createUserOpAdapters(): UserOpAdapterFactory {
             return { success: false, error: err.message };
           }
         },
-        async archiveMemory(owner, memoryId) {
+        async archiveMemory(_owner, memoryId) {
           try {
             const calldata = encodeFunctionData({
               abi: memoryAbi, functionName: "archiveMemory",
@@ -1070,7 +1120,7 @@ export function createUserOpAdapters(): UserOpAdapterFactory {
             return { success: false, error: err.message };
           }
         },
-        async restoreMemory(owner, memoryId) {
+        async restoreMemory(_owner, memoryId) {
           try {
             const calldata = encodeFunctionData({
               abi: memoryAbi, functionName: "restoreMemory",
@@ -1093,7 +1143,7 @@ export function createUserOpAdapters(): UserOpAdapterFactory {
     createAgentRegistryUserOpAdapter(sessionKeyPrivateKey) {
       const address = deployments["agent-registry"].address as `0x${string}`;
       return {
-        async createAgent(owner, name, description, cid, hash) {
+        async createAgent(owner, name, _description, cid, hash) {
           try {
             const calldata = encodeFunctionData({
               abi: agentAbi, functionName: "createAgent",
@@ -1107,14 +1157,12 @@ export function createUserOpAdapters(): UserOpAdapterFactory {
               args: [owner as `0x${string}`, BigInt(toNumber(total) - 1)],
             });
             const agentIdHex = bytes32ToHex(agentId);
-            agentMetaStore.set(agentIdHex, { name, description });
-            saveMeta(agentMetaPath, Object.fromEntries(agentMetaStore));
             return { success: true, data: agentIdHex };
           } catch (err: any) {
             return { success: false, error: err.message };
           }
         },
-        async updateAgent(owner, agentId, cid, hash) {
+        async updateAgent(_owner, agentId, cid, hash) {
           try {
             const calldata = encodeFunctionData({
               abi: agentAbi, functionName: "updateAgent",
@@ -1127,7 +1175,7 @@ export function createUserOpAdapters(): UserOpAdapterFactory {
             return { success: false, error: err.message };
           }
         },
-        async archiveAgent(owner, agentId) {
+        async archiveAgent(_owner, agentId) {
           try {
             const calldata = encodeFunctionData({
               abi: agentAbi, functionName: "archiveAgent",
@@ -1140,7 +1188,7 @@ export function createUserOpAdapters(): UserOpAdapterFactory {
             return { success: false, error: err.message };
           }
         },
-        async restoreAgent(owner, agentId) {
+        async restoreAgent(_owner, agentId) {
           try {
             const calldata = encodeFunctionData({
               abi: agentAbi, functionName: "restoreAgent",
@@ -1177,14 +1225,12 @@ export function createUserOpAdapters(): UserOpAdapterFactory {
               args: [owner as `0x${string}`, BigInt(toNumber(total) - 1)],
             });
             const chatIdHex = bytes32ToHex(chatId);
-            chatMetaStore.set(chatIdHex, { name });
-            saveMeta(chatMetaPath, Object.fromEntries(chatMetaStore));
             return { success: true, data: chatIdHex };
           } catch (err: any) {
             return { success: false, error: err.message };
           }
         },
-        async updateChat(owner, chatId, cid, hash, name) {
+        async updateChat(_owner, chatId, cid, hash, name) {
           try {
             const calldata = encodeFunctionData({
               abi: chatAbi, functionName: "updateChat",
@@ -1192,14 +1238,12 @@ export function createUserOpAdapters(): UserOpAdapterFactory {
             });
             const { userOpHash } = await buildAndSendUserOp({ target: address, calldata, sessionKeyPrivateKey });
             await waitForUserOp(userOpHash);
-            chatMetaStore.set(chatId, { name });
-            saveMeta(chatMetaPath, Object.fromEntries(chatMetaStore));
             return { success: true };
           } catch (err: any) {
             return { success: false, error: err.message };
           }
         },
-        async archiveChat(owner, chatId) {
+        async archiveChat(_owner, chatId) {
           try {
             const calldata = encodeFunctionData({
               abi: chatAbi, functionName: "archiveChat",
@@ -1212,7 +1256,7 @@ export function createUserOpAdapters(): UserOpAdapterFactory {
             return { success: false, error: err.message };
           }
         },
-        async restoreChat(owner, chatId) {
+        async restoreChat(_owner, chatId) {
           try {
             const calldata = encodeFunctionData({
               abi: chatAbi, functionName: "restoreChat",
@@ -1231,12 +1275,92 @@ export function createUserOpAdapters(): UserOpAdapterFactory {
       };
     },
 
+    createContextRegistryUserOpAdapter(sessionKeyPrivateKey) {
+      const address = deployments["context-registry"].address as `0x${string}`;
+      return {
+        async linkMemory(_owner, agentId, memoryId, priority) {
+          try {
+            const calldata = encodeFunctionData({
+              abi: contextAbi, functionName: "linkMemory",
+              args: [agentId as `0x${string}`, memoryId as `0x${string}`, priority],
+            });
+            const { userOpHash } = await buildAndSendUserOp({ target: address, calldata, sessionKeyPrivateKey });
+            await waitForUserOp(userOpHash);
+            const contextId = await publicClient.readContract({
+              address, abi: contextAbi, functionName: "getLink",
+              args: [agentId as `0x${string}`, memoryId as `0x${string}`],
+            });
+            return { success: true, data: bytes32ToHex(contextId) };
+          } catch (err: any) {
+            const msg = (err?.message || "").toLowerCase();
+            if (msg.includes("already linked")) return { success: false, error: "ALREADY_LINKED" };
+            return { success: false, error: err.message };
+          }
+        },
+        async unlinkMemory(_owner, agentId, memoryId) {
+          try {
+            const calldata = encodeFunctionData({
+              abi: contextAbi, functionName: "unlinkMemory",
+              args: [agentId as `0x${string}`, memoryId as `0x${string}`],
+            });
+            const { userOpHash } = await buildAndSendUserOp({ target: address, calldata, sessionKeyPrivateKey });
+            await waitForUserOp(userOpHash);
+            return { success: true };
+          } catch (err: any) {
+            return { success: false, error: err.message };
+          }
+        },
+        async changePriority(_owner, contextId, newPriority) {
+          try {
+            const calldata = encodeFunctionData({
+              abi: contextAbi, functionName: "changePriority",
+              args: [contextId as `0x${string}`, newPriority],
+            });
+            const { userOpHash } = await buildAndSendUserOp({ target: address, calldata, sessionKeyPrivateKey });
+            await waitForUserOp(userOpHash);
+            return { success: true };
+          } catch (err: any) {
+            return { success: false, error: err.message };
+          }
+        },
+        async disableLink(_owner, contextId) {
+          try {
+            const calldata = encodeFunctionData({
+              abi: contextAbi, functionName: "disableLink",
+              args: [contextId as `0x${string}`],
+            });
+            const { userOpHash } = await buildAndSendUserOp({ target: address, calldata, sessionKeyPrivateKey });
+            await waitForUserOp(userOpHash);
+            return { success: true };
+          } catch (err: any) {
+            return { success: false, error: err.message };
+          }
+        },
+        async enableLink(_owner, contextId) {
+          try {
+            const calldata = encodeFunctionData({
+              abi: contextAbi, functionName: "enableLink",
+              args: [contextId as `0x${string}`],
+            });
+            const { userOpHash } = await buildAndSendUserOp({ target: address, calldata, sessionKeyPrivateKey });
+            await waitForUserOp(userOpHash);
+            return { success: true };
+          } catch (err: any) {
+            return { success: false, error: err.message };
+          }
+        },
+        async getContext(contextId) { return createContextRegistryAdapter().getContext(contextId); },
+        async getAgentContextCount(agentId) { return createContextRegistryAdapter().getAgentContextCount(agentId); },
+        async getAgentContexts(agentId, offset, limit) { return createContextRegistryAdapter().getAgentContexts(agentId, offset, limit); },
+      };
+    },
+
     createCreditManagerUserOpAdapter(sessionKeyPrivateKey) {
       const address = deployments["credit-manager"].address as `0x${string}`;
       return {
         async balanceOf(user) { return createCreditManagerAdapter().balanceOf(user); },
         async hasSufficientCredits(user, amount) { return createCreditManagerAdapter().hasSufficientCredits(user, amount); },
-        async buyCredits(user, amount, valueWei) {
+        async buyCredits(_user, amount, _valueWei) {
           try {
             const calldata = encodeFunctionData({
               abi: creditAbi, functionName: "buyCredits",

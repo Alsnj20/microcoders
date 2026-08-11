@@ -16,6 +16,7 @@ import { createSessionKeyRoutes } from "./routes/session-keys.js";
 import { createAuditRoutes } from "./routes/audit.js";
 import { createChatRoutes } from "./routes/chat.js";
 import { createRedisSessionKeyStore } from "./lib/session-keys.js";
+import { listFoundryDeployments, type FoundryDeployment } from "./lib/foundry.js";
 import type {
   MemoryRegistryContract,
   AgentRegistryContract,
@@ -49,6 +50,7 @@ export type AppDependencies = {
   sessionKeyStore?: SessionKeyStore;
   sessionKeyManager?: SessionKeyManager;
   session?: SessionData | null;
+  foundryDeployments?: () => Promise<FoundryDeployment[]>;
 };
 
 function createMemorySessionStore(): SessionStore {
@@ -83,6 +85,7 @@ export function createApp(deps: AppDependencies = {}): Hono<AppEnv> {
   const sessionStore = deps.sessionStore ?? createMemorySessionStore();
   const sessionKeyStore = deps.sessionKeyStore;
   const sessionKeyManager = deps.sessionKeyManager;
+  const getDeployments = deps.foundryDeployments ?? listFoundryDeployments;
 
   const app = new Hono<AppEnv>();
 
@@ -167,7 +170,7 @@ export function createApp(deps: AppDependencies = {}): Hono<AppEnv> {
   }
 
   if (creditManager) {
-    app.route("/credits", createCreditRoutes(creditManager));
+    app.route("/credits", createCreditRoutes(creditManager, getDeployments));
   }
 
   if (userRegistry) {
@@ -210,13 +213,16 @@ const sessionKeyStore: SessionKeyStore | undefined = (() => {
   return undefined;
 })();
 
-serve({ fetch: createApp({ agentRegistry, memoryRegistry, chatRegistry, userRegistry, creditManager, contextRegistry, auditRegistry, sessionKeyStore }).fetch, port: PORT }, (info) => {
-  console.log(`🚀 Hono server running on http://localhost:${info.port}`);
-  if (agentRegistry) console.log(`⛓️  AgentRegistry connected`);
-  if (memoryRegistry) console.log(`⛓️  MemoryRegistry connected`);
-  if (chatRegistry) console.log(`⛓️  ChatRegistry connected`);
-  if (userRegistry) console.log(`⛓️  UserRegistry connected`);
-  if (creditManager) console.log(`⛓️  CreditManager connected`);
-  if (contextRegistry) console.log(`⛓️  ContextRegistry connected`);
-  if (auditRegistry) console.log(`⛓️  AuditRegistry connected`);
-});
+// Do not bind the port when the module is imported from tests.
+if (!process.env.VITEST) {
+  serve({ fetch: createApp({ agentRegistry, memoryRegistry, chatRegistry, userRegistry, creditManager, contextRegistry, auditRegistry, sessionKeyStore }).fetch, port: PORT }, (info) => {
+    console.log(`🚀 Hono server running on http://localhost:${info.port}`);
+    if (agentRegistry) console.log(`⛓️  AgentRegistry connected`);
+    if (memoryRegistry) console.log(`⛓️  MemoryRegistry connected`);
+    if (chatRegistry) console.log(`⛓️  ChatRegistry connected`);
+    if (userRegistry) console.log(`⛓️  UserRegistry connected`);
+    if (creditManager) console.log(`⛓️  CreditManager connected`);
+    if (contextRegistry) console.log(`⛓️  ContextRegistry connected`);
+    if (auditRegistry) console.log(`⛓️  AuditRegistry connected`);
+  });
+}

@@ -1,9 +1,19 @@
 import { Hono } from "hono";
 import { z } from "zod";
+import { createOpenAI } from "@ai-sdk/openai";
+import { generateText } from "ai";
 import type { AppEnv } from "../index.js";
 
-const FOUNDRY_URL = process.env.FOUNDRY_URL || "";
+const FOUNDRY_OPENAI_URL = process.env.FOUNDRY_OPENAI_URL || "";
 const FOUNDRY_KEY = process.env.FOUNDRY_KEY || "";
+
+const foundry = createOpenAI({
+  baseURL: FOUNDRY_OPENAI_URL,
+  apiKey: FOUNDRY_KEY,
+  headers: {
+    "api-key": FOUNDRY_KEY,
+  },
+});
 
 function requireSession(c: { get: (key: string) => unknown; json: (body: unknown, status?: number) => Response }) {
   const session = c.get("session");
@@ -199,7 +209,7 @@ Puedo ayudarte a:
       return c.json({ code: "VALIDATION_ERROR", message: "Invalid request" }, 400);
     }
 
-    const { message, agentId, chatId, model } = parsed.data;
+    const { message, agentId, model } = parsed.data;
 
     // Gather context: agent info + linked memories
     let systemPrompt = `Eres MemoryChain AI, un asistente de IA especializado en conocimiento descentralizado.
@@ -236,39 +246,24 @@ Si el usuario pregunta sobre sus memorias o agentes, ayúdale a entender qué pu
     }
 
     try {
-      if (!FOUNDRY_URL || !FOUNDRY_KEY) {
+      if (!FOUNDRY_OPENAI_URL || !FOUNDRY_KEY) {
         return c.json({ code: "CONFIG_ERROR", message: "AI provider not configured" }, 500);
       }
 
-      const response = await fetch(`${FOUNDRY_URL}/chat/completions`, {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${FOUNDRY_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: model || "gpt-4o-mini",
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: message },
-          ],
-          max_tokens: 500,
-          temperature: 0.7,
-        }),
+      const modelId = model || "gpt-4o-mini";
+      const result = await generateText({
+        model: foundry(modelId),
+        system: systemPrompt,
+        prompt: message,
+        maxOutputTokens: 500,
+        temperature: 0.7,
       });
 
-      if (!response.ok) {
-        const errText = await response.text();
-        console.error("Foundry API error:", errText);
-        return c.json({ code: "AI_ERROR", message: "Error al conectar con la IA" }, 500);
-      }
-
-      const data = await response.json();
-      const reply = data.choices?.[0]?.message?.content || "No pude generar una respuesta.";
+      const reply = result.text || "No pude generar una respuesta.";
 
       // Calculate dynamic credit cost based on usage
-      const inputTokens = data.usage?.prompt_tokens || 0;
-      const outputTokens = data.usage?.completion_tokens || 0;
+      const inputTokens = result.usage?.inputTokens || 0;
+      const outputTokens = result.usage?.outputTokens || 0;
       // Simple heuristic: ~$0.001 per 1K tokens input, ~$0.002 per 1K tokens output
       // Convert to credits: 1 credit = $0.00001 (based on existing pricing)
       const estimatedCostMicroUSD = (inputTokens * 0.001 + outputTokens * 0.002) / 1000;
@@ -276,8 +271,12 @@ Si el usuario pregunta sobre sus memorias o agentes, ayúdale a entender qué pu
 
       return c.json({
         reply,
-        model: data.model,
-        usage: data.usage,
+        model: modelId,
+        usage: {
+          prompt_tokens: inputTokens,
+          completion_tokens: outputTokens,
+          total_tokens: result.usage?.totalTokens || 0,
+        },
         creditsUsed,
       });
     } catch (err: any) {

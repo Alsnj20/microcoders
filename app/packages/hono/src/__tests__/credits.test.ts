@@ -3,11 +3,13 @@ import { createApp } from "../index.js";
 import type {
   CreditManagerContract,
   CreditBalance,
-  FeeSchedule,
-  PricingConfig,
 } from "../types/contracts.js";
 
-function createMockCreditManager(): CreditManagerContract {
+type MockCreditManager = CreditManagerContract & {
+  _setBalance: (user: string, b: CreditBalance) => void;
+};
+
+function createMockCreditManager(): MockCreditManager {
   const balances = new Map<string, CreditBalance>();
 
   return {
@@ -53,11 +55,11 @@ function createMockCreditManager(): CreditManagerContract {
     _setBalance(user: string, balance: CreditBalance) {
       balances.set(user, balance);
     },
-  } as CreditManagerContract & { _setBalance: (user: string, b: CreditBalance) => void };
+  } as MockCreditManager;
 }
 
 describe("Credit routes", () => {
-  let mockCredits: ReturnType<typeof createMockCreditManager>;
+  let mockCredits: MockCreditManager;
   let app: ReturnType<typeof createApp>;
 
   const TEST_ADDRESS = "0x1234567890abcdef1234567890abcdef12345678";
@@ -72,7 +74,7 @@ describe("Credit routes", () => {
 
   describe("GET /credits/balance", () => {
     it("returns user credit balance", async () => {
-      (mockCredits as ReturnType<typeof createMockCreditManager> & { _setBalance: typeof mockCredits._setBalance })._setBalance(TEST_ADDRESS, {
+      mockCredits._setBalance(TEST_ADDRESS, {
         balance: 100,
         purchased: 150,
         spent: 50,
@@ -133,17 +135,58 @@ describe("Credit routes", () => {
   });
 
   describe("GET /credits/ai-fees", () => {
-    it("returns per-provider AI fees", async () => {
-      const res = await app.request("/credits/ai-fees");
+    it("returns live deployments mapped with prices", async () => {
+      const deploymentsApp = createApp({
+        session: { address: TEST_ADDRESS, chainId: 412346, username: "testuser" },
+        creditManager: mockCredits,
+        foundryDeployments: async () => [
+          {
+            name: "gpt-4o-mini",
+            modelName: "gpt-4o-mini",
+            modelVersion: "2024-07-18",
+            modelPublisher: "openai",
+          },
+          {
+            name: "some-custom-model",
+            modelName: "custom-model",
+            modelVersion: "1",
+            modelPublisher: "acme",
+          },
+        ],
+      });
+
+      const res = await deploymentsApp.request("/credits/ai-fees");
 
       expect(res.status).toBe(200);
       const body = await res.json();
-      expect(body.fees).toBeInstanceOf(Array);
-      expect(body.fees.length).toBeGreaterThan(0);
-      expect(body.fees[0]).toHaveProperty("provider");
-      expect(body.fees[0]).toHaveProperty("model");
-      expect(body.fees[0]).toHaveProperty("costInMC");
-      expect(body.fees[0]).toHaveProperty("label");
+      expect(body.source).toBe("live");
+      expect(body.fees).toHaveLength(2);
+      expect(body.fees[0]).toMatchObject({
+        model: "gpt-4o-mini",
+        label: "gpt-4o-mini",
+        provider: "openai",
+        costInMC: 1,
+      });
+      expect(body.fees[1]).toMatchObject({
+        model: "some-custom-model",
+        provider: "acme",
+        costInMC: 1,
+      });
+    });
+
+    it("returns an empty list when no deployments are available", async () => {
+      const deploymentsApp = createApp({
+        session: { address: TEST_ADDRESS, chainId: 412346, username: "testuser" },
+        creditManager: mockCredits,
+        foundryDeployments: async () => [],
+      });
+
+      const res = await deploymentsApp.request("/credits/ai-fees");
+
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.source).toBe("error");
+      expect(body.fees).toEqual([]);
     });
   });
 });

@@ -11,13 +11,14 @@ function createMockMemoryRegistry(): MemoryRegistryContract & {
     _memories: memories,
     _nextId: 1,
 
-    async createMemory(owner, name, cid, hash, memoryType, visibility) {
+    async createMemory(owner, name, description, cid, hash, memoryType, visibility) {
       const id = `mem-${String(this._nextId++).padStart(3, "0")}`;
       const now = Math.floor(Date.now() / 1000);
       const memory: MemoryData = {
         memoryId: id,
         owner,
         name,
+        description,
         cid,
         hash,
         memoryType,
