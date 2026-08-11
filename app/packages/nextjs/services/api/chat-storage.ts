@@ -1,5 +1,9 @@
 import { keccak256, toHex } from "viem";
 import { api } from "./client";
+import { pinToIpfs, retrieveFromIpfs } from "./ipfs";
+import { encryptData, decryptData, createWalletEnvelope, decryptWalletEnvelope } from "~~/services/crypto/envelope";
+import { generateKData } from "~~/services/crypto/keys";
+import { arrayBufferToBase64, base64ToArrayBuffer } from "~~/services/crypto/utils";
 import type { ChatConversation, ChatMessage } from "~~/src/modules/chat/types/chat";
 
 export interface StoredConversation {
@@ -59,24 +63,70 @@ export function hashConversation(conversation: ConversationData): string {
   return keccak256(toHex(content));
 }
 
-export async function saveConversation(conversation: ConversationData): Promise<string | null> {
-  // If conversation has an onChainId, update it
-  if (conversation.onChainId) {
-    const cid = `chat-${conversation.onChainId}-${Date.now()}`;
-    const hash = hashConversation(conversation);
-    await updateConversation(conversation.onChainId, conversation.title, cid, hash);
-    return cid;
+export async function saveConversation(
+  conversation: ConversationData,
+  kWallet?: Uint8Array | null,
+): Promise<string | null> {
+  // Ensure the chat exists on-chain first
+  let chatId = conversation.onChainId;
+  if (!chatId) {
+    chatId = (await createConversation(conversation.title)) || undefined;
+    if (!chatId) return null;
   }
 
-  // Otherwise create a new one
-  const chatId = await createConversation(conversation.title);
-  if (chatId) {
-    const cid = `chat-${chatId}-${Date.now()}`;
-    const hash = hashConversation(conversation);
-    await updateConversation(chatId, conversation.title, cid, hash);
-    return cid;
+  const toStore: ConversationData = { ...conversation, onChainId: chatId };
+  const cid = await pinConversation(toStore, kWallet);
+  const hash = hashConversation(toStore);
+  const updated = await updateConversation(chatId, toStore.title, cid, hash);
+  if (!updated) {
+    throw new Error(`Failed to update chat ${chatId} on-chain`);
   }
-  return null;
+  return cid;
+}
+
+// Conversation blueprint: encrypt messages with kWallet → pin to IPFS.
+// On-chain only stores name + cid + hash, mirroring the agents/memories flow.
+async function pinConversation(conversation: ConversationData, kWallet?: Uint8Array | null): Promise<string> {
+  if (!kWallet) {
+    return `dev-${Date.now()}`;
+  }
+
+  const kData = generateKData();
+  const ciphertext = await encryptData(JSON.stringify(conversation), kData);
+  const walletEnvelope = await createWalletEnvelope(kData, kWallet);
+
+  const ipfsPayload = {
+    ciphertext: arrayBufferToBase64(ciphertext),
+    walletEnvelope: arrayBufferToBase64(walletEnvelope),
+    recoveryEnvelope: "",
+  };
+
+  const rawBytes = new TextEncoder().encode(JSON.stringify(ipfsPayload));
+  const base64Payload = arrayBufferToBase64(rawBytes);
+  const result = await pinToIpfs(base64Payload, conversation.title);
+  return result.cid;
+}
+
+export async function loadConversationMessages(
+  chatId: string,
+  cid: string,
+  kWallet?: Uint8Array | null,
+): Promise<ChatMessage[]> {
+  if (!cid || !kWallet || cid.startsWith("dev-") || cid.startsWith("chat-")) return [];
+  try {
+    const base64Data = await retrieveFromIpfs(cid);
+    const jsonStr = new TextDecoder().decode(base64ToArrayBuffer(base64Data));
+    const envelope = JSON.parse(jsonStr);
+
+    const kData = await decryptWalletEnvelope(base64ToArrayBuffer(envelope.walletEnvelope), kWallet);
+    const plaintext = await decryptData(base64ToArrayBuffer(envelope.ciphertext), kData);
+
+    const data = JSON.parse(plaintext) as ConversationData;
+    return data.messages || [];
+  } catch (err) {
+    console.error(`Failed to load conversation ${chatId} messages:`, err);
+    return [];
+  }
 }
 
 export async function listConversations(): Promise<ChatConversation[]> {
@@ -88,6 +138,7 @@ export async function listConversations(): Promise<ChatConversation[]> {
         id: chat.chatId,
         onChainId: chat.chatId,
         title: chat.name,
+        cid: chat.cid,
         lastMessage: undefined,
         timestamp: new Date(chat.createdAt * 1000).toLocaleTimeString([], {
           hour: "2-digit",

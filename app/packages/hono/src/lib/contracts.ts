@@ -1,5 +1,6 @@
 import { createPublicClient, createWalletClient, http, type Hex, encodeFunctionData } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
+import { nonceManager } from "viem/accounts";
 import { defineChain } from "viem";
 import * as fs from "fs";
 import * as path from "path";
@@ -41,6 +42,10 @@ const nitroChain = defineChain({
 
 const account = privateKeyToAccount(DEV_PRIVATE_KEY);
 
+// Serialize nonce allocation across concurrent writes from the shared signer
+// account so rapid create→update sequences never collide/replace each other.
+// See walletClient setup below (uses `nonceManager` from viem/accounts).
+
 function loadAbi(contractName: string) {
   const abiPath = path.resolve(DEPLOYMENTS_DIR, contractName);
   if (!fs.existsSync(abiPath)) throw new Error(`ABI not found: ${abiPath}`);
@@ -63,7 +68,9 @@ const contextAbi = loadAbi("context-registry");
 const auditAbi = loadAbi("audit-registry");
 
 const publicClient = createPublicClient({ chain: nitroChain, transport: http(RPC_URL) });
-const walletClient = createWalletClient({ account, chain: nitroChain, transport: http(RPC_URL) });
+// Shared signer account; the nonce manager serializes nonce allocation across
+// concurrent writes so create→update sequences don't collide/replace each other.
+const walletClient = createWalletClient({ account: { ...account, nonceManager }, chain: nitroChain, transport: http(RPC_URL) });
 
 function bytes32ToHex(val: unknown): string {
   if (typeof val === "string") return val;
@@ -75,6 +82,17 @@ function toNumber(val: unknown): number {
   if (typeof val === "number") return val;
   if (typeof val === "bigint") return Number(val);
   return 0;
+}
+
+// Wait for a tx and fail loudly if it was mined but reverted. viem's
+// waitForTransactionReceipt resolves on reverted receipts, so every write
+// must check receipt.status to avoid reporting false success.
+async function confirmTx(txHash: Hex): Promise<{ success: boolean; error?: string }> {
+  const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
+  if (receipt.status !== "success") {
+    return { success: false, error: "Transaction reverted on-chain" };
+  }
+  return { success: true };
 }
 
 export function createAgentRegistryAdapter(): AgentRegistryContract {
@@ -91,7 +109,8 @@ export function createAgentRegistryAdapter(): AgentRegistryContract {
           account,
         });
         const hash_ = await walletClient.writeContract(request);
-        await publicClient.waitForTransactionReceipt({ hash: hash_ });
+        const confirmed = await confirmTx(hash_);
+        if (!confirmed.success) return { success: false, error: confirmed.error };
 
         // Read the new agent ID from event or totalAgents
         const total = await publicClient.readContract({
@@ -125,7 +144,8 @@ export function createAgentRegistryAdapter(): AgentRegistryContract {
           account,
         });
         const txHash = await walletClient.writeContract(request);
-        await publicClient.waitForTransactionReceipt({ hash: txHash });
+        const confirmed = await confirmTx(txHash);
+        if (!confirmed.success) return { success: false, error: confirmed.error };
         return { success: true };
       } catch (err: any) {
         return { success: false, error: err.message };
@@ -142,7 +162,8 @@ export function createAgentRegistryAdapter(): AgentRegistryContract {
           account,
         });
         const txHash = await walletClient.writeContract(request);
-        await publicClient.waitForTransactionReceipt({ hash: txHash });
+        const confirmed = await confirmTx(txHash);
+        if (!confirmed.success) return { success: false, error: confirmed.error };
         return { success: true };
       } catch (err: any) {
         return { success: false, error: err.message };
@@ -159,7 +180,8 @@ export function createAgentRegistryAdapter(): AgentRegistryContract {
           account,
         });
         const txHash = await walletClient.writeContract(request);
-        await publicClient.waitForTransactionReceipt({ hash: txHash });
+        const confirmed = await confirmTx(txHash);
+        if (!confirmed.success) return { success: false, error: confirmed.error };
         return { success: true };
       } catch (err: any) {
         return { success: false, error: err.message };
@@ -257,7 +279,8 @@ export function createMemoryRegistryAdapter(): MemoryRegistryContract {
           account,
         });
         const txHash = await walletClient.writeContract(request);
-        await publicClient.waitForTransactionReceipt({ hash: txHash });
+        const confirmed = await confirmTx(txHash);
+        if (!confirmed.success) return { success: false, error: confirmed.error };
 
         const total = await publicClient.readContract({
           address,
@@ -290,7 +313,8 @@ export function createMemoryRegistryAdapter(): MemoryRegistryContract {
           account,
         });
         const txHash = await walletClient.writeContract(request);
-        await publicClient.waitForTransactionReceipt({ hash: txHash });
+        const confirmed = await confirmTx(txHash);
+        if (!confirmed.success) return { success: false, error: confirmed.error };
         return { success: true };
       } catch (err: any) {
         return { success: false, error: err.message };
@@ -307,7 +331,8 @@ export function createMemoryRegistryAdapter(): MemoryRegistryContract {
           account,
         });
         const txHash = await walletClient.writeContract(request);
-        await publicClient.waitForTransactionReceipt({ hash: txHash });
+        const confirmed = await confirmTx(txHash);
+        if (!confirmed.success) return { success: false, error: confirmed.error };
         return { success: true };
       } catch (err: any) {
         return { success: false, error: err.message };
@@ -324,7 +349,8 @@ export function createMemoryRegistryAdapter(): MemoryRegistryContract {
           account,
         });
         const txHash = await walletClient.writeContract(request);
-        await publicClient.waitForTransactionReceipt({ hash: txHash });
+        const confirmed = await confirmTx(txHash);
+        if (!confirmed.success) return { success: false, error: confirmed.error };
         return { success: true };
       } catch (err: any) {
         return { success: false, error: err.message };
@@ -424,7 +450,8 @@ export function createUserRegistryAdapter(): UserRegistryContract {
           account,
         });
         const txHash = await walletClient.writeContract(request);
-        await publicClient.waitForTransactionReceipt({ hash: txHash });
+        const confirmed = await confirmTx(txHash);
+        if (!confirmed.success) return { success: false, error: confirmed.error };
         return { success: true };
       } catch (err: any) {
         return { success: false, error: err.message };
@@ -441,7 +468,8 @@ export function createUserRegistryAdapter(): UserRegistryContract {
           account,
         });
         const txHash = await walletClient.writeContract(request);
-        await publicClient.waitForTransactionReceipt({ hash: txHash });
+        const confirmed = await confirmTx(txHash);
+        if (!confirmed.success) return { success: false, error: confirmed.error };
         return { success: true };
       } catch (err: any) {
         return { success: false, error: err.message };
@@ -552,7 +580,8 @@ export function createCreditManagerAdapter(): CreditManagerContract {
           account,
         });
         const txHash = await walletClient.writeContract(request);
-        await publicClient.waitForTransactionReceipt({ hash: txHash });
+        const confirmed = await confirmTx(txHash);
+        if (!confirmed.success) return { success: false, error: confirmed.error };
         return { success: true, data: undefined };
       } catch (err: any) {
         return { success: false, error: err.message };
@@ -630,7 +659,8 @@ export function createContextRegistryAdapter(): ContextRegistryContract {
           account,
         });
         const txHash = await walletClient.writeContract(request);
-        await publicClient.waitForTransactionReceipt({ hash: txHash });
+        const confirmed = await confirmTx(txHash);
+        if (!confirmed.success) return { success: false, error: confirmed.error };
 
         const contextId = await publicClient.readContract({
           address,
@@ -659,7 +689,8 @@ export function createContextRegistryAdapter(): ContextRegistryContract {
           account,
         });
         const txHash = await walletClient.writeContract(request);
-        await publicClient.waitForTransactionReceipt({ hash: txHash });
+        const confirmed = await confirmTx(txHash);
+        if (!confirmed.success) return { success: false, error: confirmed.error };
         return { success: true, data: undefined };
       } catch (err: any) {
         const msg = (err?.message || "").toLowerCase();
@@ -678,7 +709,8 @@ export function createContextRegistryAdapter(): ContextRegistryContract {
           account,
         });
         const txHash = await walletClient.writeContract(request);
-        await publicClient.waitForTransactionReceipt({ hash: txHash });
+        const confirmed = await confirmTx(txHash);
+        if (!confirmed.success) return { success: false, error: confirmed.error };
         return { success: true, data: undefined };
       } catch (err: any) {
         const msg = (err?.message || "").toLowerCase();
@@ -698,7 +730,8 @@ export function createContextRegistryAdapter(): ContextRegistryContract {
           account,
         });
         const txHash = await walletClient.writeContract(request);
-        await publicClient.waitForTransactionReceipt({ hash: txHash });
+        const confirmed = await confirmTx(txHash);
+        if (!confirmed.success) return { success: false, error: confirmed.error };
         return { success: true, data: undefined };
       } catch (err: any) {
         const msg = (err?.message || "").toLowerCase();
@@ -718,7 +751,8 @@ export function createContextRegistryAdapter(): ContextRegistryContract {
           account,
         });
         const txHash = await walletClient.writeContract(request);
-        await publicClient.waitForTransactionReceipt({ hash: txHash });
+        const confirmed = await confirmTx(txHash);
+        if (!confirmed.success) return { success: false, error: confirmed.error };
         return { success: true, data: undefined };
       } catch (err: any) {
         const msg = (err?.message || "").toLowerCase();
@@ -813,7 +847,8 @@ export function createChatRegistryAdapter(): ChatRegistryContract {
           account,
         });
         const hash_ = await walletClient.writeContract(request);
-        await publicClient.waitForTransactionReceipt({ hash: hash_ });
+        const confirmed = await confirmTx(hash_);
+        if (!confirmed.success) return { success: false, error: confirmed.error };
 
         // Read the new chat ID from event or totalChats
         const total = await publicClient.readContract({
@@ -847,7 +882,8 @@ export function createChatRegistryAdapter(): ChatRegistryContract {
           account,
         });
         const txHash = await walletClient.writeContract(request);
-        await publicClient.waitForTransactionReceipt({ hash: txHash });
+        const confirmed = await confirmTx(txHash);
+        if (!confirmed.success) return { success: false, error: confirmed.error };
 
         return { success: true };
       } catch (err: any) {
@@ -865,7 +901,8 @@ export function createChatRegistryAdapter(): ChatRegistryContract {
           account,
         });
         const txHash = await walletClient.writeContract(request);
-        await publicClient.waitForTransactionReceipt({ hash: txHash });
+        const confirmed = await confirmTx(txHash);
+        if (!confirmed.success) return { success: false, error: confirmed.error };
         return { success: true };
       } catch (err: any) {
         return { success: false, error: err.message };
@@ -882,7 +919,8 @@ export function createChatRegistryAdapter(): ChatRegistryContract {
           account,
         });
         const txHash = await walletClient.writeContract(request);
-        await publicClient.waitForTransactionReceipt({ hash: txHash });
+        const confirmed = await confirmTx(txHash);
+        if (!confirmed.success) return { success: false, error: confirmed.error };
         return { success: true };
       } catch (err: any) {
         return { success: false, error: err.message };
@@ -976,6 +1014,9 @@ export function createAuditRegistryAdapter(): AuditRegistryContract {
         });
         const txHash = await walletClient.writeContract(request);
         const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
+        if (receipt.status !== "success") {
+          return { success: false, error: "Transaction reverted on-chain" };
+        }
 
         const logs = receipt.logs.filter(
           (log: any) => log.address.toLowerCase() === address.toLowerCase(),

@@ -12,6 +12,7 @@ import {
   listConversations,
   deleteConversation,
   createConversation,
+  loadConversationMessages,
 } from "~~/services/api/chat-storage";
 import type { AgentBlueprint, ChatConversation, ChatMessage, UserProtocolState } from "../types/chat";
 
@@ -252,11 +253,19 @@ export function useChat() {
     [userState.activeAgentId],
   );
 
-  const selectConversation = useCallback(async (id: string) => {
-    setSelectedConversationId(id);
-    // Messages are now loaded from state or welcome message
-    // The on-chain chat only stores metadata, not individual messages
-  }, []);
+  const selectConversation = useCallback(
+    async (id: string) => {
+      setSelectedConversationId(id);
+      const conv = conversations.find((c) => c.id === id);
+      if (!conv?.onChainId || !conv.cid) {
+        setMessages([]);
+        return;
+      }
+      const msgs = await loadConversationMessages(conv.onChainId, conv.cid, session.kWallet);
+      setMessages(msgs);
+    },
+    [conversations, session.kWallet],
+  );
 
   const createNewConversation = useCallback(async () => {
     const conv: ChatConversation = {
@@ -275,21 +284,28 @@ export function useChat() {
       if (!text.trim()) return;
 
       const convId = selectedConversationId || Date.now().toString();
-      const isNew = !selectedConversationId;
       let onChainId = conversations.find((c) => c.id === convId)?.onChainId;
 
-      if (isNew) {
-        // Create conversation on-chain
+      if (!onChainId) {
+        // Create conversation on-chain (first message of a new/unsaved chat)
         const chatId = await createConversation(text.slice(0, 40) + (text.length > 40 ? "..." : ""));
         onChainId = chatId || undefined;
 
-        const conv: ChatConversation = {
-          id: convId,
-          onChainId,
-          title: text.slice(0, 40) + (text.length > 40 ? "..." : ""),
-          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        };
-        setConversations((prev) => [conv, ...prev]);
+        setConversations((prev) => {
+          const existing = prev.find((c) => c.id === convId);
+          if (existing) {
+            return prev.map((c) => (c.id === convId ? { ...c, onChainId } : c));
+          }
+          return [
+            {
+              id: convId,
+              onChainId,
+              title: text.slice(0, 40) + (text.length > 40 ? "..." : ""),
+              timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+            },
+            ...prev,
+          ];
+        });
         setSelectedConversationId(convId);
       }
 
@@ -359,10 +375,18 @@ export function useChat() {
             saveConversation({
               id: convId,
               onChainId,
-              title: (isNew ? text.slice(0, 40) : conversations.find((c) => c.id === convId)?.title) || "Chat",
+              title: conversations.find((c) => c.id === convId)?.title || text.slice(0, 40),
               messages: newMessages,
               createdAt: new Date().toISOString(),
-            }).catch(() => {});
+            }, session.kWallet)
+              .then((cid) => {
+                if (cid) {
+                  setConversations((prev) =>
+                    prev.map((c) => (c.id === convId ? { ...c, onChainId, cid } : c)),
+                  );
+                }
+              })
+              .catch((err) => console.error("Failed to persist chat:", err));
           }
         } else {
           const errData = await res.json();

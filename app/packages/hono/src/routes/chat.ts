@@ -138,6 +138,8 @@ export function createChatRoutes(chatRegistry: any): Hono<AppEnv> {
     const chats = (result.data || []).map((chat: any) => ({
       chatId: chat.chatId,
       name: chat.name,
+      cid: chat.cid,
+      hash: chat.hash,
       version: chat.version,
       status: chat.status,
       createdAt: chat.createdAt,

@@ -6,7 +6,7 @@ import { Input } from "~~/components/ui/input";
 import { LateralBar, LateralBarContent, LateralBarSection, LateralBarSectionButton } from "~~/components/ui/lateral-bar";
 import { SlidePanel } from "~~/components/shared/SlidePanel";
 import { useMemory } from "../../hooks/use-memory";
-import type { Memory } from "../../types/memory";
+import type { Memory, MemoryType } from "../../types/memory";
 import { MemoryCard } from "../ui/memory-card";
 
 const TYPE_ICONS: Record<string, string> = {
@@ -39,7 +39,12 @@ export default function MemoriesPage() {
 
   const [showPanel, setShowPanel] = useState<"create" | "edit" | "detail" | null>(null);
   const [selectedMemory, setSelectedMemory] = useState<Memory | null>(null);
-  const [formData, setFormData] = useState({ title: "", description: "", type: "documento" as const, content: "" });
+  const [formData, setFormData] = useState<{ title: string; description: string; type: MemoryType; content: string }>({
+    title: "",
+    description: "",
+    type: "documento",
+    content: "",
+  });
 
   const filteredMemories = memories
     .filter(m => {
@@ -62,14 +67,31 @@ export default function MemoriesPage() {
     setShowPanel("create");
   };
 
-  const handleViewDetail = (memory: Memory) => {
-    setSelectedMemory(memory);
+  const handleViewDetail = async (memory: Memory) => {
+    let full = memory;
+    try {
+      full = (await getMemory(memory.id)) ?? memory;
+    } catch (err) {
+      console.error("Failed to load memory content:", err);
+    }
+    setSelectedMemory(full);
     setShowPanel("detail");
   };
 
-  const handleEdit = (memory: Memory) => {
-    setSelectedMemory(memory);
-    setFormData({ title: memory.title, description: memory.description || "", type: memory.type, content: "" });
+  const handleEdit = async (memory: Memory) => {
+    let full = memory;
+    try {
+      full = (await getMemory(memory.id)) ?? memory;
+    } catch (err) {
+      console.error("Failed to load memory content:", err);
+    }
+    setSelectedMemory(full);
+    setFormData({
+      title: full.title,
+      description: full.description || "",
+      type: full.type,
+      content: full.content ?? "",
+    });
     setShowPanel("edit");
   };
 
@@ -255,6 +277,12 @@ export default function MemoriesPage() {
 
             <div className="space-y-3">
               <div className="p-3 rounded-lg bg-muted/50">
+                <p className="text-xs font-medium text-muted-foreground mb-1">Contenido</p>
+                <p className="text-sm text-foreground whitespace-pre-wrap break-words">
+                  {selectedMemory.content || "Sin contenido"}
+                </p>
+              </div>
+              <div className="p-3 rounded-lg bg-muted/50">
                 <p className="text-xs font-medium text-muted-foreground mb-1">Descripción</p>
                 <p className="text-sm text-foreground">{selectedMemory.description || "Sin descripción"}</p>
               </div>
@@ -317,6 +345,16 @@ export default function MemoriesPage() {
                 <option value="enlace">Enlace</option>
                 <option value="imagen">Imagen</option>
               </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1">Contenido</label>
+              <textarea
+                value={formData.content}
+                onChange={(e) => setFormData({ ...formData, content: e.target.value })}
+                rows={4}
+                className="w-full px-3 py-2 rounded-lg border border-input bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring resize-none"
+                placeholder="Contenido de la memoria"
+              />
             </div>
             <div className="flex gap-3 pt-2">
               <Button variant="outline" className="flex-1" onClick={() => { setShowPanel(null); setSelectedMemory(null); }}>
