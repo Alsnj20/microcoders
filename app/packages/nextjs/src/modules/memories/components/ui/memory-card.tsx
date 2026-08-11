@@ -26,20 +26,29 @@ interface MemoryCardProps {
 }
 
 export function MemoryCard({ memory, onToggleFavorite, onEdit, onDelete }: MemoryCardProps) {
-  const typeInfo = TYPE_LABELS[memory.type] || TYPE_LABELS.texto;
-
   return (
-    <div className="min-h-50 group p-5 rounded-2xl border border-border/60 bg-card hover:border-primary/40 hover:shadow-lg transition-all duration-200">
-      <div className="flex items-start justify-between mb-3">
-        <span className={`text-xs font-bold px-2.5 py-1 rounded-md ${typeInfo.color}`}>{typeInfo.label}</span>
-        <div className="flex items-center gap-1">
+    <div className="group flex flex-col justify-between p-3.5 rounded-xl border border-border/60 bg-card hover:border-primary/40 hover:shadow-md transition-all duration-200">
+      <div className="flex items-start justify-between gap-2 mb-1.5">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          <div className="w-7 h-7 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
+            <span className="material-symbols-outlined text-sm text-primary">description</span>
+          </div>
+          <h3 className="font-semibold text-foreground text-sm truncate">{memory.title}</h3>
+        </div>
+
+        <div className="flex items-center gap-0.5 shrink-0">
           <button
             type="button"
             onClick={() => onToggleFavorite(memory.id)}
-            className="p-1 rounded-lg hover:bg-muted/50 transition-colors"
+            className={`p-1 rounded-md hover:bg-muted transition-all ${
+              memory.isFavorite ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+            }`}
+            title={memory.isFavorite ? "Quitar de favoritos" : "Marcar como favorito"}
           >
             <span
-              className={`material-symbols-outlined text-lg ${memory.isFavorite ? "text-yellow-500 fill-yellow-500" : "text-muted-foreground"}`}
+              className={`material-symbols-outlined text-base ${
+                memory.isFavorite ? "text-amber-500 fill-amber-500" : "text-muted-foreground"
+              }`}
             >
               {memory.isFavorite ? "star" : "star_border"}
             </span>
@@ -47,25 +56,24 @@ export function MemoryCard({ memory, onToggleFavorite, onEdit, onDelete }: Memor
           <button
             type="button"
             onClick={() => onEdit(memory)}
-            className="p-1 rounded-lg hover:bg-muted/50 transition-colors opacity-0 group-hover:opacity-100"
+            className="p-1 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-all opacity-0 group-hover:opacity-100"
+            title="Editar"
           >
-            <span className="material-symbols-outlined text-lg text-muted-foreground">edit</span>
+            <span className="material-symbols-outlined text-base">edit</span>
           </button>
           <button
             type="button"
             onClick={() => onDelete(memory.id)}
-            className="p-1 rounded-lg hover:bg-muted/50 transition-colors opacity-0 group-hover:opacity-100"
+            className="p-1 rounded-md hover:bg-muted text-muted-foreground hover:text-destructive transition-all opacity-0 group-hover:opacity-100"
+            title="Archivar"
           >
-            <span className="material-symbols-outlined text-lg text-muted-foreground">delete</span>
+            <span className="material-symbols-outlined text-base">delete</span>
           </button>
         </div>
       </div>
 
-      <h3 className="font-bold text-foreground mb-1.5 line-clamp-1">{memory.title}</h3>
-      <p className="text-sm text-muted-foreground mb-4 line-clamp-2">{memory.description}</p>
-
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        <span className="material-symbols-outlined text-sm">schedule</span>
+      <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mt-auto">
+        <span className="material-symbols-outlined text-xs">schedule</span>
         <span>{memory.createdAt}</span>
         {memory.fileSize && (
           <>

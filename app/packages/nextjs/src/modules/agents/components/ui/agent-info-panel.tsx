@@ -75,23 +75,6 @@ export function AgentInfoPanel({ agent, onEdit, onLinkMemory, onStartChat }: Age
           )}
         </div>
 
-        {/* Persistent Memory */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h4 className="text-sm font-medium text-foreground">Memoria Persistente</h4>
-            <p className="text-xs text-muted-foreground">Recordar contexto entre sesiones</p>
-          </div>
-          <div
-            className={`w-10 h-6 rounded-full transition-colors ${agent.persistentMemory ? "bg-primary" : "bg-muted"}`}
-          >
-            <div
-              className={`w-4 h-4 rounded-full bg-white shadow-sm transform transition-transform mt-1 ${
-                agent.persistentMemory ? "translate-x-5" : "translate-x-1"
-              }`}
-            />
-          </div>
-        </div>
-
         {/* Start Chat Button */}
         {onStartChat && (
           <Button className="w-full" onClick={onStartChat}>

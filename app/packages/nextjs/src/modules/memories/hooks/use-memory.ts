@@ -108,8 +108,11 @@ export function useMemory() {
       const archived = allMemories.filter((m: any) => m.status === 1).length;
       setArchivedCount(archived);
 
-      const mappedMemories: Memory[] = allMemories
-        .map((m: any) => ({
+      const mappedMemories: Memory[] = allMemories.map((m: any) => {
+        const validTs = m.createdAt && Number(m.createdAt) > 0 ? Number(m.createdAt) * 1000 : Date.now();
+        const dateStr = new Date(validTs).toISOString().split("T")[0];
+
+        return {
           id: m.memoryId,
           title: m.name,
           description: m.description || "",
@@ -119,9 +122,10 @@ export function useMemory() {
           isArchived: m.status === 1,
           cid: m.cid,
           hash: m.hash,
-        createdAt: new Date(m.createdAt * 1000).toISOString().split("T")[0],
-        updatedAt: new Date(m.createdAt * 1000).toISOString().split("T")[0],
-      }));
+          createdAt: dateStr,
+          updatedAt: dateStr,
+        };
+      });
 
       setMemories(mappedMemories);
     } catch (err: any) {
@@ -160,10 +164,23 @@ export function useMemory() {
         // 3. Decrypt content
         const plaintext = await decryptData(base64ToArrayBuffer(envelope.ciphertext), kData);
 
+        let content = plaintext;
+        let description = localMeta.description || "";
+
+        try {
+          const parsed = JSON.parse(plaintext);
+          if (typeof parsed === "object" && parsed !== null) {
+            if (typeof parsed.content === "string") content = parsed.content;
+            if (typeof parsed.description === "string") description = parsed.description;
+          }
+        } catch {
+          // Legacy string payload
+        }
+
         const decrypted = {
           ...localMeta,
-          content: plaintext,
-          description: localMeta.description || plaintext.slice(0, 100) + "...",
+          content,
+          description: description || localMeta.description || "",
         };
 
         setMemories(prev => prev.map(m => (m.id === id ? decrypted : m)));
@@ -185,9 +202,13 @@ export function useMemory() {
         let ipfsResult = { cid: `dev-${Date.now()}`, hash: generateDevHash() };
 
         if (session.kWallet) {
-          // Production: encrypt → IPFS → on-chain
+          // Production: encrypt payload containing distinct description and content
           const kData = generateKData();
-          const ciphertext = await encryptData(data.content || "", kData);
+          const memoryPayload = JSON.stringify({
+            description: data.description || "",
+            content: data.content || "",
+          });
+          const ciphertext = await encryptData(memoryPayload, kData);
           const walletEnvelope = await createWalletEnvelope(kData, session.kWallet);
 
           const ipfsPayload = {
@@ -259,7 +280,11 @@ export function useMemory() {
 
         if (session.kWallet) {
           const kData = generateKData();
-          const ciphertext = await encryptData(data.content || "", kData);
+          const memoryPayload = JSON.stringify({
+            description: data.description ?? localMeta.description ?? "",
+            content: data.content ?? localMeta.content ?? "",
+          });
+          const ciphertext = await encryptData(memoryPayload, kData);
           const walletEnvelope = await createWalletEnvelope(kData, session.kWallet);
 
           const ipfsPayload = {

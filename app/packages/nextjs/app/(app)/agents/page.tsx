@@ -301,7 +301,15 @@ export default function AgentsPage() {
             {selectedAgent.personality && (
               <div>
                 <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Personalidad</h4>
-                <p className="text-sm text-foreground">{selectedAgent.personality}</p>
+                <p className="text-sm text-foreground bg-muted/60 p-2.5 rounded-lg border border-border/50 whitespace-pre-wrap">{selectedAgent.personality}</p>
+              </div>
+            )}
+
+            {/* Instructions */}
+            {selectedAgent.instructions && (
+              <div>
+                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Instrucciones personalizadas</h4>
+                <p className="text-sm text-foreground bg-muted/60 p-2.5 rounded-lg border border-border/50 whitespace-pre-wrap">{selectedAgent.instructions}</p>
               </div>
             )}
 
@@ -314,22 +322,32 @@ export default function AgentsPage() {
                   Vincular
                 </Button>
               </div>
-              <p className="text-sm text-foreground">
-                {selectedAgent.connectedMemories.length} memoria{selectedAgent.connectedMemories.length !== 1 ? "s" : ""}
-              </p>
-            </div>
-
-            {/* Persistent Memory */}
-            <div className="flex items-center justify-between">
-              <div>
-                <h4 className="text-sm font-medium text-foreground">Memoria Persistente</h4>
-                <p className="text-xs text-muted-foreground">Recordar contexto entre sesiones</p>
-              </div>
-              <div className={`w-9 h-5 rounded-full transition-colors ${selectedAgent.persistentMemory ? "bg-primary" : "bg-muted"}`}>
-                <div className={`w-3.5 h-3.5 rounded-full bg-white shadow-sm transform transition-transform mt-0.5 ${
-                  selectedAgent.persistentMemory ? "translate-x-4.5 ml-0.5" : "translate-x-0.5"
-                }`} />
-              </div>
+              {linkedMemories.length === 0 ? (
+                <p className="text-xs text-muted-foreground py-1">No hay memorias vinculadas.</p>
+              ) : (
+                <div className="space-y-2">
+                  {linkedMemories.map((mem) => (
+                    <div key={mem.memoryId} className="flex items-center justify-between p-2.5 rounded-lg bg-muted border border-border">
+                      <div className="min-w-0 flex-1 pr-2">
+                        <p className="text-sm font-medium text-foreground truncate">{mem.title}</p>
+                        <p className="text-xs text-muted-foreground truncate">{mem.cid}</p>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-muted-foreground hover:text-destructive shrink-0"
+                        onClick={async () => {
+                          await unlinkMemory(selectedAgent.id, mem.memoryId);
+                          loadLinkedMemories(selectedAgent.id);
+                        }}
+                        title="Desvincular"
+                      >
+                        <span className="material-symbols-outlined text-sm">close</span>
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Dates */}

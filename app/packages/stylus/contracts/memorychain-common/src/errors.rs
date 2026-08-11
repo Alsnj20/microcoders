@@ -1,8 +1,50 @@
-//! Shared error types for MemoryChain contracts.
-//!
-//! Using enums instead of strings saves gas and provides type safety.
-
 use alloy_primitives::Address;
+use stylus_sdk::alloy_sol_types::sol;
+
+sol! {
+    /// Generic EVM string revert error.
+    error Error(string message);
+
+    /// Custom error definitions for MemoryChain.
+    error NotAdmin(address caller);
+    error NotOwner(address caller, address owner);
+    error NotRegistered(address caller);
+    error ResourceNotFound();
+    error ResourceArchived();
+    error AlreadyExists();
+    error InvalidInput(string reason);
+    error Paused();
+    error NotPaused();
+
+    error InsufficientBalance(uint64 required, uint64 available);
+    error ZeroAmount();
+    error UnauthorizedConsumer(address caller);
+    error InsufficientPayment(uint64 required, uint64 provided);
+    error PurchaseOutOfRange(uint64 min, uint64 max, uint64 requested);
+
+    error NotFound();
+    error Archived();
+    error NotArchived();
+    error InvalidName();
+    error InvalidCid();
+    error InvalidHash();
+    error IdCollision();
+    error InsufficientCredits();
+    error CreditConsumptionFailed();
+
+    error LinkNotFound();
+    error AlreadyLinked();
+    error LinkNotActive();
+    error AlreadyDisabled();
+    error AlreadyEnabled();
+    error MemoryNotFound();
+    error AgentNotFound();
+    error CrossContractCallFailed();
+
+    error UsernameTaken(string username);
+    error UnauthorizedRecorder(address caller);
+}
+
 
 /// Common errors shared across all contracts.
 #[derive(Clone, Debug, PartialEq, Eq)]

@@ -28,9 +28,50 @@ interface AbiItem {
   anonymous?: boolean;
 }
 
+const COMMON_ERRORS: AbiItem[] = [
+  { type: "error", name: "Error", inputs: [{ name: "message", type: "string" }], stateMutability: "nonpayable" },
+  { type: "error", name: "Panic", inputs: [{ name: "code", type: "uint256" }], stateMutability: "nonpayable" },
+  { type: "error", name: "NotAdmin", inputs: [{ name: "caller", type: "address" }], stateMutability: "nonpayable" },
+  { type: "error", name: "NotOwner", inputs: [{ name: "caller", type: "address" }, { name: "owner", type: "address" }], stateMutability: "nonpayable" },
+  { type: "error", name: "NotRegistered", inputs: [{ name: "caller", type: "address" }], stateMutability: "nonpayable" },
+  { type: "error", name: "ResourceNotFound", inputs: [], stateMutability: "nonpayable" },
+  { type: "error", name: "ResourceArchived", inputs: [], stateMutability: "nonpayable" },
+  { type: "error", name: "AlreadyExists", inputs: [], stateMutability: "nonpayable" },
+  { type: "error", name: "InvalidInput", inputs: [{ name: "reason", type: "string" }], stateMutability: "nonpayable" },
+  { type: "error", name: "Paused", inputs: [], stateMutability: "nonpayable" },
+  { type: "error", name: "NotPaused", inputs: [], stateMutability: "nonpayable" },
+  { type: "error", name: "InsufficientBalance", inputs: [{ name: "required", type: "uint64" }, { name: "available", type: "uint64" }], stateMutability: "nonpayable" },
+  { type: "error", name: "ZeroAmount", inputs: [], stateMutability: "nonpayable" },
+  { type: "error", name: "UnauthorizedConsumer", inputs: [{ name: "caller", type: "address" }], stateMutability: "nonpayable" },
+  { type: "error", name: "InsufficientPayment", inputs: [{ name: "required", type: "uint64" }, { name: "provided", type: "uint64" }], stateMutability: "nonpayable" },
+  { type: "error", name: "PurchaseOutOfRange", inputs: [{ name: "min", type: "uint64" }, { name: "max", type: "uint64" }, { name: "requested", type: "uint64" }], stateMutability: "nonpayable" },
+  { type: "error", name: "NotFound", inputs: [], stateMutability: "nonpayable" },
+  { type: "error", name: "Archived", inputs: [], stateMutability: "nonpayable" },
+  { type: "error", name: "NotArchived", inputs: [], stateMutability: "nonpayable" },
+  { type: "error", name: "InvalidName", inputs: [], stateMutability: "nonpayable" },
+  { type: "error", name: "InvalidCid", inputs: [], stateMutability: "nonpayable" },
+  { type: "error", name: "InvalidHash", inputs: [], stateMutability: "nonpayable" },
+  { type: "error", name: "IdCollision", inputs: [], stateMutability: "nonpayable" },
+  { type: "error", name: "InsufficientCredits", inputs: [], stateMutability: "nonpayable" },
+  { type: "error", name: "CreditConsumptionFailed", inputs: [], stateMutability: "nonpayable" },
+  { type: "error", name: "LinkNotFound", inputs: [], stateMutability: "nonpayable" },
+  { type: "error", name: "AlreadyLinked", inputs: [], stateMutability: "nonpayable" },
+  { type: "error", name: "LinkNotActive", inputs: [], stateMutability: "nonpayable" },
+  { type: "error", name: "AlreadyDisabled", inputs: [], stateMutability: "nonpayable" },
+  { type: "error", name: "AlreadyEnabled", inputs: [], stateMutability: "nonpayable" },
+  { type: "error", name: "MemoryNotFound", inputs: [], stateMutability: "nonpayable" },
+  { type: "error", name: "AgentNotFound", inputs: [], stateMutability: "nonpayable" },
+  { type: "error", name: "CrossContractCallFailed", inputs: [], stateMutability: "nonpayable" },
+  { type: "error", name: "UsernameTaken", inputs: [{ name: "username", type: "string" }], stateMutability: "nonpayable" },
+  { type: "error", name: "UnauthorizedRecorder", inputs: [{ name: "caller", type: "address" }], stateMutability: "nonpayable" },
+  { type: "error", name: "ProgramNotActivated", inputs: [], stateMutability: "nonpayable" },
+  { type: "error", name: "FailedOp", inputs: [{ name: "opIndex", type: "uint256" }, { name: "reason", type: "string" }], stateMutability: "nonpayable" },
+];
+
 // ── CreditManager ──────────────────────────────────────────────────────────
 
 const CREDIT_MANAGER_ABI: AbiItem[] = [
+  ...COMMON_ERRORS,
   { type: "function", name: "initialize", inputs: [], outputs: [], stateMutability: "nonpayable" },
   { type: "function", name: "pause", inputs: [], outputs: [], stateMutability: "nonpayable" },
   { type: "function", name: "unpause", inputs: [], outputs: [], stateMutability: "nonpayable" },
@@ -222,6 +263,7 @@ const CREDIT_MANAGER_ABI: AbiItem[] = [
 // ── UserRegistry ───────────────────────────────────────────────────────────
 
 const USER_REGISTRY_ABI: AbiItem[] = [
+  ...COMMON_ERRORS,
   { type: "function", name: "initialize", inputs: [], outputs: [], stateMutability: "nonpayable" },
   { type: "function", name: "pause", inputs: [], outputs: [], stateMutability: "nonpayable" },
   { type: "function", name: "unpause", inputs: [], outputs: [], stateMutability: "nonpayable" },
@@ -348,6 +390,7 @@ const USER_REGISTRY_ABI: AbiItem[] = [
 // ── MemoryRegistry ─────────────────────────────────────────────────────────
 
 const MEMORY_REGISTRY_ABI: AbiItem[] = [
+  ...COMMON_ERRORS,
   {
     type: "function",
     name: "initialize",
@@ -449,6 +492,7 @@ const MEMORY_REGISTRY_ABI: AbiItem[] = [
 // ── AgentRegistry ──────────────────────────────────────────────────────────
 
 const AGENT_REGISTRY_ABI: AbiItem[] = [
+  ...COMMON_ERRORS,
   {
     type: "function",
     name: "initialize",
@@ -547,6 +591,7 @@ const AGENT_REGISTRY_ABI: AbiItem[] = [
 // ── ContextRegistry ────────────────────────────────────────────────────────
 
 const CONTEXT_REGISTRY_ABI: AbiItem[] = [
+  ...COMMON_ERRORS,
   {
     type: "function",
     name: "initialize",
@@ -661,6 +706,7 @@ const CONTEXT_REGISTRY_ABI: AbiItem[] = [
 // ── AuditRegistry ──────────────────────────────────────────────────────────
 
 const AUDIT_REGISTRY_ABI: AbiItem[] = [
+  ...COMMON_ERRORS,
   { type: "function", name: "initialize", inputs: [], outputs: [], stateMutability: "nonpayable" },
   { type: "function", name: "pause", inputs: [], outputs: [], stateMutability: "nonpayable" },
   { type: "function", name: "unpause", inputs: [], outputs: [], stateMutability: "nonpayable" },
@@ -720,6 +766,7 @@ const AUDIT_REGISTRY_ABI: AbiItem[] = [
 // ── ChatRegistry ──────────────────────────────────────────────────────────
 
 const CHAT_REGISTRY_ABI: AbiItem[] = [
+  ...COMMON_ERRORS,
   {
     type: "function",
     name: "initialize",
@@ -869,3 +916,9 @@ export function generateAbis(deploymentDir: string): void {
 export function getContractAbi(contractName: string): AbiItem[] | undefined {
   return CONTRACT_ABIS[contractName];
 }
+
+if (require.main === module) {
+  const deploymentDir = process.argv[2] || path.resolve(__dirname, "../deployments");
+  generateAbis(deploymentDir);
+}
+

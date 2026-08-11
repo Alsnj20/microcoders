@@ -84,15 +84,104 @@ function toNumber(val: unknown): number {
   return 0;
 }
 
+function decodeRawUtf8Hex(hex: string): string | null {
+  try {
+    if (!hex || typeof hex !== "string") return null;
+    let cleanHex = hex.startsWith("0x") ? hex.slice(2) : hex;
+    if (cleanHex.length === 0 || cleanHex.length % 2 !== 0) return null;
+    if (!/^[0-9a-fA-F]+$/.test(cleanHex)) return null;
+
+    if (cleanHex.startsWith("08c379a0") && cleanHex.length >= 138) {
+      const lengthHex = cleanHex.slice(72, 136);
+      const strLen = parseInt(lengthHex, 16);
+      if (strLen > 0 && cleanHex.length >= 136 + strLen * 2) {
+        const strHex = cleanHex.slice(136, 136 + strLen * 2);
+        const bytes = Buffer.from(strHex, "hex");
+        const decoded = bytes.toString("utf8");
+        if (decoded.trim()) return decoded.trim();
+      }
+    }
+
+    const bytes = Buffer.from(cleanHex, "hex");
+    const text = bytes.toString("utf8");
+    if (/^[\x20-\x7E\s\u00A0-\uFFFF]+$/.test(text) && text.trim().length > 0) {
+      return text.trim();
+    }
+  } catch {
+    // Ignore error
+  }
+  return null;
+}
+
+export function parseContractError(err: any): string {
+  if (!err) return "Unknown contract error";
+
+  const fullString = `${err.message || ""} ${err.shortMessage || ""} ${err.details || ""} ${err.cause?.message || ""}`;
+
+  const hexMatch = fullString.match(/0x[a-fA-F0-9]{8,}/) || (typeof err.data === "string" ? err.data.match(/0x[a-fA-F0-9]{8,}/) : null);
+  if (hexMatch) {
+    const decoded = decodeRawUtf8Hex(hexMatch[0]);
+    if (decoded) return decoded;
+  }
+
+  if (err.shortMessage) return err.shortMessage;
+  if (err.message) return err.message;
+  return "Transaction reverted on-chain";
+}
+
 // Wait for a tx and fail loudly if it was mined but reverted. viem's
 // waitForTransactionReceipt resolves on reverted receipts, so every write
 // must check receipt.status to avoid reporting false success.
-async function confirmTx(txHash: Hex): Promise<{ success: boolean; error?: string }> {
+async function confirmTx(
+  txHash: Hex,
+  callParams?: { to: Hex; data?: Hex; value?: bigint; account?: Hex },
+): Promise<{ success: boolean; error?: string }> {
   const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
   if (receipt.status !== "success") {
-    return { success: false, error: "Transaction reverted on-chain" };
+    let errorReason = "Transaction reverted on-chain";
+    if (callParams && callParams.to) {
+      try {
+        await publicClient.call({
+          to: callParams.to,
+          data: callParams.data,
+          value: callParams.value,
+          account: callParams.account || account.address,
+        });
+      } catch (err: any) {
+        errorReason = parseContractError(err);
+      }
+    }
+    return { success: false, error: errorReason };
   }
   return { success: true };
+}
+
+async function executeContractWrite(
+  request: any,
+  callParams?: { to: Hex; data?: Hex; value?: bigint; account?: Hex },
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const reqGas = request.gas ? BigInt(request.gas) : 0n;
+    const gasLimit = reqGas > 0n ? (reqGas * 15n) / 10n : 1000000n;
+    const finalGas = gasLimit > 500000n ? gasLimit : 500000n;
+
+    const txHash = await walletClient.writeContract({
+      ...request,
+      gas: finalGas,
+    });
+
+    return await confirmTx(
+      txHash,
+      callParams || {
+        to: request.address,
+        data: request.data,
+        value: request.value,
+        account: request.account?.address || account.address,
+      },
+    );
+  } catch (err: any) {
+    return { success: false, error: parseContractError(err) };
+  }
 }
 
 export function createAgentRegistryAdapter(): AgentRegistryContract {
@@ -108,11 +197,14 @@ export function createAgentRegistryAdapter(): AgentRegistryContract {
           args: [name, cid, hash as `0x${string}`],
           account,
         });
-        const hash_ = await walletClient.writeContract(request);
-        const confirmed = await confirmTx(hash_);
+        const calldata = encodeFunctionData({
+          abi: agentAbi,
+          functionName: "createAgent",
+          args: [name, cid, hash as `0x${string}`],
+        });
+        const confirmed = await executeContractWrite(request, { to: address, data: calldata });
         if (!confirmed.success) return { success: false, error: confirmed.error };
 
-        // Read the new agent ID from event or totalAgents
         const total = await publicClient.readContract({
           address,
           abi: agentAbi,
@@ -130,7 +222,7 @@ export function createAgentRegistryAdapter(): AgentRegistryContract {
         return { success: true, data: agentIdHex };
       } catch (err: any) {
         console.error("createAgent error:", err.message);
-        return { success: false, error: err.message };
+        return { success: false, error: parseContractError(err) };
       }
     },
 
@@ -143,12 +235,14 @@ export function createAgentRegistryAdapter(): AgentRegistryContract {
           args: [agentId as `0x${string}`, cid, hash as `0x${string}`],
           account,
         });
-        const txHash = await walletClient.writeContract(request);
-        const confirmed = await confirmTx(txHash);
-        if (!confirmed.success) return { success: false, error: confirmed.error };
-        return { success: true };
+        const calldata = encodeFunctionData({
+          abi: agentAbi,
+          functionName: "updateAgent",
+          args: [agentId as `0x${string}`, cid, hash as `0x${string}`],
+        });
+        return await executeContractWrite(request, { to: address, data: calldata });
       } catch (err: any) {
-        return { success: false, error: err.message };
+        return { success: false, error: parseContractError(err) };
       }
     },
 
@@ -161,12 +255,14 @@ export function createAgentRegistryAdapter(): AgentRegistryContract {
           args: [agentId as `0x${string}`],
           account,
         });
-        const txHash = await walletClient.writeContract(request);
-        const confirmed = await confirmTx(txHash);
-        if (!confirmed.success) return { success: false, error: confirmed.error };
-        return { success: true };
+        const calldata = encodeFunctionData({
+          abi: agentAbi,
+          functionName: "archiveAgent",
+          args: [agentId as `0x${string}`],
+        });
+        return await executeContractWrite(request, { to: address, data: calldata });
       } catch (err: any) {
-        return { success: false, error: err.message };
+        return { success: false, error: parseContractError(err) };
       }
     },
 
@@ -179,12 +275,14 @@ export function createAgentRegistryAdapter(): AgentRegistryContract {
           args: [agentId as `0x${string}`],
           account,
         });
-        const txHash = await walletClient.writeContract(request);
-        const confirmed = await confirmTx(txHash);
-        if (!confirmed.success) return { success: false, error: confirmed.error };
-        return { success: true };
+        const calldata = encodeFunctionData({
+          abi: agentAbi,
+          functionName: "restoreAgent",
+          args: [agentId as `0x${string}`],
+        });
+        return await executeContractWrite(request, { to: address, data: calldata });
       } catch (err: any) {
-        return { success: false, error: err.message };
+        return { success: false, error: parseContractError(err) };
       }
     },
 
@@ -278,8 +376,12 @@ export function createMemoryRegistryAdapter(): MemoryRegistryContract {
           args: [name, cid, hash as `0x${string}`, memoryType, visibility],
           account,
         });
-        const txHash = await walletClient.writeContract(request);
-        const confirmed = await confirmTx(txHash);
+        const calldata = encodeFunctionData({
+          abi: memoryAbi,
+          functionName: "createMemory",
+          args: [name, cid, hash as `0x${string}`, memoryType, visibility],
+        });
+        const confirmed = await executeContractWrite(request, { to: address, data: calldata });
         if (!confirmed.success) return { success: false, error: confirmed.error };
 
         const total = await publicClient.readContract({
@@ -299,7 +401,7 @@ export function createMemoryRegistryAdapter(): MemoryRegistryContract {
         return { success: true, data: memoryIdHex };
       } catch (err: any) {
         console.error("createMemory error:", err.message);
-        return { success: false, error: err.message };
+        return { success: false, error: parseContractError(err) };
       }
     },
 
@@ -312,12 +414,14 @@ export function createMemoryRegistryAdapter(): MemoryRegistryContract {
           args: [memoryId as `0x${string}`, cid, hash as `0x${string}`],
           account,
         });
-        const txHash = await walletClient.writeContract(request);
-        const confirmed = await confirmTx(txHash);
-        if (!confirmed.success) return { success: false, error: confirmed.error };
-        return { success: true };
+        const calldata = encodeFunctionData({
+          abi: memoryAbi,
+          functionName: "updateMemory",
+          args: [memoryId as `0x${string}`, cid, hash as `0x${string}`],
+        });
+        return await executeContractWrite(request, { to: address, data: calldata });
       } catch (err: any) {
-        return { success: false, error: err.message };
+        return { success: false, error: parseContractError(err) };
       }
     },
 
@@ -330,12 +434,14 @@ export function createMemoryRegistryAdapter(): MemoryRegistryContract {
           args: [memoryId as `0x${string}`],
           account,
         });
-        const txHash = await walletClient.writeContract(request);
-        const confirmed = await confirmTx(txHash);
-        if (!confirmed.success) return { success: false, error: confirmed.error };
-        return { success: true };
+        const calldata = encodeFunctionData({
+          abi: memoryAbi,
+          functionName: "archiveMemory",
+          args: [memoryId as `0x${string}`],
+        });
+        return await executeContractWrite(request, { to: address, data: calldata });
       } catch (err: any) {
-        return { success: false, error: err.message };
+        return { success: false, error: parseContractError(err) };
       }
     },
 
@@ -348,12 +454,14 @@ export function createMemoryRegistryAdapter(): MemoryRegistryContract {
           args: [memoryId as `0x${string}`],
           account,
         });
-        const txHash = await walletClient.writeContract(request);
-        const confirmed = await confirmTx(txHash);
-        if (!confirmed.success) return { success: false, error: confirmed.error };
-        return { success: true };
+        const calldata = encodeFunctionData({
+          abi: memoryAbi,
+          functionName: "restoreMemory",
+          args: [memoryId as `0x${string}`],
+        });
+        return await executeContractWrite(request, { to: address, data: calldata });
       } catch (err: any) {
-        return { success: false, error: err.message };
+        return { success: false, error: parseContractError(err) };
       }
     },
 
@@ -379,8 +487,8 @@ export function createMemoryRegistryAdapter(): MemoryRegistryContract {
             visibility: toNumber(visibility),
             status: toNumber(status),
             version: toNumber(version),
-            createdAt: 0,
-            updatedAt: 0,
+            createdAt: Math.floor(Date.now() / 1000),
+            updatedAt: Math.floor(Date.now() / 1000),
           },
         };
       } catch (err: any) {
@@ -658,9 +766,20 @@ export function createContextRegistryAdapter(): ContextRegistryContract {
           args: [agentId as `0x${string}`, memoryId as `0x${string}`, priority],
           account,
         });
-        const txHash = await walletClient.writeContract(request);
-        const confirmed = await confirmTx(txHash);
-        if (!confirmed.success) return { success: false, error: confirmed.error };
+        const calldata = encodeFunctionData({
+          abi: contextAbi,
+          functionName: "linkMemory",
+          args: [agentId as `0x${string}`, memoryId as `0x${string}`, priority],
+        });
+        const confirmed = await executeContractWrite(request, { to: address, data: calldata });
+        if (!confirmed.success) {
+          const parsed = parseContractError(confirmed.error);
+          const msg = parsed.toLowerCase();
+          if (msg.includes("already linked")) return { success: false, error: "ALREADY_LINKED" };
+          if (msg.includes("memory not found")) return { success: false, error: "MEMORY_NOT_FOUND" };
+          if (msg.includes("agent not found")) return { success: false, error: "AGENT_NOT_FOUND" };
+          return { success: false, error: parsed };
+        }
 
         const contextId = await publicClient.readContract({
           address,
@@ -670,12 +789,13 @@ export function createContextRegistryAdapter(): ContextRegistryContract {
         });
         return { success: true, data: bytes32ToHex(contextId) };
       } catch (err: any) {
-        const msg = (err?.message || "").toLowerCase();
+        const parsed = parseContractError(err);
+        const msg = parsed.toLowerCase();
         if (msg.includes("already linked")) return { success: false, error: "ALREADY_LINKED" };
         if (msg.includes("memory not found")) return { success: false, error: "MEMORY_NOT_FOUND" };
         if (msg.includes("agent not found")) return { success: false, error: "AGENT_NOT_FOUND" };
-        console.error("linkMemory error:", err?.message);
-        return { success: false, error: err?.message };
+        console.error("linkMemory error:", parsed);
+        return { success: false, error: parsed };
       }
     },
 
@@ -688,14 +808,24 @@ export function createContextRegistryAdapter(): ContextRegistryContract {
           args: [agentId as `0x${string}`, memoryId as `0x${string}`],
           account,
         });
-        const txHash = await walletClient.writeContract(request);
-        const confirmed = await confirmTx(txHash);
-        if (!confirmed.success) return { success: false, error: confirmed.error };
+        const calldata = encodeFunctionData({
+          abi: contextAbi,
+          functionName: "unlinkMemory",
+          args: [agentId as `0x${string}`, memoryId as `0x${string}`],
+        });
+        const confirmed = await executeContractWrite(request, { to: address, data: calldata });
+        if (!confirmed.success) {
+          const parsed = parseContractError(confirmed.error);
+          const msg = parsed.toLowerCase();
+          if (msg.includes("link not found")) return { success: false, error: "LINK_NOT_FOUND" };
+          return { success: false, error: parsed };
+        }
         return { success: true, data: undefined };
       } catch (err: any) {
-        const msg = (err?.message || "").toLowerCase();
+        const parsed = parseContractError(err);
+        const msg = parsed.toLowerCase();
         if (msg.includes("link not found")) return { success: false, error: "LINK_NOT_FOUND" };
-        return { success: false, error: err?.message };
+        return { success: false, error: parsed };
       }
     },
 
@@ -708,15 +838,26 @@ export function createContextRegistryAdapter(): ContextRegistryContract {
           args: [contextId as `0x${string}`, newPriority],
           account,
         });
-        const txHash = await walletClient.writeContract(request);
-        const confirmed = await confirmTx(txHash);
-        if (!confirmed.success) return { success: false, error: confirmed.error };
+        const calldata = encodeFunctionData({
+          abi: contextAbi,
+          functionName: "changePriority",
+          args: [contextId as `0x${string}`, newPriority],
+        });
+        const confirmed = await executeContractWrite(request, { to: address, data: calldata });
+        if (!confirmed.success) {
+          const parsed = parseContractError(confirmed.error);
+          const msg = parsed.toLowerCase();
+          if (msg.includes("link not found")) return { success: false, error: "LINK_NOT_FOUND" };
+          if (msg.includes("link not active")) return { success: false, error: "LINK_NOT_ACTIVE" };
+          return { success: false, error: parsed };
+        }
         return { success: true, data: undefined };
       } catch (err: any) {
-        const msg = (err?.message || "").toLowerCase();
+        const parsed = parseContractError(err);
+        const msg = parsed.toLowerCase();
         if (msg.includes("link not found")) return { success: false, error: "LINK_NOT_FOUND" };
         if (msg.includes("link not active")) return { success: false, error: "LINK_NOT_ACTIVE" };
-        return { success: false, error: err?.message };
+        return { success: false, error: parsed };
       }
     },
 
@@ -729,15 +870,26 @@ export function createContextRegistryAdapter(): ContextRegistryContract {
           args: [contextId as `0x${string}`],
           account,
         });
-        const txHash = await walletClient.writeContract(request);
-        const confirmed = await confirmTx(txHash);
-        if (!confirmed.success) return { success: false, error: confirmed.error };
+        const calldata = encodeFunctionData({
+          abi: contextAbi,
+          functionName: "disableLink",
+          args: [contextId as `0x${string}`],
+        });
+        const confirmed = await executeContractWrite(request, { to: address, data: calldata });
+        if (!confirmed.success) {
+          const parsed = parseContractError(confirmed.error);
+          const msg = parsed.toLowerCase();
+          if (msg.includes("link not found")) return { success: false, error: "LINK_NOT_FOUND" };
+          if (msg.includes("already disabled")) return { success: false, error: "ALREADY_DISABLED" };
+          return { success: false, error: parsed };
+        }
         return { success: true, data: undefined };
       } catch (err: any) {
-        const msg = (err?.message || "").toLowerCase();
+        const parsed = parseContractError(err);
+        const msg = parsed.toLowerCase();
         if (msg.includes("link not found")) return { success: false, error: "LINK_NOT_FOUND" };
         if (msg.includes("already disabled")) return { success: false, error: "ALREADY_DISABLED" };
-        return { success: false, error: err?.message };
+        return { success: false, error: parsed };
       }
     },
 
@@ -750,15 +902,26 @@ export function createContextRegistryAdapter(): ContextRegistryContract {
           args: [contextId as `0x${string}`],
           account,
         });
-        const txHash = await walletClient.writeContract(request);
-        const confirmed = await confirmTx(txHash);
-        if (!confirmed.success) return { success: false, error: confirmed.error };
+        const calldata = encodeFunctionData({
+          abi: contextAbi,
+          functionName: "enableLink",
+          args: [contextId as `0x${string}`],
+        });
+        const confirmed = await executeContractWrite(request, { to: address, data: calldata });
+        if (!confirmed.success) {
+          const parsed = parseContractError(confirmed.error);
+          const msg = parsed.toLowerCase();
+          if (msg.includes("link not found")) return { success: false, error: "LINK_NOT_FOUND" };
+          if (msg.includes("already enabled")) return { success: false, error: "ALREADY_ENABLED" };
+          return { success: false, error: parsed };
+        }
         return { success: true, data: undefined };
       } catch (err: any) {
-        const msg = (err?.message || "").toLowerCase();
+        const parsed = parseContractError(err);
+        const msg = parsed.toLowerCase();
         if (msg.includes("link not found")) return { success: false, error: "LINK_NOT_FOUND" };
         if (msg.includes("already enabled")) return { success: false, error: "ALREADY_ENABLED" };
-        return { success: false, error: err?.message };
+        return { success: false, error: parsed };
       }
     },
 
@@ -846,8 +1009,12 @@ export function createChatRegistryAdapter(): ChatRegistryContract {
           args: [name, cid, hash as `0x${string}`],
           account,
         });
-        const hash_ = await walletClient.writeContract(request);
-        const confirmed = await confirmTx(hash_);
+        const calldata = encodeFunctionData({
+          abi: chatAbi,
+          functionName: "createChat",
+          args: [name, cid, hash as `0x${string}`],
+        });
+        const confirmed = await executeContractWrite(request, { to: address, data: calldata });
         if (!confirmed.success) return { success: false, error: confirmed.error };
 
         // Read the new chat ID from event or totalChats
@@ -868,7 +1035,7 @@ export function createChatRegistryAdapter(): ChatRegistryContract {
         return { success: true, data: chatIdHex };
       } catch (err: any) {
         console.error("createChat error:", err.message);
-        return { success: false, error: err.message };
+        return { success: false, error: parseContractError(err) };
       }
     },
 
@@ -881,13 +1048,14 @@ export function createChatRegistryAdapter(): ChatRegistryContract {
           args: [chatId as `0x${string}`, cid, hash as `0x${string}`, name],
           account,
         });
-        const txHash = await walletClient.writeContract(request);
-        const confirmed = await confirmTx(txHash);
-        if (!confirmed.success) return { success: false, error: confirmed.error };
-
-        return { success: true };
+        const calldata = encodeFunctionData({
+          abi: chatAbi,
+          functionName: "updateChat",
+          args: [chatId as `0x${string}`, cid, hash as `0x${string}`, name],
+        });
+        return await executeContractWrite(request, { to: address, data: calldata });
       } catch (err: any) {
-        return { success: false, error: err.message };
+        return { success: false, error: parseContractError(err) };
       }
     },
 
@@ -900,12 +1068,14 @@ export function createChatRegistryAdapter(): ChatRegistryContract {
           args: [chatId as `0x${string}`],
           account,
         });
-        const txHash = await walletClient.writeContract(request);
-        const confirmed = await confirmTx(txHash);
-        if (!confirmed.success) return { success: false, error: confirmed.error };
-        return { success: true };
+        const calldata = encodeFunctionData({
+          abi: chatAbi,
+          functionName: "archiveChat",
+          args: [chatId as `0x${string}`],
+        });
+        return await executeContractWrite(request, { to: address, data: calldata });
       } catch (err: any) {
-        return { success: false, error: err.message };
+        return { success: false, error: parseContractError(err) };
       }
     },
 

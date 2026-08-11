@@ -6,8 +6,319 @@ import type { GenericContractsDeclaration } from "../utils/scaffold-eth/contract
 const deployedContracts = {
   "412346": {
     "CreditManager": {
-      "address": "0x9268bb5c5f6403ff02a89dcff7ddbb07ff046f99",
+      "address": "0x75e0e92a79880bd81a69f72983d03c75e2b33dc8",
       "abi": [
+        {
+          "type": "error",
+          "name": "Error",
+          "inputs": [
+            {
+              "name": "message",
+              "type": "string"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "Panic",
+          "inputs": [
+            {
+              "name": "code",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "NotAdmin",
+          "inputs": [
+            {
+              "name": "caller",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "NotOwner",
+          "inputs": [
+            {
+              "name": "caller",
+              "type": "address"
+            },
+            {
+              "name": "owner",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "NotRegistered",
+          "inputs": [
+            {
+              "name": "caller",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "ResourceNotFound",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "ResourceArchived",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "AlreadyExists",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "InvalidInput",
+          "inputs": [
+            {
+              "name": "reason",
+              "type": "string"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "Paused",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "NotPaused",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "InsufficientBalance",
+          "inputs": [
+            {
+              "name": "required",
+              "type": "uint64"
+            },
+            {
+              "name": "available",
+              "type": "uint64"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "ZeroAmount",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "UnauthorizedConsumer",
+          "inputs": [
+            {
+              "name": "caller",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "InsufficientPayment",
+          "inputs": [
+            {
+              "name": "required",
+              "type": "uint64"
+            },
+            {
+              "name": "provided",
+              "type": "uint64"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "PurchaseOutOfRange",
+          "inputs": [
+            {
+              "name": "min",
+              "type": "uint64"
+            },
+            {
+              "name": "max",
+              "type": "uint64"
+            },
+            {
+              "name": "requested",
+              "type": "uint64"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "NotFound",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "Archived",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "NotArchived",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "InvalidName",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "InvalidCid",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "InvalidHash",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "IdCollision",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "InsufficientCredits",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "CreditConsumptionFailed",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "LinkNotFound",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "AlreadyLinked",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "LinkNotActive",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "AlreadyDisabled",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "AlreadyEnabled",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "MemoryNotFound",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "AgentNotFound",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "CrossContractCallFailed",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "UsernameTaken",
+          "inputs": [
+            {
+              "name": "username",
+              "type": "string"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "UnauthorizedRecorder",
+          "inputs": [
+            {
+              "name": "caller",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "ProgramNotActivated",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "FailedOp",
+          "inputs": [
+            {
+              "name": "opIndex",
+              "type": "uint256"
+            },
+            {
+              "name": "reason",
+              "type": "string"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
         {
           "type": "function",
           "name": "initialize",
@@ -425,8 +736,319 @@ const deployedContracts = {
       ]
     },
     "UserRegistry": {
-      "address": "0xacca32fccaf3220c1a3a31f7a5f879c231320642",
+      "address": "0xa39ffa43eba037d67a0f4fe91956038aba0ca386",
       "abi": [
+        {
+          "type": "error",
+          "name": "Error",
+          "inputs": [
+            {
+              "name": "message",
+              "type": "string"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "Panic",
+          "inputs": [
+            {
+              "name": "code",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "NotAdmin",
+          "inputs": [
+            {
+              "name": "caller",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "NotOwner",
+          "inputs": [
+            {
+              "name": "caller",
+              "type": "address"
+            },
+            {
+              "name": "owner",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "NotRegistered",
+          "inputs": [
+            {
+              "name": "caller",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "ResourceNotFound",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "ResourceArchived",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "AlreadyExists",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "InvalidInput",
+          "inputs": [
+            {
+              "name": "reason",
+              "type": "string"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "Paused",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "NotPaused",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "InsufficientBalance",
+          "inputs": [
+            {
+              "name": "required",
+              "type": "uint64"
+            },
+            {
+              "name": "available",
+              "type": "uint64"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "ZeroAmount",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "UnauthorizedConsumer",
+          "inputs": [
+            {
+              "name": "caller",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "InsufficientPayment",
+          "inputs": [
+            {
+              "name": "required",
+              "type": "uint64"
+            },
+            {
+              "name": "provided",
+              "type": "uint64"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "PurchaseOutOfRange",
+          "inputs": [
+            {
+              "name": "min",
+              "type": "uint64"
+            },
+            {
+              "name": "max",
+              "type": "uint64"
+            },
+            {
+              "name": "requested",
+              "type": "uint64"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "NotFound",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "Archived",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "NotArchived",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "InvalidName",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "InvalidCid",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "InvalidHash",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "IdCollision",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "InsufficientCredits",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "CreditConsumptionFailed",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "LinkNotFound",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "AlreadyLinked",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "LinkNotActive",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "AlreadyDisabled",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "AlreadyEnabled",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "MemoryNotFound",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "AgentNotFound",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "CrossContractCallFailed",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "UsernameTaken",
+          "inputs": [
+            {
+              "name": "username",
+              "type": "string"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "UnauthorizedRecorder",
+          "inputs": [
+            {
+              "name": "caller",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "ProgramNotActivated",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "FailedOp",
+          "inputs": [
+            {
+              "name": "opIndex",
+              "type": "uint256"
+            },
+            {
+              "name": "reason",
+              "type": "string"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
         {
           "type": "function",
           "name": "initialize",
@@ -729,8 +1351,319 @@ const deployedContracts = {
       ]
     },
     "MemoryRegistry": {
-      "address": "0xc6464a3072270a3da814bb0ec2907df935ff839d",
+      "address": "0x841118047f42754332d0ad4db8a2893761dd7f5d",
       "abi": [
+        {
+          "type": "error",
+          "name": "Error",
+          "inputs": [
+            {
+              "name": "message",
+              "type": "string"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "Panic",
+          "inputs": [
+            {
+              "name": "code",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "NotAdmin",
+          "inputs": [
+            {
+              "name": "caller",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "NotOwner",
+          "inputs": [
+            {
+              "name": "caller",
+              "type": "address"
+            },
+            {
+              "name": "owner",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "NotRegistered",
+          "inputs": [
+            {
+              "name": "caller",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "ResourceNotFound",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "ResourceArchived",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "AlreadyExists",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "InvalidInput",
+          "inputs": [
+            {
+              "name": "reason",
+              "type": "string"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "Paused",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "NotPaused",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "InsufficientBalance",
+          "inputs": [
+            {
+              "name": "required",
+              "type": "uint64"
+            },
+            {
+              "name": "available",
+              "type": "uint64"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "ZeroAmount",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "UnauthorizedConsumer",
+          "inputs": [
+            {
+              "name": "caller",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "InsufficientPayment",
+          "inputs": [
+            {
+              "name": "required",
+              "type": "uint64"
+            },
+            {
+              "name": "provided",
+              "type": "uint64"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "PurchaseOutOfRange",
+          "inputs": [
+            {
+              "name": "min",
+              "type": "uint64"
+            },
+            {
+              "name": "max",
+              "type": "uint64"
+            },
+            {
+              "name": "requested",
+              "type": "uint64"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "NotFound",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "Archived",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "NotArchived",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "InvalidName",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "InvalidCid",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "InvalidHash",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "IdCollision",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "InsufficientCredits",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "CreditConsumptionFailed",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "LinkNotFound",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "AlreadyLinked",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "LinkNotActive",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "AlreadyDisabled",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "AlreadyEnabled",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "MemoryNotFound",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "AgentNotFound",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "CrossContractCallFailed",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "UsernameTaken",
+          "inputs": [
+            {
+              "name": "username",
+              "type": "string"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "UnauthorizedRecorder",
+          "inputs": [
+            {
+              "name": "caller",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "ProgramNotActivated",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "FailedOp",
+          "inputs": [
+            {
+              "name": "opIndex",
+              "type": "uint256"
+            },
+            {
+              "name": "reason",
+              "type": "string"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
         {
           "type": "function",
           "name": "initialize",
@@ -987,8 +1920,319 @@ const deployedContracts = {
       ]
     },
     "AgentRegistry": {
-      "address": "0xe7e96cef8812d2d24add2de592b5c786f915f64b",
+      "address": "0x84401cd7abbebb22acb7af2becfd9be56c30bcf1",
       "abi": [
+        {
+          "type": "error",
+          "name": "Error",
+          "inputs": [
+            {
+              "name": "message",
+              "type": "string"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "Panic",
+          "inputs": [
+            {
+              "name": "code",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "NotAdmin",
+          "inputs": [
+            {
+              "name": "caller",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "NotOwner",
+          "inputs": [
+            {
+              "name": "caller",
+              "type": "address"
+            },
+            {
+              "name": "owner",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "NotRegistered",
+          "inputs": [
+            {
+              "name": "caller",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "ResourceNotFound",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "ResourceArchived",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "AlreadyExists",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "InvalidInput",
+          "inputs": [
+            {
+              "name": "reason",
+              "type": "string"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "Paused",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "NotPaused",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "InsufficientBalance",
+          "inputs": [
+            {
+              "name": "required",
+              "type": "uint64"
+            },
+            {
+              "name": "available",
+              "type": "uint64"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "ZeroAmount",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "UnauthorizedConsumer",
+          "inputs": [
+            {
+              "name": "caller",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "InsufficientPayment",
+          "inputs": [
+            {
+              "name": "required",
+              "type": "uint64"
+            },
+            {
+              "name": "provided",
+              "type": "uint64"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "PurchaseOutOfRange",
+          "inputs": [
+            {
+              "name": "min",
+              "type": "uint64"
+            },
+            {
+              "name": "max",
+              "type": "uint64"
+            },
+            {
+              "name": "requested",
+              "type": "uint64"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "NotFound",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "Archived",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "NotArchived",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "InvalidName",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "InvalidCid",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "InvalidHash",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "IdCollision",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "InsufficientCredits",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "CreditConsumptionFailed",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "LinkNotFound",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "AlreadyLinked",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "LinkNotActive",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "AlreadyDisabled",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "AlreadyEnabled",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "MemoryNotFound",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "AgentNotFound",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "CrossContractCallFailed",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "UsernameTaken",
+          "inputs": [
+            {
+              "name": "username",
+              "type": "string"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "UnauthorizedRecorder",
+          "inputs": [
+            {
+              "name": "caller",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "ProgramNotActivated",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "FailedOp",
+          "inputs": [
+            {
+              "name": "opIndex",
+              "type": "uint256"
+            },
+            {
+              "name": "reason",
+              "type": "string"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
         {
           "type": "function",
           "name": "initialize",
@@ -1226,8 +2470,319 @@ const deployedContracts = {
       ]
     },
     "ChatRegistry": {
-      "address": "0x47b8399a8a3ad9665e4257904f99eafe043c4f50",
+      "address": "0xd92773693917f0ff664f85c3cb698c33420947ff",
       "abi": [
+        {
+          "type": "error",
+          "name": "Error",
+          "inputs": [
+            {
+              "name": "message",
+              "type": "string"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "Panic",
+          "inputs": [
+            {
+              "name": "code",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "NotAdmin",
+          "inputs": [
+            {
+              "name": "caller",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "NotOwner",
+          "inputs": [
+            {
+              "name": "caller",
+              "type": "address"
+            },
+            {
+              "name": "owner",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "NotRegistered",
+          "inputs": [
+            {
+              "name": "caller",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "ResourceNotFound",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "ResourceArchived",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "AlreadyExists",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "InvalidInput",
+          "inputs": [
+            {
+              "name": "reason",
+              "type": "string"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "Paused",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "NotPaused",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "InsufficientBalance",
+          "inputs": [
+            {
+              "name": "required",
+              "type": "uint64"
+            },
+            {
+              "name": "available",
+              "type": "uint64"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "ZeroAmount",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "UnauthorizedConsumer",
+          "inputs": [
+            {
+              "name": "caller",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "InsufficientPayment",
+          "inputs": [
+            {
+              "name": "required",
+              "type": "uint64"
+            },
+            {
+              "name": "provided",
+              "type": "uint64"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "PurchaseOutOfRange",
+          "inputs": [
+            {
+              "name": "min",
+              "type": "uint64"
+            },
+            {
+              "name": "max",
+              "type": "uint64"
+            },
+            {
+              "name": "requested",
+              "type": "uint64"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "NotFound",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "Archived",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "NotArchived",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "InvalidName",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "InvalidCid",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "InvalidHash",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "IdCollision",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "InsufficientCredits",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "CreditConsumptionFailed",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "LinkNotFound",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "AlreadyLinked",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "LinkNotActive",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "AlreadyDisabled",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "AlreadyEnabled",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "MemoryNotFound",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "AgentNotFound",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "CrossContractCallFailed",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "UsernameTaken",
+          "inputs": [
+            {
+              "name": "username",
+              "type": "string"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "UnauthorizedRecorder",
+          "inputs": [
+            {
+              "name": "caller",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "ProgramNotActivated",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "FailedOp",
+          "inputs": [
+            {
+              "name": "opIndex",
+              "type": "uint256"
+            },
+            {
+              "name": "reason",
+              "type": "string"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
         {
           "type": "function",
           "name": "initialize",
@@ -1531,8 +3086,319 @@ const deployedContracts = {
       ]
     },
     "ContextRegistry": {
-      "address": "0xec6c3df641bde740992898f25a780aab35d0062f",
+      "address": "0xbd7f7c83bdbabfd65a98c6d2afc9261f3d2eb03b",
       "abi": [
+        {
+          "type": "error",
+          "name": "Error",
+          "inputs": [
+            {
+              "name": "message",
+              "type": "string"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "Panic",
+          "inputs": [
+            {
+              "name": "code",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "NotAdmin",
+          "inputs": [
+            {
+              "name": "caller",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "NotOwner",
+          "inputs": [
+            {
+              "name": "caller",
+              "type": "address"
+            },
+            {
+              "name": "owner",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "NotRegistered",
+          "inputs": [
+            {
+              "name": "caller",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "ResourceNotFound",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "ResourceArchived",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "AlreadyExists",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "InvalidInput",
+          "inputs": [
+            {
+              "name": "reason",
+              "type": "string"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "Paused",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "NotPaused",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "InsufficientBalance",
+          "inputs": [
+            {
+              "name": "required",
+              "type": "uint64"
+            },
+            {
+              "name": "available",
+              "type": "uint64"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "ZeroAmount",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "UnauthorizedConsumer",
+          "inputs": [
+            {
+              "name": "caller",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "InsufficientPayment",
+          "inputs": [
+            {
+              "name": "required",
+              "type": "uint64"
+            },
+            {
+              "name": "provided",
+              "type": "uint64"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "PurchaseOutOfRange",
+          "inputs": [
+            {
+              "name": "min",
+              "type": "uint64"
+            },
+            {
+              "name": "max",
+              "type": "uint64"
+            },
+            {
+              "name": "requested",
+              "type": "uint64"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "NotFound",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "Archived",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "NotArchived",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "InvalidName",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "InvalidCid",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "InvalidHash",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "IdCollision",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "InsufficientCredits",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "CreditConsumptionFailed",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "LinkNotFound",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "AlreadyLinked",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "LinkNotActive",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "AlreadyDisabled",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "AlreadyEnabled",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "MemoryNotFound",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "AgentNotFound",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "CrossContractCallFailed",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "UsernameTaken",
+          "inputs": [
+            {
+              "name": "username",
+              "type": "string"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "UnauthorizedRecorder",
+          "inputs": [
+            {
+              "name": "caller",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "ProgramNotActivated",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "FailedOp",
+          "inputs": [
+            {
+              "name": "opIndex",
+              "type": "uint256"
+            },
+            {
+              "name": "reason",
+              "type": "string"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
         {
           "type": "function",
           "name": "initialize",
@@ -1786,8 +3652,319 @@ const deployedContracts = {
       ]
     },
     "AuditRegistry": {
-      "address": "0xe7e8b4930802ce5909cb2a2b8d2e447837158660",
+      "address": "0x72219e4c1b76276253a852ab058374d1dd5529be",
       "abi": [
+        {
+          "type": "error",
+          "name": "Error",
+          "inputs": [
+            {
+              "name": "message",
+              "type": "string"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "Panic",
+          "inputs": [
+            {
+              "name": "code",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "NotAdmin",
+          "inputs": [
+            {
+              "name": "caller",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "NotOwner",
+          "inputs": [
+            {
+              "name": "caller",
+              "type": "address"
+            },
+            {
+              "name": "owner",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "NotRegistered",
+          "inputs": [
+            {
+              "name": "caller",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "ResourceNotFound",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "ResourceArchived",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "AlreadyExists",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "InvalidInput",
+          "inputs": [
+            {
+              "name": "reason",
+              "type": "string"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "Paused",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "NotPaused",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "InsufficientBalance",
+          "inputs": [
+            {
+              "name": "required",
+              "type": "uint64"
+            },
+            {
+              "name": "available",
+              "type": "uint64"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "ZeroAmount",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "UnauthorizedConsumer",
+          "inputs": [
+            {
+              "name": "caller",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "InsufficientPayment",
+          "inputs": [
+            {
+              "name": "required",
+              "type": "uint64"
+            },
+            {
+              "name": "provided",
+              "type": "uint64"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "PurchaseOutOfRange",
+          "inputs": [
+            {
+              "name": "min",
+              "type": "uint64"
+            },
+            {
+              "name": "max",
+              "type": "uint64"
+            },
+            {
+              "name": "requested",
+              "type": "uint64"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "NotFound",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "Archived",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "NotArchived",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "InvalidName",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "InvalidCid",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "InvalidHash",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "IdCollision",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "InsufficientCredits",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "CreditConsumptionFailed",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "LinkNotFound",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "AlreadyLinked",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "LinkNotActive",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "AlreadyDisabled",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "AlreadyEnabled",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "MemoryNotFound",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "AgentNotFound",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "CrossContractCallFailed",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "UsernameTaken",
+          "inputs": [
+            {
+              "name": "username",
+              "type": "string"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "UnauthorizedRecorder",
+          "inputs": [
+            {
+              "name": "caller",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "ProgramNotActivated",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "error",
+          "name": "FailedOp",
+          "inputs": [
+            {
+              "name": "opIndex",
+              "type": "uint256"
+            },
+            {
+              "name": "reason",
+              "type": "string"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
         {
           "type": "function",
           "name": "initialize",

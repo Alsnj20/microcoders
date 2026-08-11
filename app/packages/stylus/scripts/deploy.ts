@@ -141,3 +141,10 @@ export default async function deployScript(deployOptions: DeployOptions) {
     console.log("   You can manually initialize later by running: pnpm init-contracts");
   }
 }
+
+if (require.main === module) {
+  const chainId = process.argv[2] || "412346";
+  const deploymentDir = process.argv[3] || path.resolve(__dirname, "../deployments");
+  updateDeployedAddresses(chainId, deploymentDir);
+}
+

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "~~/components/ui/button";
 import { Input } from "~~/components/ui/input";
 import { LateralBar, LateralBarContent, LateralBarSection, LateralBarSectionButton } from "~~/components/ui/lateral-bar";
@@ -61,6 +61,7 @@ export default function MemoriesPage() {
       if (sortBy === "oldest") return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
+
 
   const handleCreate = () => {
     setFormData({ title: "", description: "", type: "documento", content: "" });
@@ -231,11 +232,11 @@ export default function MemoriesPage() {
             <button
               type="button"
               onClick={handleCreate}
-              className="p-5 rounded-2xl border-2 border-dashed border-border/60 bg-card/50 hover:border-primary/40 hover:bg-muted/20 transition-all duration-200 flex flex-col items-center justify-center min-h-[200px] text-center"
+              className="p-3.5 rounded-xl border-2 border-dashed border-border/60 bg-card/50 hover:border-primary/40 hover:bg-muted/20 transition-all duration-200 flex flex-col items-center justify-center text-center"
             >
-              <span className="material-symbols-outlined text-4xl text-muted-foreground mb-2">add</span>
-              <span className="font-semibold text-foreground mb-1">Nueva memoria</span>
-              <span className="text-sm text-muted-foreground">
+              <span className="material-symbols-outlined text-2xl text-muted-foreground mb-0.5">add</span>
+              <span className="font-semibold text-foreground text-xs mb-0.5">Nueva memoria</span>
+              <span className="text-[11px] text-muted-foreground">
                 Guarda cualquier tipo de información.
               </span>
             </button>
@@ -330,21 +331,6 @@ export default function MemoriesPage() {
                 className="w-full px-3 py-2 rounded-lg border border-input bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring resize-none"
                 placeholder="Descripción breve..."
               />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-1">Tipo</label>
-              <select
-                value={formData.type}
-                onChange={(e) => setFormData({ ...formData, type: e.target.value as any })}
-                className="w-full px-3 py-2 rounded-lg border border-input bg-transparent text-sm text-foreground"
-              >
-                <option value="documento">Documento</option>
-                <option value="texto">Texto</option>
-                <option value="codigo">Código</option>
-                <option value="pdf">PDF</option>
-                <option value="enlace">Enlace</option>
-                <option value="imagen">Imagen</option>
-              </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-foreground mb-1">Contenido</label>

@@ -93,35 +93,38 @@ export function useChat() {
     loadConversations();
   }, []);
 
+  const fetchWelcomeMessage = useCallback(async (): Promise<ChatMessage | null> => {
+    try {
+      const username = localStorage.getItem("mc_username") || session.username || "";
+      const addr = session.address || "";
+      const url = `${api.chat.welcome.$url()}?username=${encodeURIComponent(username || "usuario")}`;
+      const res = await fetch(url, {
+        headers: { "X-Dev-Wallet": addr },
+        credentials: "include",
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return {
+          id: "welcome",
+          role: "assistant",
+          avatarUrl: ASSISTANT_AVATAR,
+          content: data.message,
+          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        };
+      }
+    } catch {}
+    return null;
+  }, [session.address, session.username]);
+
   // Load welcome message on first visit
   useEffect(() => {
     if (session.isAuthenticated && !welcomeLoaded.current && messages.length === 0) {
       welcomeLoaded.current = true;
-      const loadWelcome = async () => {
-        try {
-          const username = localStorage.getItem("mc_username") || "";
-          const addr = session.address || "";
-          const url = `${api.chat.welcome.$url()}?username=${encodeURIComponent(username || "usuario")}`;
-          const res = await fetch(url, {
-            headers: { "X-Dev-Wallet": addr },
-            credentials: "include",
-          });
-          if (res.ok) {
-            const data = await res.json();
-            const welcomeMsg: ChatMessage = {
-              id: "welcome",
-              role: "assistant",
-              avatarUrl: ASSISTANT_AVATAR,
-              content: data.message,
-              timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-            };
-            setMessages([welcomeMsg]);
-          }
-        } catch {}
-      };
-      loadWelcome();
+      fetchWelcomeMessage().then((msg) => {
+        if (msg) setMessages([msg]);
+      });
     }
-  }, [session.isAuthenticated, session.address]);
+  }, [session.isAuthenticated, fetchWelcomeMessage, messages.length]);
 
   const refreshBalance = useCallback(async () => {
     try {
@@ -203,10 +206,15 @@ export function useChat() {
     [session.kWallet],
   );
 
+  useEffect(() => {
+    if (userState.activeAgentId) {
+      loadLinkedMemories(userState.activeAgentId);
+    }
+  }, [userState.activeAgentId, loadLinkedMemories]);
+
   const selectAgent = useCallback((agentId: string) => {
     setUserState((prev) => ({ ...prev, activeAgentId: agentId }));
-    loadLinkedMemories(agentId);
-  }, [loadLinkedMemories]);
+  }, []);
 
   const linkMemory = useCallback(
     async (memoryId: string) => {
@@ -215,21 +223,23 @@ export function useChat() {
         const res = await api.context.link.$post({
           json: { agentId: userState.activeAgentId, memoryId, priority: 0 },
         });
-        const memRes = await api.memories[":id"].$get({ param: { id: memoryId } });
-        if (memRes.ok) {
-          const memData = await memRes.json();
-          let content = "";
-          if (session.kWallet && memData.cid && !memData.cid.startsWith("dev-")) {
-            try {
-              content = await fetchDecryptedMemoryContent(memData.cid, session.kWallet);
-            } catch (err) {
-              console.error("Failed to decrypt linked memory:", err);
+        if (res.ok || res.status === 409) {
+          const memRes = await api.memories[":id"].$get({ param: { id: memoryId } });
+          if (memRes.ok) {
+            const memData = await memRes.json();
+            let content = "";
+            if (session.kWallet && memData.cid && !memData.cid.startsWith("dev-")) {
+              try {
+                content = await fetchDecryptedMemoryContent(memData.cid, session.kWallet);
+              } catch (err) {
+                console.error("Failed to decrypt linked memory:", err);
+              }
             }
+            setLinkedMemories((prev) => {
+              if (prev.some((m) => m.memoryId === memoryId)) return prev;
+              return [...prev, { memoryId, title: memData.name || memoryId, cid: memData.cid, content }];
+            });
           }
-          setLinkedMemories((prev) => {
-            if (prev.some((m) => m.memoryId === memoryId)) return prev;
-            return [...prev, { memoryId, title: memData.name || memoryId, cid: memData.cid, content }];
-          });
         }
       } catch (err) {
         console.error("Failed to link memory:", err);
@@ -258,13 +268,14 @@ export function useChat() {
       setSelectedConversationId(id);
       const conv = conversations.find((c) => c.id === id);
       if (!conv?.onChainId || !conv.cid) {
-        setMessages([]);
+        const welcomeMsg = await fetchWelcomeMessage();
+        setMessages(welcomeMsg ? [welcomeMsg] : []);
         return;
       }
       const msgs = await loadConversationMessages(conv.onChainId, conv.cid, session.kWallet);
       setMessages(msgs);
     },
-    [conversations, session.kWallet],
+    [conversations, session.kWallet, fetchWelcomeMessage],
   );
 
   const createNewConversation = useCallback(async () => {
@@ -275,9 +286,10 @@ export function useChat() {
     };
     setConversations((prev) => [conv, ...prev]);
     setSelectedConversationId(conv.id);
-    setMessages([]);
-    welcomeLoaded.current = false;
-  }, []);
+    welcomeLoaded.current = true;
+    const welcomeMsg = await fetchWelcomeMessage();
+    setMessages(welcomeMsg ? [welcomeMsg] : []);
+  }, [fetchWelcomeMessage]);
 
   const sendMessage = useCallback(
     async (text: string) => {
