@@ -7,13 +7,20 @@ import type { AppEnv } from "../index.js";
 const FOUNDRY_OPENAI_URL = process.env.FOUNDRY_OPENAI_URL || "";
 const FOUNDRY_KEY = process.env.FOUNDRY_KEY || "";
 
-const foundry = createOpenAI({
-  baseURL: FOUNDRY_OPENAI_URL,
-  apiKey: FOUNDRY_KEY,
-  headers: {
-    "api-key": FOUNDRY_KEY,
-  },
-});
+// Lazy/guarded: createOpenAI throws at construction when no key is configured,
+// which would break importing the app (and tests) without a provider set up.
+let foundry: ReturnType<typeof createOpenAI> | null = null;
+try {
+  foundry = createOpenAI({
+    baseURL: FOUNDRY_OPENAI_URL,
+    apiKey: FOUNDRY_KEY,
+    headers: {
+      "api-key": FOUNDRY_KEY,
+    },
+  });
+} catch {
+  foundry = null;
+}
 
 function requireSession(c: { get: (key: string) => unknown; json: (body: unknown, status?: number) => Response }) {
   const session = c.get("session");
@@ -221,7 +228,7 @@ Puedo ayudarte a:
     const { message, model, systemPrompt, memories = [], history = [] } = parsed.data;
 
     try {
-      if (!FOUNDRY_OPENAI_URL || !FOUNDRY_KEY) {
+      if (!FOUNDRY_OPENAI_URL || !FOUNDRY_KEY || !foundry) {
         return c.json({ code: "CONFIG_ERROR", message: "AI provider not configured" }, 500);
       }
 

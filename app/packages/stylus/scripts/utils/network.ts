@@ -103,6 +103,8 @@ export function getPrivateKey(networkName: string): string {
     case "arbitrumnitro":
       if (process.env["PRIVATE_KEY_NITRO"]) {
         return process.env["PRIVATE_KEY_NITRO"];
+      } else if (process.env["PRIVATE_KEY"]) {
+        return process.env["PRIVATE_KEY"];
       } else {
         throw new Error("PRIVATE_KEY_NITRO is not set");
       }
@@ -225,4 +227,66 @@ export function getRpcUrlFromChain(chain: Chain): string {
 
 export function getBlockExplorerUrlFromChain(chain: Chain): string | undefined {
   return chain.blockExplorers?.default?.url || chain.blockExplorers?.etherscan?.url;
+}
+
+// ── Network-aware helpers (used by deploy + init) ─────────────────────────
+
+/** Returns the canonical SUPPORTED_NETWORKS key for a chain (e.g. "arbitrumNitro"). */
+export function getNetworkNameForChain(chain: Chain): string {
+  const entry = Object.entries(SUPPORTED_NETWORKS).find(([, c]) => c.id === chain.id);
+  return entry ? entry[0] : "unknown";
+}
+
+/** Env var suffix (e.g. "SEPOLIA") used for TREASURY_<NET> / PRICE_PER_CREDIT_<NET>. */
+function envSuffixFor(networkName: string): string | null {
+  switch (networkName.toLowerCase()) {
+    case "arbitrumone":
+      return "MAINNET";
+    case "arbitrumsepolia":
+      return "SEPOLIA";
+    case "arbitrumnitro":
+      return "NITRO";
+    case "arbitrumnova":
+      return "NOVA";
+    case "educhaintestnet":
+      return "EDUCHAIN_TESTNET";
+    case "educhain":
+      return "EDUCHAIN";
+    case "superposition":
+      return "SUPERPOSITION";
+    case "superpositiontestnet":
+      return "SUPERPOSITION_TESTNET";
+    default:
+      return null;
+  }
+}
+
+/** Whether a network runs in testnet mode (affects CreditManager.isTestnet). */
+export function isTestnetFor(networkName: string): boolean {
+  const key = networkName.toLowerCase();
+  return key === "arbitrumsepolia" || key === "educhaintestnet" || key === "superpositiontestnet";
+}
+
+/** Default treasury that receives ETH from credit purchases on Sepolia. */
+export const DEFAULT_SEPOLIA_TREASURY = "0x636b53B6DdA21FD7c953677ab1aA892A9957E97b";
+/** Default price per credit in Wei (1 MC = 0.00001 ETH). */
+export const DEFAULT_PRICE_PER_CREDIT = "100000000000000";
+
+/**
+ * Treasury address for a network, read from `TREASURY_<NET>` (standardized env names).
+ * Sepolia falls back to DEFAULT_SEPOLIA_TREASURY. Empty string means "use the admin".
+ */
+export function getTreasuryFor(networkName: string): string {
+  const suffix = envSuffixFor(networkName);
+  const value = suffix ? process.env[`TREASURY_${suffix}`] || "" : "";
+  if (networkName.toLowerCase() === "arbitrumsepolia") {
+    return value || DEFAULT_SEPOLIA_TREASURY;
+  }
+  return value;
+}
+
+/** Price per credit (Wei) for a network, from `PRICE_PER_CREDIT_<NET>` (default 1e14). */
+export function getPricePerCreditFor(networkName: string): string {
+  const suffix = envSuffixFor(networkName);
+  return suffix ? process.env[`PRICE_PER_CREDIT_${suffix}`] || DEFAULT_PRICE_PER_CREDIT : DEFAULT_PRICE_PER_CREDIT;
 }

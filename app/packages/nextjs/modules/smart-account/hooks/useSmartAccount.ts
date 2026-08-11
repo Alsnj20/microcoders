@@ -1,26 +1,40 @@
 import { useCallback, useEffect, useState } from "react";
 import { useAccount, usePublicClient } from "wagmi";
-import { type Hex, encodeFunctionData } from "viem";
-import { computeSmartAccountAddress, SIMPLE_ACCOUNT_FACTORY_ABI } from "../utils/account";
+import { type Hex } from "viem";
+import { getSmartAccountAddress } from "../utils/account";
 
-export function useSmartAccount() {
-  const { address: ownerAddress } = useAccount();
+/**
+ * Resolves the user's SimpleAccount address (via factory.getAddress on-chain)
+ * and whether it's already deployed.
+ *
+ * @param ownerOverride optional owner address. For production (Option B) this is
+ *        the user's SESSION KEY address; when omitted it falls back to the
+ *        connected wallet (dev convenience).
+ */
+export function useSmartAccount(ownerOverride?: Hex) {
+  const { address: walletAddress } = useAccount();
   const publicClient = usePublicClient();
   const [smartAccountAddress, setSmartAccountAddress] = useState<Hex | null>(null);
   const [isDeployed, setIsDeployed] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  const owner = ownerOverride ?? walletAddress;
+
   const computeAddress = useCallback(async () => {
-    if (!ownerAddress) return;
-    const addr = computeSmartAccountAddress(ownerAddress as Hex);
-    setSmartAccountAddress(addr);
-    return addr;
-  }, [ownerAddress]);
+    if (!owner || !publicClient) return;
+    setLoading(true);
+    try {
+      const addr = await getSmartAccountAddress(publicClient, owner as Hex);
+      setSmartAccountAddress(addr);
+    } finally {
+      setLoading(false);
+    }
+  }, [owner, publicClient]);
 
   const checkDeployed = useCallback(async () => {
     if (!smartAccountAddress || !publicClient) return;
     const code = await publicClient.getCode({ address: smartAccountAddress });
-    setIsDeployed(code !== "0x");
+    setIsDeployed(code !== "0x" && code !== null);
   }, [smartAccountAddress, publicClient]);
 
   useEffect(() => {

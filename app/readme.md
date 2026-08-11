@@ -122,17 +122,24 @@ In your second terminal:
 pnpm run deploy:contracts --network arbitrumNitro
 ```
 
-This command deploys all 6 MemoryChain contracts to the local network (CreditManager, UserRegistry, MemoryRegistry, AgentRegistry, ContextRegistry, AuditRegistry). After deployment it automatically:
+This command deploys all 7 MemoryChain contracts to the target network (CreditManager, UserRegistry, MemoryRegistry, AgentRegistry, ChatRegistry, ContextRegistry, AuditRegistry). After deployment it automatically:
 
 1. Generates ABIs for all contracts
 2. Writes addresses + ABIs to `deployedContracts.ts`
-3. Initializes all contracts (`initialize()`)
+3. Initializes all contracts (`initialize()` + `CreditManager.initializeNetwork()`)
 4. Authorizes cross-contract calls
 
 The `--network` flag is **required**. Available options:
 - `arbitrumNitro` — local Nitro dev node (default RPC: `http://localhost:8547`)
 - `arbitrumSepolia` — Arbitrum Sepolia testnet
 - `arbitrumOne` — Arbitrum One mainnet
+
+**Deployment artifacts** are saved to `packages/stylus/deployments/<network>_<chainId>_latest.json` (e.g. `arbitrumNitro_412346_latest.json`). The Hono backend and the frontend import addresses/ABIs from there.
+
+**Credentials** (in `packages/stylus/.env`):
+- `PRIVATE_KEY_NITRO` / `PRIVATE_KEY_SEPOLIA` / `PRIVATE_KEY_MAINNET` — signer wallet per network. The deployer becomes the `admin` of all contracts, so it must hold ETH to pay gas (use a faucet on Sepolia).
+- `TREASURY_SEPOLIA` / `TREASURY_MAINNET` — wallet receiving ETH from credit purchases (defaults to the deployer; Sepolia defaults to the MemoryChain treasury).
+- `PRICE_PER_CREDIT_<NET>` — optional, defaults to `100000000000000` Wei (0.00001 ETH) per Memory Credit.
 
 ### 6. Start your NextJS app
 
@@ -155,6 +162,49 @@ Navigate to `http://localhost:3000/e2e` to test the full flow:
 5. Create Agent
 
 All interactions use real on-chain contracts.
+
+## Account Abstraction (ERC-4337) — production flow
+
+On **Sepolia / Arbitrum One the user signs** (not the backend): each user owns a
+`SimpleAccount` (v0.6) whose owner is a **session key**. The backend signs
+UserOperations with that session key (stored AES-GCM encrypted in Redis) and
+submits them to a bundler; **gas is paid by the user's smart account**.
+
+Setup on a public network:
+
+```bash
+# 1. Deploy the MemoryChain contracts (see step 5)
+pnpm run deploy:contracts --network arbitrumSepolia
+
+# 2. Deploy the AA infra (canonical EntryPoint v0.6 + SimpleAccountFactory)
+#    Requires PRIVATE_KEY_SEPOLIA with funds in packages/stylus/.env
+cd packages/stylus/contracts/aa && ./script/deploy.sh sepolia
+
+# 3. Bundler (Alto) pointing at Sepolia — set ALTO_EXECUTOR_PRIVATE_KEYS /
+#    ALTO_UTILITY_PRIVATE_KEY (funded Sepolia key) in packages/stylus/aa/.env
+cd packages/stylus/aa && docker compose -f docker-compose.sepolia.yml up -d
+```
+
+Backend env (`packages/hono/.env`) required in production:
+
+```env
+NODE_ENV=production
+RPC_URL=https://sepolia-rollup.arbitrum.io/rpc
+CHAIN_ID=421614
+ENTRY_POINT_ADDRESS=0x5FF137D4b0FDCD49DcA30c7CF57C578A026d2789
+FACTORY_ADDRESS=<deployed SimpleAccountFactory>
+BUNDLER_URL=http://localhost:4337
+REDIS_URL=redis://localhost:6379
+SESSION_KEY_ENCRYPTION_KEY=<64 hex chars>
+```
+
+User flow: authenticate (SIWE) → `POST /session-keys/generate` (backend stores
+the encrypted session key) → fund their smart account (send ETH from the main
+wallet to `factory.getAddress(sessionKey)`) → every write is a UserOp signed
+with the session key and paid from the smart account.
+
+**Note:** `DEV_PRIVATE_KEY` is dev-only (backend signs everything on the local
+Nitro node). Leave it unset in production.
 
 ### 7. Test your smart contract
 

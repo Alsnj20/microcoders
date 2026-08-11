@@ -67,13 +67,13 @@ set +a
 
 # ── Select wallet based on network ──────────────────────────────────────────
 if [ "$NETWORK" = "sepolia" ]; then
-    PRIVATE_KEY="${TESTNET_PRIVATE_KEY:-}"
-    TREASURY="${TESTNET_TREASURY:-}"
+    PRIVATE_KEY="${PRIVATE_KEY_SEPOLIA:-}"
+    TREASURY="${ACCOUNT_ADDRESS_SEPOLIA:-}"
     IS_TESTNET="true"
     PRICE_PER_CREDIT="1000000000000"
 elif [ "$NETWORK" = "one" ]; then
-    PRIVATE_KEY="${MAINNET_PRIVATE_KEY:-}"
-    TREASURY="${MAINNET_TREASURY:-}"
+    PRIVATE_KEY="${PRIVATE_KEY_MAINNET:-}"
+    TREASURY="${ACCOUNT_ADDRESS_MAINNET:-}"
     IS_TESTNET="false"
     PRICE_PER_CREDIT="1000000000000"
 else

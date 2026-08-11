@@ -2,9 +2,14 @@ import * as fs from "fs";
 import * as path from "path";
 import { http, type Chain, createPublicClient, createWalletClient, parseAbi } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { arbitrumNitro } from "../../nextjs/utils/scaffold-stylus/supportedChains";
-
-const chain = arbitrumNitro as Chain;
+import {
+  getChain,
+  getPricePerCreditFor,
+  getPrivateKey,
+  getRpcUrlFromChain,
+  getTreasuryFor,
+  isTestnetFor,
+} from "./utils/network";
 
 const DEPLOYED_CONTRACTS_PATH = path.resolve(__dirname, "../../nextjs/contracts/deployedContracts.ts");
 
@@ -14,6 +19,10 @@ const INITIALIZE_ABI = parseAbi([
   "function initialize()",
   "function initialize(address creditManager, address userRegistry)",
   "function initialize(address memoryRegistry, address agentRegistry, address creditManager)",
+]);
+
+const INITIALIZE_NETWORK_ABI = parseAbi([
+  "function initializeNetwork(bool isTestnet, address treasury, uint256 pricePerCredit)",
 ]);
 
 const AUTHORIZE_ABI = parseAbi([
@@ -35,19 +44,28 @@ interface ContractAddresses {
 
 // ── Read deployed contracts ────────────────────────────────────────────────
 
-function getAddresses(): ContractAddresses | null {
+function getAddresses(chain: Chain): ContractAddresses | null {
   if (!fs.existsSync(DEPLOYED_CONTRACTS_PATH)) {
     return null;
   }
 
   const content = fs.readFileSync(DEPLOYED_CONTRACTS_PATH, "utf8");
-  const match = content.match(/const deployedContracts = ([\s\S]*?) as const;/);
-  if (!match) return null;
-
-  // eslint-disable-next-line no-eval
-  const contracts = eval("(" + match[1] + ")");
+  const constAnchor = content.indexOf(" as const;");
+  const constStart = content.indexOf("const deployedContracts = ");
+  if (constAnchor < 0 || constStart < 0) return null;
+  // The object is emitted by JSON.stringify, so the text between `= ` and ` as const;` is pure JSON.
+  let contracts: Record<string, unknown>;
+  try {
+    contracts = JSON.parse(
+      content.slice(constStart + "const deployedContracts = ".length, constAnchor),
+    );
+  } catch {
+    return null;
+  }
   const chainId = chain.id.toString();
-  const chainContracts = contracts[chainId];
+  const chainContracts = contracts[chainId] as
+    | Record<string, { address: string }>
+    | undefined;
   if (!chainContracts) return null;
 
   const get = (name: string) => chainContracts[name]?.address as `0x${string}` | undefined;
@@ -72,13 +90,10 @@ function getAddresses(): ContractAddresses | null {
 async function initializeContracts(
   walletClient: ReturnType<typeof createWalletClient>,
   account: ReturnType<typeof privateKeyToAccount>,
+  publicClient: ReturnType<typeof createPublicClient>,
   addresses: ContractAddresses,
+  network: string,
 ) {
-  const publicClient = createPublicClient({
-    chain,
-    transport: http(),
-  });
-
   console.log("\n🔧 Initializing contracts...");
 
   // Helper: try to initialize, skip if already initialized
@@ -96,10 +111,24 @@ async function initializeContracts(
     }
   };
 
-  // 1. CreditManager.initialize()
+  // 1. CreditManager.initialize() + initializeNetwork()
   await tryInit("CreditManager", async () => {
     const { request } = await publicClient.simulateContract({
       account, address: addresses.creditManager, abi: INITIALIZE_ABI, functionName: "initialize",
+    });
+    await walletClient.writeContract(request);
+  });
+
+  const treasury = (getTreasuryFor(network) || account.address) as `0x${string}`;
+  const isTestnet = isTestnetFor(network);
+  const pricePerCredit = BigInt(getPricePerCreditFor(network));
+  await tryInit("CreditManager.initializeNetwork", async () => {
+    const { request } = await publicClient.simulateContract({
+      account,
+      address: addresses.creditManager,
+      abi: INITIALIZE_NETWORK_ABI,
+      functionName: "initializeNetwork",
+      args: [isTestnet, treasury, pricePerCredit],
     });
     await walletClient.writeContract(request);
   });
@@ -163,13 +192,9 @@ async function initializeContracts(
 async function authorizeContracts(
   walletClient: ReturnType<typeof createWalletClient>,
   account: ReturnType<typeof privateKeyToAccount>,
+  publicClient: ReturnType<typeof createPublicClient>,
   addresses: ContractAddresses,
 ) {
-  const publicClient = createPublicClient({
-    chain,
-    transport: http(),
-  });
-
   console.log("🔗 Authorizing cross-contract calls...");
 
   // CreditManager.authorizeConsumer — allow MemoryRegistry, AgentRegistry, ChatRegistry, ContextRegistry to consume credits
@@ -212,27 +237,53 @@ async function authorizeContracts(
 
 // ── Main export ────────────────────────────────────────────────────────────
 
-export default async function initContracts(): Promise<void> {
-  const addresses = getAddresses();
+export default async function initContracts(network = "arbitrumNitro"): Promise<void> {
+  const chain = getChain(network);
+  if (!chain) {
+    throw new Error(`Network '${network}' not supported. Run: pnpm init-contracts --network <arbitrumNitro|arbitrumSepolia|arbitrumOne>`);
+  }
+
+  const addresses = getAddresses(chain);
   if (!addresses) {
-    console.warn("⚠️  Could not read contract addresses from deployedContracts.ts — skipping init");
+    console.warn(`⚠️  Could not read contract addresses for chain ${chain.id} from deployedContracts.ts — skipping init`);
     return;
   }
 
-  const pk = (process.env["PRIVATE_KEY_NITRO"] || process.env["PRIVATE_KEY"] || "").replace("0x", "");
+  const pk = getPrivateKey(network).replace("0x", "");
   if (!pk) {
-    throw new Error("No private key found in .env (PRIVATE_KEY_NITRO or PRIVATE_KEY)");
+    throw new Error(`No private key found for network ${network}`);
   }
 
   const account = privateKeyToAccount(`0x${pk}`);
+  const rpcUrl = getRpcUrlFromChain(chain);
+  const publicClient = createPublicClient({
+    chain,
+    transport: http(rpcUrl),
+  });
   const walletClient = createWalletClient({
     account,
     chain,
-    transport: http(),
+    transport: http(rpcUrl),
   });
 
-  console.log(`🔑 Using account: ${account.address}`);
+  console.log(`🔑 Using account: ${account.address} on ${chain.name} (${chain.id})`);
+  console.log(`📡 RPC: ${rpcUrl}`);
 
-  await initializeContracts(walletClient, account, addresses);
-  await authorizeContracts(walletClient, account, addresses);
+  await initializeContracts(walletClient, account, publicClient, addresses, network);
+  await authorizeContracts(walletClient, account, publicClient, addresses);
+}
+
+// ── CLI entry (pnpm init-contracts --network <network>) ────────────────────
+
+if (require.main === module) {
+  const args = process.argv;
+  const netIndex = args.indexOf("--network");
+  const network = netIndex >= 0 && args[netIndex + 1] ? args[netIndex + 1] : "arbitrumNitro";
+
+  initContracts(network)
+    .then(() => process.exit(0))
+    .catch(err => {
+      console.error("Fatal error:", err);
+      process.exit(1);
+    });
 }

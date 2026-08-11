@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { z } from "zod";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
+import { encryptPrivateKey } from "../lib/session-key-crypto.js";
 import type { SessionKeyStore } from "../types/session.js";
 import type { AppEnv } from "../index.js";
 
@@ -53,10 +54,21 @@ export function createSessionKeyRoutes(sessionKeyStore: SessionKeyStore, _sessio
     const account = privateKeyToAccount(privateKey);
     const keyId = `sk-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
+    // Store the private key encrypted so the backend can sign UserOps on behalf
+    // of the user (Option B). If no encryption key is configured we still hand
+    // the private key to the frontend but don't persist it.
+    let privateKeyEncrypted: string | undefined;
+    try {
+      privateKeyEncrypted = encryptPrivateKey(privateKey);
+    } catch (err) {
+      console.warn("[SessionKeys] SESSION_KEY_ENCRYPTION_KEY not set — key not persisted:", (err as Error).message);
+    }
+
     await sessionKeyStore.save({
       keyId,
       address: session.address,
       sessionKeyAddress: account.address,
+      privateKeyEncrypted,
       permissionsContext: parsed.data.permissionsContext,
       expiry: parsed.data.expiry,
       scopes: parsed.data.scopes,

@@ -1,0 +1,22 @@
+services:
+  alto-bundler:
+    image: ghcr.io/pimlicolabs/alto:latest
+    container_name: memorychain-alto-sepolia
+    ports:
+      - "4337:3000"
+    env_file:
+      - .env
+    environment:
+      - ALTO_RPC_URL=${ALTO_RPC_URL:-https://sepolia-rollup.arbitrum.io/rpc}
+      - ALTO_ENTRYPOINTS=${ENTRY_POINT_ADDRESS:-0x5FF137D4b0FDCD49DcA30c7CF57C578A026d2789}
+      - ALTO_NETWORK_NAME=arbitrum-sepolia
+      - ALTO_LOG_LEVEL=info
+      - ALTO_SAFE_MODE=true
+      - ALTO_EXECUTOR_PRIVATE_KEYS=${ALTO_EXECUTOR_PRIVATE_KEYS:?Set ALTO_EXECUTOR_PRIVATE_KEYS (a funded Sepolia key) in .env}
+      - ALTO_UTILITY_PRIVATE_KEY=${ALTO_UTILITY_PRIVATE_KEY:?Set ALTO_UTILITY_PRIVATE_KEY (a funded Sepolia key) in .env}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:4337"]
+      interval: 10s
+      timeout: 5s
+      retries: 5

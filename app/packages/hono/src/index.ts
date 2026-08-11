@@ -3,7 +3,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { serve } from "@hono/node-server";
 import { createIpfsClient, type IpfsClient } from "./lib/ipfs.js";
-import { createAgentRegistryAdapter, createMemoryRegistryAdapter, createUserRegistryAdapter, createCreditManagerAdapter, createContextRegistryAdapter, createAuditRegistryAdapter, createChatRegistryAdapter } from "./lib/contracts.js";
+import { createAgentRegistryAdapter, createMemoryRegistryAdapter, createUserRegistryAdapter, createCreditManagerAdapter, createContextRegistryAdapter, createAuditRegistryAdapter, createChatRegistryAdapter, createProductionAdapters } from "./lib/contracts.js";
 import { createIpfsRoutes } from "./routes/ipfs.js";
 import { createMemoryRoutes } from "./routes/memories.js";
 import { createAgentRoutes } from "./routes/agents.js";
@@ -102,7 +102,7 @@ export function createApp(deps: AppDependencies = {}): Hono<AppEnv> {
       const devAddress = c.req.header("X-Dev-Wallet");
       if (devAddress) {
         console.log("[Middleware] Dev wallet auth: setting session for", devAddress);
-        c.set("session", { address: devAddress, chainId: 412346, username: "dev-user" });
+        c.set("session", { address: devAddress, chainId: Number(process.env.CHAIN_ID || 412346), username: "dev-user" });
       }
     }
     await next();
@@ -189,16 +189,8 @@ export function createApp(deps: AppDependencies = {}): Hono<AppEnv> {
 
 const PORT = Number(process.env.PORT) || 3001;
 
-const isDev = process.env.NODE_ENV !== "production";
-const agentRegistry = isDev ? createAgentRegistryAdapter() : undefined;
-const memoryRegistry = isDev ? createMemoryRegistryAdapter() : undefined;
-const chatRegistry = isDev ? createChatRegistryAdapter() : undefined;
-const userRegistry = isDev ? createUserRegistryAdapter() : undefined;
-const creditManager = isDev ? createCreditManagerAdapter() : undefined;
-const contextRegistry = isDev ? createContextRegistryAdapter() : undefined;
-const auditRegistry = isDev ? createAuditRegistryAdapter() : undefined;
-
-// Session key store: in-memory for dev, Redis for production
+// Session key store: in-memory for dev, Redis for production.
+// Production requires Redis (session keys + encrypted private keys live there).
 const sessionKeyStore: SessionKeyStore | undefined = (() => {
   if (process.env.REDIS_URL || process.env.NODE_ENV === "production") {
     try {
@@ -213,16 +205,59 @@ const sessionKeyStore: SessionKeyStore | undefined = (() => {
   return undefined;
 })();
 
+/**
+ * Builds the on-chain registry adapters.
+ * - Dev (default): the backend signs everything with DEV_PRIVATE_KEY (EOA).
+ * - Production: writes are UserOps signed with each user's session key and
+ *   executed through their smart account (gas paid by the user). Requires a
+ *   session key store (Redis) + FACTORY_ADDRESS/ENTRY_POINT_ADDRESS config.
+ */
+function buildRegistries() {
+  if (process.env.NODE_ENV !== "production") {
+    return {
+      agentRegistry: createAgentRegistryAdapter(),
+      memoryRegistry: createMemoryRegistryAdapter(),
+      chatRegistry: createChatRegistryAdapter(),
+      userRegistry: createUserRegistryAdapter(),
+      creditManager: createCreditManagerAdapter(),
+      contextRegistry: createContextRegistryAdapter(),
+      auditRegistry: createAuditRegistryAdapter(),
+    };
+  }
+
+  if (!sessionKeyStore) {
+    throw new Error(
+      "Production mode requires a session key store (REDIS_URL) for the UserOp adapters",
+    );
+  }
+
+  const prod = createProductionAdapters({ sessionKeyStore });
+  return {
+    agentRegistry: prod.agentRegistry,
+    memoryRegistry: prod.memoryRegistry,
+    chatRegistry: prod.chatRegistry,
+    userRegistry: prod.userRegistry,
+    creditManager: prod.creditManager,
+    contextRegistry: prod.contextRegistry,
+    auditRegistry: prod.auditRegistry,
+  };
+}
+
 // Do not bind the port when the module is imported from tests.
 if (!process.env.VITEST) {
-  serve({ fetch: createApp({ agentRegistry, memoryRegistry, chatRegistry, userRegistry, creditManager, contextRegistry, auditRegistry, sessionKeyStore }).fetch, port: PORT }, (info) => {
+  const registries = buildRegistries();
+
+  serve({ fetch: createApp({ ...registries, sessionKeyStore }).fetch, port: PORT }, (info) => {
     console.log(`🚀 Hono server running on http://localhost:${info.port}`);
-    if (agentRegistry) console.log(`⛓️  AgentRegistry connected`);
-    if (memoryRegistry) console.log(`⛓️  MemoryRegistry connected`);
-    if (chatRegistry) console.log(`⛓️  ChatRegistry connected`);
-    if (userRegistry) console.log(`⛓️  UserRegistry connected`);
-    if (creditManager) console.log(`⛓️  CreditManager connected`);
-    if (contextRegistry) console.log(`⛓️  ContextRegistry connected`);
-    if (auditRegistry) console.log(`⛓️  AuditRegistry connected`);
+    console.log(
+      `⛓️  Mode: ${process.env.NODE_ENV === "production" ? "production (UserOps via bundler)" : "dev (backend EOA signer)"}`,
+    );
+    if (registries.agentRegistry) console.log("⛓️  AgentRegistry connected");
+    if (registries.memoryRegistry) console.log("⛓️  MemoryRegistry connected");
+    if (registries.chatRegistry) console.log("⛓️  ChatRegistry connected");
+    if (registries.userRegistry) console.log("⛓️  UserRegistry connected");
+    if (registries.creditManager) console.log("⛓️  CreditManager connected");
+    if (registries.contextRegistry) console.log("⛓️  ContextRegistry connected");
+    if (registries.auditRegistry) console.log("⛓️  AuditRegistry connected");
   });
 }

@@ -1,11 +1,13 @@
-import { createPublicClient, createWalletClient, http, type Hex, encodeFunctionData } from "viem";
-import { privateKeyToAccount } from "viem/accounts";
-import { nonceManager } from "viem/accounts";
-import { defineChain } from "viem";
+import { createPublicClient, createWalletClient, http, type Hex, encodeFunctionData, defineChain } from "viem";
+import { privateKeyToAccount, nonceManager } from "viem/accounts";
+import { arbitrum, arbitrumSepolia } from "viem/chains";
 import * as fs from "fs";
 import * as path from "path";
 import { fileURLToPath } from "url";
 import { buildAndSendUserOp, waitForUserOp } from "./userop-builder.js";
+import { getSmartAccountAddress, buildInitCode, isSmartAccountDeployed } from "./smart-account.js";
+import { decryptPrivateKey } from "./session-key-crypto.js";
+import type { SessionKeyStore } from "../types/session.js";
 import type {
   AgentRegistryContract,
   AgentData,
@@ -30,8 +32,11 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const DEPLOYMENTS_DIR = path.resolve(__dirname, "../../../stylus/deployments");
 
+// ── Network configuration (env-driven; defaults to the local Nitro dev node) ──
+
 const RPC_URL = process.env.RPC_URL || "http://localhost:8547";
-const DEV_PRIVATE_KEY = process.env.DEV_PRIVATE_KEY as Hex;
+const CHAIN_ID = Number(process.env.CHAIN_ID || 412346);
+const DEV_PRIVATE_KEY = process.env.DEV_PRIVATE_KEY as Hex | undefined;
 
 const nitroChain = defineChain({
   id: 412346,
@@ -40,11 +45,10 @@ const nitroChain = defineChain({
   rpcUrls: { default: { http: [RPC_URL] }, public: { http: [RPC_URL] } },
 });
 
-const account = privateKeyToAccount(DEV_PRIVATE_KEY);
-
-// Serialize nonce allocation across concurrent writes from the shared signer
-// account so rapid create→update sequences never collide/replace each other.
-// See walletClient setup below (uses `nonceManager` from viem/accounts).
+/** Target chain: Arbitrum One (42161), Sepolia (421614) or local Nitro (412346). */
+export const targetChain = CHAIN_ID === 42161 ? arbitrum : CHAIN_ID === 421614 ? arbitrumSepolia : nitroChain;
+/** Canonical deployment-file network name for the target chain. */
+export const NETWORK_NAME = CHAIN_ID === 42161 ? "arbitrumOne" : CHAIN_ID === 421614 ? "arbitrumSepolia" : "arbitrumNitro";
 
 function loadAbi(contractName: string) {
   const abiPath = path.resolve(DEPLOYMENTS_DIR, contractName);
@@ -52,25 +56,91 @@ function loadAbi(contractName: string) {
   return JSON.parse(fs.readFileSync(abiPath, "utf8"));
 }
 
-function loadDeployment(chainId: string) {
-  const deploymentPath = path.resolve(DEPLOYMENTS_DIR, `${chainId}_latest.json`);
-  if (!fs.existsSync(deploymentPath)) throw new Error(`Deployment not found: ${deploymentPath}`);
-  return JSON.parse(fs.readFileSync(deploymentPath, "utf8"));
+function loadDeployment(networkName: string, chainId: string) {
+  const newPath = path.resolve(DEPLOYMENTS_DIR, `${networkName}_${chainId}_latest.json`);
+  if (fs.existsSync(newPath)) return JSON.parse(fs.readFileSync(newPath, "utf8"));
+  const legacyPath = path.resolve(DEPLOYMENTS_DIR, `${chainId}_latest.json`);
+  if (fs.existsSync(legacyPath)) return JSON.parse(fs.readFileSync(legacyPath, "utf8"));
+  throw new Error(`Deployment not found: ${newPath}`);
 }
 
-const deployments = loadDeployment("412346");
-const agentAbi = loadAbi("agent-registry");
-const memoryAbi = loadAbi("memory-registry");
-const chatAbi = loadAbi("chat-registry");
-const userAbi = loadAbi("user-registry");
-const creditAbi = loadAbi("credit-manager");
-const contextAbi = loadAbi("context-registry");
-const auditAbi = loadAbi("audit-registry");
+let _deployments: any = null;
+/** Deployed contract addresses for the target chain (loaded lazily). */
+function getDeployments(): any {
+  if (!_deployments) {
+    _deployments = loadDeployment(NETWORK_NAME, CHAIN_ID.toString());
+  }
+  return _deployments;
+}
 
-const publicClient = createPublicClient({ chain: nitroChain, transport: http(RPC_URL) });
-// Shared signer account; the nonce manager serializes nonce allocation across
-// concurrent writes so create→update sequences don't collide/replace each other.
-const walletClient = createWalletClient({ account: { ...account, nonceManager }, chain: nitroChain, transport: http(RPC_URL) });
+/**
+ * Lazy ABI: only loads from the deployment dir when the ABI is actually used.
+ * Lets the module import cleanly (tests) before any deployment exists.
+ */
+// biome-ignore lint/suspicious/noExplicitAny: viem works with loose ABI arrays here.
+function lazyAbi(name: string): any[] {
+  let loaded: any;
+  return new Proxy([] as any[], {
+    get(_, prop) {
+      if (!loaded) loaded = loadAbi(name);
+      return Reflect.get(loaded, prop, loaded);
+    },
+  });
+}
+
+const agentAbi = lazyAbi("agent-registry");
+const memoryAbi = lazyAbi("memory-registry");
+const chatAbi = lazyAbi("chat-registry");
+const userAbi = lazyAbi("user-registry");
+const creditAbi = lazyAbi("credit-manager");
+const contextAbi = lazyAbi("context-registry");
+const auditAbi = lazyAbi("audit-registry");
+
+const publicClient = createPublicClient({ chain: targetChain, transport: http(RPC_URL) });
+
+/**
+ * Dev-only EOA signer (backend signs everything). Not available in production —
+ * there the user signs through their smart account via session keys + UserOps.
+ *
+ * Constructed lazily: reads never touch the signer, so production (where
+ * DEV_PRIVATE_KEY is unset) can still use the read paths of these adapters.
+ * Only an actual dev write throws a clear error.
+ */
+let devSigner: {
+  account: ReturnType<typeof privateKeyToAccount>;
+  walletClient: ReturnType<typeof createWalletClient>;
+} | null = null;
+function getDevSigner() {
+  if (devSigner) return devSigner;
+  if (!DEV_PRIVATE_KEY) {
+    throw new Error("DEV_PRIVATE_KEY is required to use the dev (EOA) write adapters");
+  }
+  const signerAccount = privateKeyToAccount(DEV_PRIVATE_KEY);
+  // Serialize nonce allocation across concurrent writes from the shared signer
+  // account so rapid create→update sequences never collide/replace each other.
+  const signerWalletClient = createWalletClient({
+    account: { ...signerAccount, nonceManager },
+    chain: targetChain,
+    transport: http(RPC_URL),
+  });
+  devSigner = { account: signerAccount, walletClient: signerWalletClient };
+  return devSigner;
+}
+
+// Lazy proxies: constructing the signer (and validating DEV_PRIVATE_KEY) only
+// happens when a dev write actually runs.
+const account = new Proxy({} as ReturnType<typeof privateKeyToAccount>, {
+  get(_, prop) {
+    const real = getDevSigner().account;
+    return Reflect.get(real, prop, real);
+  },
+});
+const walletClient = new Proxy({} as ReturnType<typeof createWalletClient>, {
+  get(_, prop) {
+    const real = getDevSigner().walletClient;
+    return Reflect.get(real, prop, real);
+  },
+});
 
 function bytes32ToHex(val: unknown): string {
   if (typeof val === "string") return val;
@@ -185,7 +255,7 @@ async function executeContractWrite(
 }
 
 export function createAgentRegistryAdapter(): AgentRegistryContract {
-  const address = deployments["agent-registry"].address as `0x${string}`;
+  const address = getDeployments()["agent-registry"].address as `0x${string}`;
 
   return {
     async createAgent(owner, name, _description, cid, hash): Promise<ContractResult<string>> {
@@ -364,7 +434,7 @@ export function createAgentRegistryAdapter(): AgentRegistryContract {
 }
 
 export function createMemoryRegistryAdapter(): MemoryRegistryContract {
-  const address = deployments["memory-registry"].address as `0x${string}`;
+  const address = getDeployments()["memory-registry"].address as `0x${string}`;
 
   return {
     async createMemory(owner, name, _description, cid, hash, memoryType, visibility): Promise<ContractResult<string>> {
@@ -545,7 +615,7 @@ export function createMemoryRegistryAdapter(): MemoryRegistryContract {
 }
 
 export function createUserRegistryAdapter(): UserRegistryContract {
-  const address = deployments["user-registry"].address as `0x${string}`;
+  const address = getDeployments()["user-registry"].address as `0x${string}`;
 
   return {
     async registerUser(_owner, username): Promise<ContractResult<void>> {
@@ -627,7 +697,7 @@ export function createUserRegistryAdapter(): UserRegistryContract {
 }
 
 export function createCreditManagerAdapter(): CreditManagerContract {
-  const address = deployments["credit-manager"].address as `0x${string}`;
+  const address = getDeployments()["credit-manager"].address as `0x${string}`;
 
   return {
     async balanceOf(user): Promise<ContractResult<CreditBalance>> {
@@ -754,7 +824,7 @@ export function createCreditManagerAdapter(): CreditManagerContract {
 }
 
 export function createContextRegistryAdapter(): ContextRegistryContract {
-  const address = deployments["context-registry"].address as `0x${string}`;
+  const address = getDeployments()["context-registry"].address as `0x${string}`;
 
   return {
     async linkMemory(_owner, agentId, memoryId, priority): Promise<ContractResult<string>> {
@@ -997,7 +1067,7 @@ export function createContextRegistryAdapter(): ContextRegistryContract {
 }
 
 export function createChatRegistryAdapter(): ChatRegistryContract {
-  const address = deployments["chat-registry"].address as `0x${string}`;
+  const address = getDeployments()["chat-registry"].address as `0x${string}`;
 
   return {
     async createChat(owner, name, cid, hash): Promise<ContractResult<string>> {
@@ -1170,7 +1240,7 @@ export function createChatRegistryAdapter(): ChatRegistryContract {
 }
 
 export function createAuditRegistryAdapter(): AuditRegistryContract {
-  const address = deployments["audit-registry"].address as `0x${string}`;
+  const address = getDeployments()["audit-registry"].address as `0x${string}`;
 
   return {
     async recordAudit(actor, entityType, entityId, action): Promise<ContractResult<string>> {
@@ -1241,7 +1311,72 @@ export function createAuditRegistryAdapter(): AuditRegistryContract {
   };
 }
 
-// UserOp-based adapters: wraps existing adapters to send transactions via bundler
+
+// ══════════════════════════════════════════════════════════════════════════
+// UserOp-based adapters (production path)
+//
+// The user owns a SimpleAccount whose owner is their session key. The backend
+// signs UserOperations with that session key (stored encrypted in Redis) and
+// submits them to the bundler. Gas is paid by the user's smart account.
+// ══════════════════════════════════════════════════════════════════════════
+
+export interface UserOpConfig {
+  chain: typeof targetChain;
+  rpcUrl: string;
+  bundlerUrl: string;
+  entryPointAddress: Hex;
+  factoryAddress: Hex;
+  sessionKeyPrivateKey: Hex;
+}
+
+/** EntryPoint v0.6 canonical on Sepolia/One; on Nitro use the locally deployed one. */
+function getEntryPointAddress(): Hex {
+  return (process.env.ENTRY_POINT_ADDRESS || "0x5FF137D4b0FDCD49DcA30c7CF57C578A026d2789") as Hex;
+}
+
+function getFactoryAddress(): Hex {
+  const f = process.env.FACTORY_ADDRESS;
+  if (!f) throw new Error("FACTORY_ADDRESS is required to use the production (UserOp) adapters");
+  return f as Hex;
+}
+
+function getBundlerUrl(): string {
+  return process.env.BUNDLER_URL || "http://localhost:4337";
+}
+
+function userOpConfig(sessionKeyPrivateKey: Hex): UserOpConfig {
+  return {
+    chain: targetChain,
+    rpcUrl: RPC_URL,
+    bundlerUrl: getBundlerUrl(),
+    entryPointAddress: getEntryPointAddress(),
+    factoryAddress: getFactoryAddress(),
+    sessionKeyPrivateKey,
+  };
+}
+
+/** Resolves the user's smart account (owner = session key) and sends a UserOp. */
+async function sendUserOp(config: UserOpConfig, target: Hex, calldata: Hex, value = 0n): Promise<void> {
+  const sessionAccount = privateKeyToAccount(config.sessionKeyPrivateKey);
+  const smartAccount = await getSmartAccountAddress(publicClient, config.factoryAddress, sessionAccount.address);
+  const deployed = await isSmartAccountDeployed(publicClient, smartAccount);
+  const initCode = deployed ? "0x" : buildInitCode(config.factoryAddress, sessionAccount.address);
+
+  const { userOpHash } = await buildAndSendUserOp({
+    target,
+    calldata,
+    value,
+    sessionKeyPrivateKey: config.sessionKeyPrivateKey,
+    smartAccount,
+    entryPointAddress: config.entryPointAddress,
+    chain: config.chain,
+    rpcUrl: config.rpcUrl,
+    bundlerUrl: config.bundlerUrl,
+    initCode: initCode as Hex,
+  });
+  await waitForUserOp(userOpHash, config.bundlerUrl);
+}
+
 export interface UserOpAdapterFactory {
   createUserRegistryUserOpAdapter(sessionKeyPrivateKey: Hex): UserRegistryContract;
   createMemoryRegistryUserOpAdapter(sessionKeyPrivateKey: Hex): MemoryRegistryContract;
@@ -1249,18 +1384,19 @@ export interface UserOpAdapterFactory {
   createChatRegistryUserOpAdapter(sessionKeyPrivateKey: Hex): ChatRegistryContract;
   createContextRegistryUserOpAdapter(sessionKeyPrivateKey: Hex): ContextRegistryContract;
   createCreditManagerUserOpAdapter(sessionKeyPrivateKey: Hex): CreditManagerContract;
+  createAuditRegistryUserOpAdapter(sessionKeyPrivateKey: Hex): AuditRegistryContract;
 }
 
 export function createUserOpAdapters(): UserOpAdapterFactory {
   return {
     createUserRegistryUserOpAdapter(sessionKeyPrivateKey) {
-      const address = deployments["user-registry"].address as `0x${string}`;
+      const config = userOpConfig(sessionKeyPrivateKey);
+      const address = getDeployments()["user-registry"].address as Hex;
       return {
         async registerUser(_owner, username) {
           try {
             const calldata = encodeFunctionData({ abi: userAbi, functionName: "registerUser", args: [username] });
-            const { userOpHash } = await buildAndSendUserOp({ target: address, calldata, sessionKeyPrivateKey });
-            await waitForUserOp(userOpHash);
+            await sendUserOp(config, address, calldata);
             return { success: true };
           } catch (err: any) {
             return { success: false, error: err.message };
@@ -1269,8 +1405,7 @@ export function createUserOpAdapters(): UserOpAdapterFactory {
         async updateUsername(_owner, username) {
           try {
             const calldata = encodeFunctionData({ abi: userAbi, functionName: "updateUsername", args: [username] });
-            const { userOpHash } = await buildAndSendUserOp({ target: address, calldata, sessionKeyPrivateKey });
-            await waitForUserOp(userOpHash);
+            await sendUserOp(config, address, calldata);
             return { success: true };
           } catch (err: any) {
             return { success: false, error: err.message };
@@ -1283,7 +1418,8 @@ export function createUserOpAdapters(): UserOpAdapterFactory {
     },
 
     createMemoryRegistryUserOpAdapter(sessionKeyPrivateKey) {
-      const address = deployments["memory-registry"].address as `0x${string}`;
+      const config = userOpConfig(sessionKeyPrivateKey);
+      const address = getDeployments()["memory-registry"].address as Hex;
       return {
         async createMemory(owner, name, _description, cid, hash, memoryType, visibility) {
           try {
@@ -1292,15 +1428,15 @@ export function createUserOpAdapters(): UserOpAdapterFactory {
               functionName: "createMemory",
               args: [name, cid, hash as `0x${string}`, memoryType, visibility],
             });
-            const { userOpHash } = await buildAndSendUserOp({ target: address, calldata, sessionKeyPrivateKey });
-            await waitForUserOp(userOpHash);
+            await sendUserOp(config, address, calldata);
             const total = await publicClient.readContract({ address, abi: memoryAbi, functionName: "totalMemories" });
             const memoryId = await publicClient.readContract({
-              address, abi: memoryAbi, functionName: "getMemoryByOwnerIndex",
+              address,
+              abi: memoryAbi,
+              functionName: "getMemoryByOwnerIndex",
               args: [owner as `0x${string}`, BigInt(toNumber(total) - 1)],
             });
-            const memoryIdHex = bytes32ToHex(memoryId);
-            return { success: true, data: memoryIdHex };
+            return { success: true, data: bytes32ToHex(memoryId) };
           } catch (err: any) {
             return { success: false, error: err.message };
           }
@@ -1308,11 +1444,11 @@ export function createUserOpAdapters(): UserOpAdapterFactory {
         async updateMemory(_owner, memoryId, cid, hash) {
           try {
             const calldata = encodeFunctionData({
-              abi: memoryAbi, functionName: "updateMemory",
+              abi: memoryAbi,
+              functionName: "updateMemory",
               args: [memoryId as `0x${string}`, cid, hash as `0x${string}`],
             });
-            const { userOpHash } = await buildAndSendUserOp({ target: address, calldata, sessionKeyPrivateKey });
-            await waitForUserOp(userOpHash);
+            await sendUserOp(config, address, calldata);
             return { success: true };
           } catch (err: any) {
             return { success: false, error: err.message };
@@ -1320,12 +1456,8 @@ export function createUserOpAdapters(): UserOpAdapterFactory {
         },
         async archiveMemory(_owner, memoryId) {
           try {
-            const calldata = encodeFunctionData({
-              abi: memoryAbi, functionName: "archiveMemory",
-              args: [memoryId as `0x${string}`],
-            });
-            const { userOpHash } = await buildAndSendUserOp({ target: address, calldata, sessionKeyPrivateKey });
-            await waitForUserOp(userOpHash);
+            const calldata = encodeFunctionData({ abi: memoryAbi, functionName: "archiveMemory", args: [memoryId as `0x${string}`] });
+            await sendUserOp(config, address, calldata);
             return { success: true };
           } catch (err: any) {
             return { success: false, error: err.message };
@@ -1333,12 +1465,8 @@ export function createUserOpAdapters(): UserOpAdapterFactory {
         },
         async restoreMemory(_owner, memoryId) {
           try {
-            const calldata = encodeFunctionData({
-              abi: memoryAbi, functionName: "restoreMemory",
-              args: [memoryId as `0x${string}`],
-            });
-            const { userOpHash } = await buildAndSendUserOp({ target: address, calldata, sessionKeyPrivateKey });
-            await waitForUserOp(userOpHash);
+            const calldata = encodeFunctionData({ abi: memoryAbi, functionName: "restoreMemory", args: [memoryId as `0x${string}`] });
+            await sendUserOp(config, address, calldata);
             return { success: true };
           } catch (err: any) {
             return { success: false, error: err.message };
@@ -1352,23 +1480,25 @@ export function createUserOpAdapters(): UserOpAdapterFactory {
     },
 
     createAgentRegistryUserOpAdapter(sessionKeyPrivateKey) {
-      const address = deployments["agent-registry"].address as `0x${string}`;
+      const config = userOpConfig(sessionKeyPrivateKey);
+      const address = getDeployments()["agent-registry"].address as Hex;
       return {
         async createAgent(owner, name, _description, cid, hash) {
           try {
             const calldata = encodeFunctionData({
-              abi: agentAbi, functionName: "createAgent",
+              abi: agentAbi,
+              functionName: "createAgent",
               args: [name, cid, hash as `0x${string}`],
             });
-            const { userOpHash } = await buildAndSendUserOp({ target: address, calldata, sessionKeyPrivateKey });
-            await waitForUserOp(userOpHash);
+            await sendUserOp(config, address, calldata);
             const total = await publicClient.readContract({ address, abi: agentAbi, functionName: "totalAgents" });
             const agentId = await publicClient.readContract({
-              address, abi: agentAbi, functionName: "getAgentByOwnerIndex",
+              address,
+              abi: agentAbi,
+              functionName: "getAgentByOwnerIndex",
               args: [owner as `0x${string}`, BigInt(toNumber(total) - 1)],
             });
-            const agentIdHex = bytes32ToHex(agentId);
-            return { success: true, data: agentIdHex };
+            return { success: true, data: bytes32ToHex(agentId) };
           } catch (err: any) {
             return { success: false, error: err.message };
           }
@@ -1376,11 +1506,11 @@ export function createUserOpAdapters(): UserOpAdapterFactory {
         async updateAgent(_owner, agentId, cid, hash) {
           try {
             const calldata = encodeFunctionData({
-              abi: agentAbi, functionName: "updateAgent",
+              abi: agentAbi,
+              functionName: "updateAgent",
               args: [agentId as `0x${string}`, cid, hash as `0x${string}`],
             });
-            const { userOpHash } = await buildAndSendUserOp({ target: address, calldata, sessionKeyPrivateKey });
-            await waitForUserOp(userOpHash);
+            await sendUserOp(config, address, calldata);
             return { success: true };
           } catch (err: any) {
             return { success: false, error: err.message };
@@ -1388,12 +1518,8 @@ export function createUserOpAdapters(): UserOpAdapterFactory {
         },
         async archiveAgent(_owner, agentId) {
           try {
-            const calldata = encodeFunctionData({
-              abi: agentAbi, functionName: "archiveAgent",
-              args: [agentId as `0x${string}`],
-            });
-            const { userOpHash } = await buildAndSendUserOp({ target: address, calldata, sessionKeyPrivateKey });
-            await waitForUserOp(userOpHash);
+            const calldata = encodeFunctionData({ abi: agentAbi, functionName: "archiveAgent", args: [agentId as `0x${string}`] });
+            await sendUserOp(config, address, calldata);
             return { success: true };
           } catch (err: any) {
             return { success: false, error: err.message };
@@ -1401,12 +1527,8 @@ export function createUserOpAdapters(): UserOpAdapterFactory {
         },
         async restoreAgent(_owner, agentId) {
           try {
-            const calldata = encodeFunctionData({
-              abi: agentAbi, functionName: "restoreAgent",
-              args: [agentId as `0x${string}`],
-            });
-            const { userOpHash } = await buildAndSendUserOp({ target: address, calldata, sessionKeyPrivateKey });
-            await waitForUserOp(userOpHash);
+            const calldata = encodeFunctionData({ abi: agentAbi, functionName: "restoreAgent", args: [agentId as `0x${string}`] });
+            await sendUserOp(config, address, calldata);
             return { success: true };
           } catch (err: any) {
             return { success: false, error: err.message };
@@ -1420,23 +1542,25 @@ export function createUserOpAdapters(): UserOpAdapterFactory {
     },
 
     createChatRegistryUserOpAdapter(sessionKeyPrivateKey) {
-      const address = deployments["chat-registry"].address as `0x${string}`;
+      const config = userOpConfig(sessionKeyPrivateKey);
+      const address = getDeployments()["chat-registry"].address as Hex;
       return {
         async createChat(owner, name, cid, hash) {
           try {
             const calldata = encodeFunctionData({
-              abi: chatAbi, functionName: "createChat",
+              abi: chatAbi,
+              functionName: "createChat",
               args: [name, cid, hash as `0x${string}`],
             });
-            const { userOpHash } = await buildAndSendUserOp({ target: address, calldata, sessionKeyPrivateKey });
-            await waitForUserOp(userOpHash);
+            await sendUserOp(config, address, calldata);
             const total = await publicClient.readContract({ address, abi: chatAbi, functionName: "totalChats" });
             const chatId = await publicClient.readContract({
-              address, abi: chatAbi, functionName: "getChatByOwnerIndex",
+              address,
+              abi: chatAbi,
+              functionName: "getChatByOwnerIndex",
               args: [owner as `0x${string}`, BigInt(toNumber(total) - 1)],
             });
-            const chatIdHex = bytes32ToHex(chatId);
-            return { success: true, data: chatIdHex };
+            return { success: true, data: bytes32ToHex(chatId) };
           } catch (err: any) {
             return { success: false, error: err.message };
           }
@@ -1444,11 +1568,11 @@ export function createUserOpAdapters(): UserOpAdapterFactory {
         async updateChat(_owner, chatId, cid, hash, name) {
           try {
             const calldata = encodeFunctionData({
-              abi: chatAbi, functionName: "updateChat",
+              abi: chatAbi,
+              functionName: "updateChat",
               args: [chatId as `0x${string}`, cid, hash as `0x${string}`, name],
             });
-            const { userOpHash } = await buildAndSendUserOp({ target: address, calldata, sessionKeyPrivateKey });
-            await waitForUserOp(userOpHash);
+            await sendUserOp(config, address, calldata);
             return { success: true };
           } catch (err: any) {
             return { success: false, error: err.message };
@@ -1456,12 +1580,8 @@ export function createUserOpAdapters(): UserOpAdapterFactory {
         },
         async archiveChat(_owner, chatId) {
           try {
-            const calldata = encodeFunctionData({
-              abi: chatAbi, functionName: "archiveChat",
-              args: [chatId as `0x${string}`],
-            });
-            const { userOpHash } = await buildAndSendUserOp({ target: address, calldata, sessionKeyPrivateKey });
-            await waitForUserOp(userOpHash);
+            const calldata = encodeFunctionData({ abi: chatAbi, functionName: "archiveChat", args: [chatId as `0x${string}`] });
+            await sendUserOp(config, address, calldata);
             return { success: true };
           } catch (err: any) {
             return { success: false, error: err.message };
@@ -1469,12 +1589,8 @@ export function createUserOpAdapters(): UserOpAdapterFactory {
         },
         async restoreChat(_owner, chatId) {
           try {
-            const calldata = encodeFunctionData({
-              abi: chatAbi, functionName: "restoreChat",
-              args: [chatId as `0x${string}`],
-            });
-            const { userOpHash } = await buildAndSendUserOp({ target: address, calldata, sessionKeyPrivateKey });
-            await waitForUserOp(userOpHash);
+            const calldata = encodeFunctionData({ abi: chatAbi, functionName: "restoreChat", args: [chatId as `0x${string}`] });
+            await sendUserOp(config, address, calldata);
             return { success: true };
           } catch (err: any) {
             return { success: false, error: err.message };
@@ -1487,35 +1603,36 @@ export function createUserOpAdapters(): UserOpAdapterFactory {
     },
 
     createContextRegistryUserOpAdapter(sessionKeyPrivateKey) {
-      const address = deployments["context-registry"].address as `0x${string}`;
+      const config = userOpConfig(sessionKeyPrivateKey);
+      const address = getDeployments()["context-registry"].address as Hex;
       return {
         async linkMemory(_owner, agentId, memoryId, priority) {
           try {
             const calldata = encodeFunctionData({
-              abi: contextAbi, functionName: "linkMemory",
+              abi: contextAbi,
+              functionName: "linkMemory",
               args: [agentId as `0x${string}`, memoryId as `0x${string}`, priority],
             });
-            const { userOpHash } = await buildAndSendUserOp({ target: address, calldata, sessionKeyPrivateKey });
-            await waitForUserOp(userOpHash);
+            await sendUserOp(config, address, calldata);
             const contextId = await publicClient.readContract({
-              address, abi: contextAbi, functionName: "getLink",
+              address,
+              abi: contextAbi,
+              functionName: "getLink",
               args: [agentId as `0x${string}`, memoryId as `0x${string}`],
             });
             return { success: true, data: bytes32ToHex(contextId) };
           } catch (err: any) {
-            const msg = (err?.message || "").toLowerCase();
-            if (msg.includes("already linked")) return { success: false, error: "ALREADY_LINKED" };
             return { success: false, error: err.message };
           }
         },
         async unlinkMemory(_owner, agentId, memoryId) {
           try {
             const calldata = encodeFunctionData({
-              abi: contextAbi, functionName: "unlinkMemory",
+              abi: contextAbi,
+              functionName: "unlinkMemory",
               args: [agentId as `0x${string}`, memoryId as `0x${string}`],
             });
-            const { userOpHash } = await buildAndSendUserOp({ target: address, calldata, sessionKeyPrivateKey });
-            await waitForUserOp(userOpHash);
+            await sendUserOp(config, address, calldata);
             return { success: true };
           } catch (err: any) {
             return { success: false, error: err.message };
@@ -1524,11 +1641,11 @@ export function createUserOpAdapters(): UserOpAdapterFactory {
         async changePriority(_owner, contextId, newPriority) {
           try {
             const calldata = encodeFunctionData({
-              abi: contextAbi, functionName: "changePriority",
+              abi: contextAbi,
+              functionName: "changePriority",
               args: [contextId as `0x${string}`, newPriority],
             });
-            const { userOpHash } = await buildAndSendUserOp({ target: address, calldata, sessionKeyPrivateKey });
-            await waitForUserOp(userOpHash);
+            await sendUserOp(config, address, calldata);
             return { success: true };
           } catch (err: any) {
             return { success: false, error: err.message };
@@ -1536,12 +1653,8 @@ export function createUserOpAdapters(): UserOpAdapterFactory {
         },
         async disableLink(_owner, contextId) {
           try {
-            const calldata = encodeFunctionData({
-              abi: contextAbi, functionName: "disableLink",
-              args: [contextId as `0x${string}`],
-            });
-            const { userOpHash } = await buildAndSendUserOp({ target: address, calldata, sessionKeyPrivateKey });
-            await waitForUserOp(userOpHash);
+            const calldata = encodeFunctionData({ abi: contextAbi, functionName: "disableLink", args: [contextId as `0x${string}`] });
+            await sendUserOp(config, address, calldata);
             return { success: true };
           } catch (err: any) {
             return { success: false, error: err.message };
@@ -1549,12 +1662,8 @@ export function createUserOpAdapters(): UserOpAdapterFactory {
         },
         async enableLink(_owner, contextId) {
           try {
-            const calldata = encodeFunctionData({
-              abi: contextAbi, functionName: "enableLink",
-              args: [contextId as `0x${string}`],
-            });
-            const { userOpHash } = await buildAndSendUserOp({ target: address, calldata, sessionKeyPrivateKey });
-            await waitForUserOp(userOpHash);
+            const calldata = encodeFunctionData({ abi: contextAbi, functionName: "enableLink", args: [contextId as `0x${string}`] });
+            await sendUserOp(config, address, calldata);
             return { success: true };
           } catch (err: any) {
             return { success: false, error: err.message };
@@ -1567,26 +1676,161 @@ export function createUserOpAdapters(): UserOpAdapterFactory {
     },
 
     createCreditManagerUserOpAdapter(sessionKeyPrivateKey) {
-      const address = deployments["credit-manager"].address as `0x${string}`;
+      const config = userOpConfig(sessionKeyPrivateKey);
+      const address = getDeployments()["credit-manager"].address as Hex;
       return {
-        async balanceOf(user) { return createCreditManagerAdapter().balanceOf(user); },
-        async hasSufficientCredits(user, amount) { return createCreditManagerAdapter().hasSufficientCredits(user, amount); },
-        async buyCredits(_user, amount, _valueWei) {
+        async buyCredits(_user, amount, valueWei) {
           try {
             const calldata = encodeFunctionData({
-              abi: creditAbi, functionName: "buyCredits",
+              abi: creditAbi,
+              functionName: "buyCredits",
               args: [BigInt(amount)],
             });
-            const { userOpHash } = await buildAndSendUserOp({ target: address, calldata, sessionKeyPrivateKey });
-            await waitForUserOp(userOpHash);
+            await sendUserOp(config, address, calldata, BigInt(valueWei));
             return { success: true };
           } catch (err: any) {
             return { success: false, error: err.message };
           }
         },
+        async balanceOf(user) { return createCreditManagerAdapter().balanceOf(user); },
+        async hasSufficientCredits(user, amount) { return createCreditManagerAdapter().hasSufficientCredits(user, amount); },
         async getFees() { return createCreditManagerAdapter().getFees(); },
         async getPricing() { return createCreditManagerAdapter().getPricing(); },
       };
     },
+
+    createAuditRegistryUserOpAdapter(sessionKeyPrivateKey) {
+      const config = userOpConfig(sessionKeyPrivateKey);
+      const address = getDeployments()["audit-registry"].address as Hex;
+      return {
+        async recordAudit(_actor, entityType, entityId, action) {
+          try {
+            const calldata = encodeFunctionData({
+              abi: auditAbi,
+              functionName: "recordAudit",
+              args: [_actor as `0x${string}`, entityType, entityId as `0x${string}`, action],
+            });
+            await sendUserOp(config, address, calldata);
+            return { success: true, data: "0x" + "00".repeat(32) };
+          } catch (err: any) {
+            return { success: false, error: err.message };
+          }
+        },
+        async getAuditEvent(eventId) { return createAuditRegistryAdapter().getAuditEvent(eventId); },
+        async getTotalEvents() { return createAuditRegistryAdapter().getTotalEvents(); },
+      };
+    },
+  };
+}
+
+// ── Production adapters: resolve the user's session key per call ───────────
+
+async function resolveSessionKey(store: SessionKeyStore, owner: string, operation: string): Promise<Hex> {
+  const keys = await store.list(owner);
+  const now = Math.floor(Date.now() / 1000);
+  const key = keys.find(k => k.expiry > now && k.privateKeyEncrypted && k.scopes.includes(operation));
+  if (!key?.privateKeyEncrypted) {
+    throw new Error(
+      `NO_ACTIVE_SESSION_KEY: ${owner} has no active session key for "${operation}". ` +
+      "Generate one via POST /session-keys/generate first.",
+    );
+  }
+  return decryptPrivateKey(key.privateKeyEncrypted) as Hex;
+}
+
+interface ProductionAdapterSpec<T> {
+  store: SessionKeyStore;
+  /** Methods that must be executed through the user's smart account (UserOp). */
+  writeMethods: string[];
+  buildWrite: (sessionKeyPrivateKey: Hex) => T;
+  buildRead: () => T;
+}
+
+/**
+ * Wraps a registry adapter so that write methods resolve the caller's session
+ * key (first argument = owner address) and go through the bundler, while read
+ * methods hit the chain directly. Type-safe: the proxy claims type T.
+ */
+function createProductionAdapter<T extends object>(spec: ProductionAdapterSpec<T>): T {
+  return new Proxy({} as T, {
+    get(_, prop) {
+      const method = String(prop);
+      return async (...args: unknown[]) => {
+        if (spec.writeMethods.includes(method)) {
+          const owner = args[0] as string;
+          const pk = await resolveSessionKey(spec.store, owner, method);
+          const writeAdapter = spec.buildWrite(pk);
+          const fn = (writeAdapter as unknown as Record<string, unknown>)[method] as Function;
+          return fn.apply(writeAdapter, args);
+        }
+        const readAdapter = spec.buildRead();
+        const fn = (readAdapter as unknown as Record<string, unknown>)[method] as Function;
+        return fn.apply(readAdapter, args);
+      };
+    },
+  });
+}
+
+export interface ProductionAdapters {
+  userRegistry: UserRegistryContract;
+  memoryRegistry: MemoryRegistryContract;
+  agentRegistry: AgentRegistryContract;
+  chatRegistry: ChatRegistryContract;
+  contextRegistry: ContextRegistryContract;
+  creditManager: CreditManagerContract;
+  auditRegistry: AuditRegistryContract;
+}
+
+/**
+ * Production adapters: every write is a UserOp signed with the owner's session
+ * key and executed through the owner's smart account (gas paid by the user).
+ */
+export function createProductionAdapters(params: { sessionKeyStore: SessionKeyStore }): ProductionAdapters {
+  const { sessionKeyStore } = params;
+  const factory = createUserOpAdapters();
+
+  return {
+    userRegistry: createProductionAdapter({
+      store: sessionKeyStore,
+      writeMethods: ["registerUser", "updateUsername"],
+      buildWrite: pk => factory.createUserRegistryUserOpAdapter(pk),
+      buildRead: () => createUserRegistryAdapter(),
+    }),
+    memoryRegistry: createProductionAdapter({
+      store: sessionKeyStore,
+      writeMethods: ["createMemory", "updateMemory", "archiveMemory", "restoreMemory"],
+      buildWrite: pk => factory.createMemoryRegistryUserOpAdapter(pk),
+      buildRead: () => createMemoryRegistryAdapter(),
+    }),
+    agentRegistry: createProductionAdapter({
+      store: sessionKeyStore,
+      writeMethods: ["createAgent", "updateAgent", "archiveAgent", "restoreAgent"],
+      buildWrite: pk => factory.createAgentRegistryUserOpAdapter(pk),
+      buildRead: () => createAgentRegistryAdapter(),
+    }),
+    chatRegistry: createProductionAdapter({
+      store: sessionKeyStore,
+      writeMethods: ["createChat", "updateChat", "archiveChat", "restoreChat"],
+      buildWrite: pk => factory.createChatRegistryUserOpAdapter(pk),
+      buildRead: () => createChatRegistryAdapter(),
+    }),
+    contextRegistry: createProductionAdapter({
+      store: sessionKeyStore,
+      writeMethods: ["linkMemory", "unlinkMemory", "changePriority", "disableLink", "enableLink"],
+      buildWrite: pk => factory.createContextRegistryUserOpAdapter(pk),
+      buildRead: () => createContextRegistryAdapter(),
+    }),
+    creditManager: createProductionAdapter({
+      store: sessionKeyStore,
+      writeMethods: ["buyCredits"],
+      buildWrite: pk => factory.createCreditManagerUserOpAdapter(pk),
+      buildRead: () => createCreditManagerAdapter(),
+    }),
+    auditRegistry: createProductionAdapter({
+      store: sessionKeyStore,
+      writeMethods: ["recordAudit"],
+      buildWrite: pk => factory.createAuditRegistryUserOpAdapter(pk),
+      buildRead: () => createAuditRegistryAdapter(),
+    }),
   };
 }

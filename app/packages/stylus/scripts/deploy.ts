@@ -4,7 +4,7 @@ import { config as dotenvConfig } from "dotenv";
 import deployStylusContract from "./deploy_contract";
 import { generateAbis } from "./generateabis";
 import initContracts from "./init_contracts";
-import { getDeploymentConfig, getRpcUrlFromChain, printDeployedAddresses } from "./utils/";
+import { getDeploymentConfig, getRpcUrlFromChain, printDeployedAddresses, deploymentFilePath } from "./utils/";
 import type { DeployOptions } from "./utils/type";
 
 const envPath = path.resolve(__dirname, "../.env");
@@ -35,11 +35,12 @@ const NAME_MAP: Record<string, string> = {
 };
 
 /**
- * Generate deployedContracts.ts from scratch using deployment JSON + ABI files.
+ * Generate deployedContracts.ts from the deployment JSON + ABI files.
  * This runs after all contracts are deployed, even when ABI export was skipped.
+ * Merges into any existing deployedContracts.ts so multiple networks coexist.
  */
-function updateDeployedAddresses(chainId: string, deploymentDir: string) {
-  const deploymentFile = path.resolve(deploymentDir, `${chainId}_latest.json`);
+function updateDeployedAddresses(chainId: string, deploymentDir: string, networkName: string) {
+  const deploymentFile = deploymentFilePath(deploymentDir, networkName, chainId);
   if (!fs.existsSync(deploymentFile)) {
     console.warn(`⚠️  No deployment file found at ${deploymentFile}`);
     return;
@@ -78,7 +79,29 @@ function updateDeployedAddresses(chainId: string, deploymentDir: string) {
     chainObj[tsName] = { address: deployData.address, abi };
   }
 
-  const output = `${FILE_HEADER}const deployedContracts = ${JSON.stringify({ [chainId]: chainObj }, null, 2)} as const;\n\n${FILE_FOOTER}`;
+  // Merge with existing deployedContracts.ts to preserve previously deployed networks.
+  // The object is emitted by JSON.stringify, so the text between `= ` and ` as const;` is pure JSON.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let allChains: Record<string, any> = {};
+  const existingContent = fs.existsSync(DEPLOYED_CONTRACTS_PATH)
+    ? fs.readFileSync(DEPLOYED_CONTRACTS_PATH, "utf8")
+    : "";
+  const constAnchor = existingContent.indexOf(" as const;");
+  const constStart = existingContent.indexOf("const deployedContracts = ");
+  if (constAnchor >= 0 && constStart >= 0) {
+    const jsonText = existingContent.slice(
+      constStart + "const deployedContracts = ".length,
+      constAnchor,
+    );
+    try {
+      allChains = JSON.parse(jsonText);
+    } catch {
+      allChains = {};
+    }
+  }
+  allChains[chainId] = chainObj;
+
+  const output = `${FILE_HEADER}const deployedContracts = ${JSON.stringify(allChains, null, 2)} as const;\n\n${FILE_FOOTER}`;
 
   fs.writeFileSync(DEPLOYED_CONTRACTS_PATH, output);
   const count = Object.keys(chainObj).length;
@@ -130,21 +153,15 @@ export default async function deployScript(deployOptions: DeployOptions) {
   // Generate ABIs from hardcoded definitions (cargo stylus export-abi fails on Nitro dev)
   generateAbis(config.deploymentDir);
 
-  // Generate deployedContracts.ts with addresses + ABIs
-  updateDeployedAddresses(config.chain.id.toString(), config.deploymentDir);
+  // Generate deployedContracts.ts with addresses + ABIs (merges across networks)
+  updateDeployedAddresses(config.chain.id.toString(), config.deploymentDir, config.networkName);
 
   // Initialize contracts and authorize cross-contract calls (idempotent)
   try {
-    await initContracts();
+    await initContracts(deployOptions.network || "arbitrumNitro");
   } catch (error) {
     console.error("⚠️  Contract initialization failed:", (error as Error).message);
-    console.log("   You can manually initialize later by running: pnpm init-contracts");
+    console.log("   You can manually initialize later by running: pnpm init-contracts --network <network>");
   }
-}
-
-if (require.main === module) {
-  const chainId = process.argv[2] || "412346";
-  const deploymentDir = process.argv[3] || path.resolve(__dirname, "../deployments");
-  updateDeployedAddresses(chainId, deploymentDir);
 }
 

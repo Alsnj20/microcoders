@@ -14,6 +14,7 @@
     "deploy:contracts": "ts-node scripts/deploy_wrapper.ts",
     "dev": "tsc --watch",
     "export-abi": "ts-node scripts/export_abi.ts",
+    "init-contracts": "ts-node scripts/init_contracts.ts",
     "format": "biome format --write .",
     "info:networks": "ts-node scripts/test_network.ts",
     "lint": "biome check .",

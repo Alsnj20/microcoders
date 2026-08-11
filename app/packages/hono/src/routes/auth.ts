@@ -26,13 +26,14 @@ export function createAuthRoutes(sessionStore: SessionStore): Hono<AppEnv> {
     nonces.set(address.toLowerCase(), { nonce, expiresAt });
 
     const domain = new URL(c.req.url).host;
+    const chainId = Number(process.env.CHAIN_ID || 412346);
     const siweMessage = new SiweMessage({
       domain,
       address,
       statement: "Sign in to MemoryChain",
       uri: c.req.url,
       version: "1",
-      chainId: 412346,
+      chainId,
       nonce,
     });
 

@@ -3,7 +3,7 @@ import * as path from "path";
 import { config as dotenvConfig } from "dotenv";
 import { arbitrumNitro } from "../../../nextjs/utils/scaffold-stylus/supportedChains";
 import { getContractNameFromCargoToml } from "./contract";
-import { getAccountAddress, getChain, getPrivateKey } from "./network";
+import { getAccountAddress, getChain, getNetworkNameForChain, getPrivateKey } from "./network";
 import type { DeployOptions, DeploymentConfig, DeploymentData } from "./type";
 
 // Load environment variables from .env file
@@ -52,7 +52,29 @@ export function getDeploymentConfig(deployOptions: DeployOptions): DeploymentCon
     contractName,
     deploymentDir: process.env["DEPLOYMENT_DIR"] || "deployments",
     chain,
+    networkName: getNetworkNameForChain(chain),
   };
+}
+
+/**
+ * Builds the deployment file path: `<network>_<chainId>_latest.json`.
+ * Example: deployments/arbitrumNitro_412346_latest.json
+ */
+export function deploymentFilePath(deploymentDir: string, networkName: string, chainId: string): string {
+  return path.resolve(deploymentDir, `${networkName}_${chainId}_latest.json`);
+}
+
+/**
+ * Resolves the deployment file, preferring the `<network>_<chainId>_latest.json`
+ * naming and falling back to the legacy `<chainId>_latest.json` for backward
+ * compatibility with previously generated artifacts.
+ */
+export function findDeploymentFile(deploymentDir: string, networkName: string, chainId: string): string {
+  const newPath = deploymentFilePath(deploymentDir, networkName, chainId);
+  if (fs.existsSync(newPath)) return newPath;
+  const legacyPath = path.resolve(deploymentDir, `${chainId}_latest.json`);
+  if (fs.existsSync(legacyPath)) return legacyPath;
+  return newPath;
 }
 
 export function ensureDeploymentDirectory(deploymentDir: string): void {
@@ -63,20 +85,21 @@ export function ensureDeploymentDirectory(deploymentDir: string): void {
 }
 
 /**
- * Save the deployed contract address to <chain.id>_latest.json in the deployment directory.
+ * Save the deployed contract address to <network>_<chain.id>_latest.json in the deployment directory.
  * If a latest file already exists, it gets renamed to include a timestamp.
  * Updates or creates the file, using contractName as the key.
  */
 export function saveDeployment(config: DeploymentConfig, deploymentInfo: DeploymentData) {
   try {
     const chainId = config.chain?.id || arbitrumNitro.id;
-    const networkPath = path.resolve(config.deploymentDir, `${chainId}_latest.json`);
+    const networkPath = deploymentFilePath(config.deploymentDir, config.networkName, chainId.toString());
+    const existingPath = findDeploymentFile(config.deploymentDir, config.networkName, chainId.toString());
 
     // Check if the latest file exists and contains the same contract name
     let shouldCreateNewFile = false;
-    if (fs.existsSync(networkPath)) {
+    if (fs.existsSync(existingPath)) {
       try {
-        const existingDeployments = JSON.parse(fs.readFileSync(networkPath, "utf8"));
+        const existingDeployments = JSON.parse(fs.readFileSync(existingPath, "utf8"));
         if (existingDeployments[config.contractName]) {
           // Contract with same name already exists, create new file
           shouldCreateNewFile = true;
@@ -87,18 +110,18 @@ export function saveDeployment(config: DeploymentConfig, deploymentInfo: Deploym
     }
 
     // If we need to create a new file (contract name already exists), backup the current latest file
-    if (shouldCreateNewFile) {
+    if (shouldCreateNewFile && fs.existsSync(existingPath)) {
       const currentTimestamp = new Date().getTime();
       const backupPath = networkPath.replace("_latest.json", `_${currentTimestamp}.json`);
-      fs.renameSync(networkPath, backupPath);
+      fs.renameSync(existingPath, backupPath);
       console.log(`📦 Backed up previous deployment to ${backupPath}`);
     }
 
     // Read existing deployments or start fresh
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let deployments: Record<string, any> = {};
-    if (fs.existsSync(networkPath)) {
-      const content = fs.readFileSync(networkPath, "utf8");
+    if (fs.existsSync(existingPath)) {
+      const content = fs.readFileSync(existingPath, "utf8");
       try {
         deployments = JSON.parse(content);
       } catch (e) {
@@ -121,32 +144,38 @@ export function saveDeployment(config: DeploymentConfig, deploymentInfo: Deploym
 }
 
 export function printDeployedAddresses(deploymentDir: string, chainId?: string): void {
-  // If chainId is provided, only look for that specific chain's deployment file
+  // If chainId is provided, only look for that chain's specific deployment file
   if (chainId) {
-    const networkPath = path.resolve(deploymentDir, `${chainId}_latest.json`);
-    if (!fs.existsSync(networkPath)) {
+    const matchingFiles = fs
+      .readdirSync(deploymentDir)
+      .filter(file => file.endsWith(`_${chainId}_latest.json`));
+
+    if (matchingFiles.length === 0) {
       console.log(`📦 No deployment file found for chain ${chainId} in ${deploymentDir}`);
       return;
     }
 
-    try {
-      const deployments = JSON.parse(fs.readFileSync(networkPath, "utf8"));
-      console.log(`📦 Deployed contracts for chain ${chainId} (${networkPath}):`);
+    for (const file of matchingFiles) {
+      const networkPath = path.resolve(deploymentDir, file);
+      try {
+        const deployments = JSON.parse(fs.readFileSync(networkPath, "utf8"));
+        console.log(`📦 Deployed contracts for chain ${chainId} (${networkPath}):`);
 
-      // Format the output to show contract name, address, and contract folder clearly
-      Object.entries(deployments).forEach(([contractName, contractData]) => {
-        const data = contractData as {
-          address: string;
-          txHash: string;
-          contract: string;
-        };
-        console.log(`  ${contractName}:`);
-        console.log(`    Address: ${data.address}`);
-        console.log(`    Tx Hash: ${data.txHash}`);
-        console.log(`    Contract: ${data.contract}`);
-      });
-    } catch (e) {
-      console.warn(`⚠️  Could not parse deployment file ${networkPath}: ${e}`);
+        // Format the output to show contract name, address, and contract folder clearly
+        Object.entries(deployments).forEach(([contractName, contractData]) => {
+          const data = contractData as {
+            address: string;
+            txHash: string;
+            contract: string;
+          };
+          console.log(`  ${contractName}:`);
+          console.log(`    Address: ${data.address}`);
+          console.log(`    Tx Hash: ${data.txHash}`);
+          console.log(`    Contract: ${data.contract}`);
+        });
+      } catch (e) {
+        console.warn(`⚠️  Could not parse deployment file ${networkPath}: ${e}`);
+      }
     }
     return;
   }
@@ -162,11 +191,10 @@ export function printDeployedAddresses(deploymentDir: string, chainId?: string):
 
   deploymentFiles.forEach(file => {
     const filePath = path.resolve(deploymentDir, file);
-    const currentChainId = file.replace("_latest.json", "");
 
     try {
       const deployments = JSON.parse(fs.readFileSync(filePath, "utf8"));
-      console.log(`📦 Deployed contracts for chain ${currentChainId} (${filePath}):`);
+      console.log(`📦 Deployed contracts (${filePath}):`);
 
       // Format the output to show contract name, address, and contract folder clearly
       Object.entries(deployments).forEach(([contractName, contractData]) => {
@@ -196,8 +224,12 @@ export function getContractDataFromDeployments(
 ): { address: string; txHash: string; chainId: string } | undefined {
   // If chainId is provided, look for that specific chain's deployment file
   if (chainId) {
-    const networkPath = path.resolve(deploymentDir, `${chainId}_latest.json`);
-    if (fs.existsSync(networkPath)) {
+    const matchingFiles = fs
+      .readdirSync(deploymentDir)
+      .filter(file => file.endsWith(`_${chainId}_latest.json`));
+
+    for (const file of matchingFiles) {
+      const networkPath = path.resolve(deploymentDir, file);
       try {
         const deployments = JSON.parse(fs.readFileSync(networkPath, "utf8"));
         if (deployments[contractName]?.address) {
