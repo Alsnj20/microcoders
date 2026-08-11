@@ -1,3 +1,4 @@
+import { keccak256, toHex } from "viem";
 import { api } from "./client";
 import type { ChatConversation, ChatMessage } from "~~/src/modules/chat/types/chat";
 
@@ -48,11 +49,21 @@ export async function updateConversation(
   }
 }
 
+export function hashConversation(conversation: ConversationData): string {
+  const content = JSON.stringify({
+    id: conversation.id,
+    title: conversation.title,
+    createdAt: conversation.createdAt,
+    messages: conversation.messages.map(m => ({ role: m.role, content: m.content })),
+  });
+  return keccak256(toHex(content));
+}
+
 export async function saveConversation(conversation: ConversationData): Promise<string | null> {
   // If conversation has an onChainId, update it
   if (conversation.onChainId) {
     const cid = `chat-${conversation.onChainId}-${Date.now()}`;
-    const hash = "0x" + "00".repeat(32);
+    const hash = hashConversation(conversation);
     await updateConversation(conversation.onChainId, conversation.title, cid, hash);
     return cid;
   }
@@ -61,7 +72,7 @@ export async function saveConversation(conversation: ConversationData): Promise<
   const chatId = await createConversation(conversation.title);
   if (chatId) {
     const cid = `chat-${chatId}-${Date.now()}`;
-    const hash = "0x" + "00".repeat(32);
+    const hash = hashConversation(conversation);
     await updateConversation(chatId, conversation.title, cid, hash);
     return cid;
   }

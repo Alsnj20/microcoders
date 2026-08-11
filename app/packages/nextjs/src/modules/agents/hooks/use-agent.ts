@@ -13,6 +13,8 @@ import type { Agent, AgentChatMessage, Conversation, CreateAgent, UpdateAgent } 
 // On-chain only stores: name, description (plain), cid, hash
 interface AgentBlueprint {
   personality: string;
+  instructions: string;
+  description?: string;
   icon: string;
   persistentMemory: boolean;
 }
@@ -65,6 +67,7 @@ export function useAgent() {
           description: a.description || "",
           icon: "🤖",
           personality: "",
+          instructions: "",
           connectedMemories: [],
           persistentMemory: true,
           cid: a.cid,
@@ -104,6 +107,7 @@ export function useAgent() {
           ...localMeta,
           icon: "🤖",
           personality: "",
+          instructions: "",
           persistentMemory: true,
         };
         setAgents(prev => prev.map(a => (a.id === id ? fullAgent : a)));
@@ -125,6 +129,8 @@ export function useAgent() {
           ...localMeta,
           icon: blueprint.icon || "🤖",
           personality: blueprint.personality || "",
+          instructions: blueprint.instructions || "",
+          description: blueprint.description || localMeta.description || "",
           persistentMemory: blueprint.persistentMemory ?? true,
         };
 
@@ -149,6 +155,8 @@ export function useAgent() {
 
         const blueprint: AgentBlueprint = {
           personality: data.personality || "",
+          instructions: (data as any).instructions || "",
+          description: data.description || "",
           icon: data.icon || "🤖",
           persistentMemory: data.persistentMemory ?? true,
         };
@@ -192,6 +200,7 @@ export function useAgent() {
           description: data.description || "",
           icon: blueprint.icon,
           personality: blueprint.personality,
+          instructions: blueprint.instructions,
           connectedMemories: [],
           persistentMemory: blueprint.persistentMemory,
           createdAt: new Date().toISOString().split("T")[0],
@@ -227,6 +236,8 @@ export function useAgent() {
 
         const blueprint: AgentBlueprint = {
           personality: data.personality ?? localAgent.personality ?? "",
+          instructions: (data as any).instructions ?? (localAgent as any).instructions ?? "",
+          description: data.description ?? localAgent.description ?? "",
           icon: data.icon ?? localAgent.icon ?? "🤖",
           persistentMemory: data.persistentMemory ?? localAgent.persistentMemory ?? true,
         };
@@ -266,9 +277,10 @@ export function useAgent() {
               ? {
                   ...a,
                   name: data.name ?? a.name,
-                  description: data.description ?? a.description,
+                  description: blueprint.description ?? a.description,
                   icon: blueprint.icon,
                   personality: blueprint.personality,
+                  instructions: blueprint.instructions,
                   persistentMemory: blueprint.persistentMemory,
                   updatedAt: new Date().toISOString().split("T")[0],
                 }

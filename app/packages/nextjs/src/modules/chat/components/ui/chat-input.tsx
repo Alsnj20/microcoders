@@ -39,6 +39,12 @@ export function ChatInput({ onSendMessage, selectedModel, onModelChange, disable
       .finally(() => setLoading(false));
   }, []);
 
+  useEffect(() => {
+    if (models.length > 0 && !models.some(m => m.model === selectedModel)) {
+      onModelChange(models[0].model);
+    }
+  }, [models, selectedModel, onModelChange]);
+
   const hasProviders = models.length > 0;
   const noProviders = !loading && !hasProviders;
   const interactionDisabled = disabled || !hasProviders;

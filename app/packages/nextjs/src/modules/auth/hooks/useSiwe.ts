@@ -1,8 +1,9 @@
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useAccount, useDisconnect, useSignMessage, useWalletClient } from "wagmi";
 import { api } from "~~/services/api/client";
 import { deriveKWallet } from "~~/services/crypto/keys";
+import { persistKWallet, loadKWallet, clearKWallet, loadKRecovery, clearKRecovery } from "~~/services/crypto/session-storage";
 import { useGlobalState } from "~~/services/store/store";
 
 interface GrantPermissionsResult {
@@ -23,54 +24,56 @@ export function useSiwe() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
+  const checkingRef = useRef<string | null>(null);
 
   // Check current session on mount or when address changes
   const checkSession = useCallback(async () => {
-    console.log("[SIWE] checkSession called | address:", address, "isConnected:", isConnected);
+    if (!address) return;
+    // Guard against overlapping checks for the same address
+    if (checkingRef.current === address) return;
+    checkingRef.current = address;
     try {
       const res = await api.auth.session.$get();
-      console.log("[SIWE] checkSession response:", res.status, res.ok);
       if (res.ok) {
         const data = (await res.json()) as any;
-        console.log("[SIWE] checkSession data:", data);
-        // Check if address matches the connected wallet address
-        if (address && data.address.toLowerCase() === address.toLowerCase()) {
-          console.log("[SIWE] checkSession: session valid, setting isAuthenticated=true");
+        if (address.toLowerCase() === data.address?.toLowerCase()) {
           setSession({
             address: data.address,
             chainId: data.chainId,
             username: data.username,
             isAuthenticated: true,
-            kWallet: session.kWallet,
-            kRecovery: session.kRecovery,
+            kWallet: loadKWallet(data.address) || null,
+            kRecovery: loadKRecovery(data.address) || null,
           });
           return;
-        } else {
-          console.log("[SIWE] checkSession: address mismatch");
         }
       }
-    } catch (e) {
-      console.log("[SIWE] checkSession: no session (caught):", e);
+      setSession({
+        address: null,
+        chainId: null,
+        username: null,
+        isAuthenticated: false,
+        kWallet: null,
+        kRecovery: null,
+      });
+    } catch {
+      setSession({
+        address: null,
+        chainId: null,
+        username: null,
+        isAuthenticated: false,
+        kWallet: null,
+        kRecovery: null,
+      });
+    } finally {
+      checkingRef.current = null;
     }
-
-    // Clear session if checks fail
-    console.log("[SIWE] checkSession: clearing session");
-    setSession({
-      address: null,
-      chainId: null,
-      username: null,
-      isAuthenticated: false,
-      kWallet: null,
-      kRecovery: null,
-    });
-  }, [address, setSession, session.kWallet, session.kRecovery]);
+  }, [address, setSession]);
 
   useEffect(() => {
-    console.log("[SIWE] useEffect: isConnected:", isConnected, "address:", address);
     if (isConnected && address) {
       checkSession();
     } else {
-      console.log("[SIWE] useEffect: clearing session (not connected)");
       setSession({
         address: null,
         chainId: null,
@@ -110,9 +113,13 @@ export function useSiwe() {
       });
       console.log("[SIWE] login step 2: signature obtained:", signature?.substring(0, 20) + "...");
 
-      // 3. Derive the kWallet from signature
+      // 3. Derive the kWallet from a deterministic signature over a fixed message,
+      //    so the same wallet always produces the same key across sessions
       console.log("[SIWE] login step 3: deriving kWallet...");
-      const kWallet = await deriveKWallet(signature);
+      const unlockSignature = await signMessageAsync({
+        message: "MemoryChain: desbloquear mis datos cifrados",
+      });
+      const kWallet = await deriveKWallet(unlockSignature);
       console.log("[SIWE] login step 3: kWallet derived");
 
       // 4. Verify signature and create session on Hono backend
@@ -134,6 +141,7 @@ export function useSiwe() {
 
       const sessionData = (await verifyRes.json()) as any;
       console.log("[SIWE] login step 4: session created:", sessionData);
+      persistKWallet(address, kWallet);
       setSession({
         address: sessionData.address,
         chainId: sessionData.chainId,
@@ -217,7 +225,11 @@ export function useSiwe() {
       // Disconnect wallet via wagmi
       disconnect();
 
-      // Clear frontend session state
+      // Clear persisted crypto keys and frontend session state
+      if (session.address) {
+        clearKWallet(session.address);
+        clearKRecovery(session.address);
+      }
       setSession({
         address: null,
         chainId: null,

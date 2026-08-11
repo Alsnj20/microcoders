@@ -6,6 +6,7 @@ export const AgentSchema = z.object({
   description: z.string().optional(),
   icon: z.string().default("🤖"),
   personality: z.string().optional(),
+  instructions: z.string().optional(),
   connectedMemories: z.array(z.string()).default([]),
   persistentMemory: z.boolean().default(true),
   createdAt: z.string(),

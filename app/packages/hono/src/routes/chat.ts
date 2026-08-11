@@ -250,13 +250,12 @@ Si el usuario pregunta sobre sus memorias o agentes, ayúdale a entender qué pu
         return c.json({ code: "CONFIG_ERROR", message: "AI provider not configured" }, 500);
       }
 
-      const modelId = model || "gpt-4o-mini";
+      const modelId = model || "gpt-5-nano";
       const result = await generateText({
         model: foundry(modelId),
         system: systemPrompt,
         prompt: message,
-        maxOutputTokens: 500,
-        temperature: 0.7,
+        maxOutputTokens: 2000,
       });
 
       const reply = result.text || "No pude generar una respuesta.";

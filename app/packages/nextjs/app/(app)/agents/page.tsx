@@ -28,6 +28,7 @@ export default function AgentsPage() {
     createAgent,
     updateAgent,
     deleteAgent,
+    getAgent,
     linkMemory,
     unlinkMemory,
   } = useAgent();
@@ -38,6 +39,13 @@ export default function AgentsPage() {
   const [chatMessages, setChatMessages] = useState<AgentChatMsg[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [linkedMemories, setLinkedMemories] = useState<{ memoryId: string; title: string; cid: string }[]>([]);
+
+  // Hydrate the selected agent's full blueprint (personality, instructions, description)
+  useEffect(() => {
+    if (selectedAgent && !selectedAgent.personality && !selectedAgent.instructions) {
+      getAgent(selectedAgent.id).catch(() => {});
+    }
+  }, [selectedAgent, getAgent]);
 
   // Load linked memories when agent is selected
   useEffect(() => {
@@ -77,10 +85,14 @@ export default function AgentsPage() {
     setShowPanel("create");
   };
 
-  const handleEdit = () => {
-    if (selectedAgent) {
-      setEditingAgent(selectedAgent);
+  const handleEdit = async () => {
+    if (!selectedAgent) return;
+    try {
+      const fullAgent = await getAgent(selectedAgent.id);
+      setEditingAgent(fullAgent);
       setShowPanel("edit");
+    } catch {
+      alert("Error al descifrar el blueprint del agente.");
     }
   };
 

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useAccount } from "wagmi";
 import { useScaffoldReadContract } from "~~/hooks/scaffold-eth";
 import { api, setWalletAddress } from "~~/services/api/client";
+import { loadKWallet, loadKRecovery } from "~~/services/crypto/session-storage";
 import { useGlobalState } from "~~/services/store/store";
 import { useSiwe } from "../hooks/useSiwe";
 import { OnboardingFlow } from "./OnboardingFlow";
@@ -58,8 +59,8 @@ export function AuthGate({ children }: AuthGateProps) {
         chainId: 412346,
         username,
         isAuthenticated: true,
-        kWallet: session.kWallet,
-        kRecovery: session.kRecovery,
+        kWallet: session.kWallet || loadKWallet(address) || null,
+        kRecovery: session.kRecovery || loadKRecovery(address) || null,
       });
 
       const setup = async () => {

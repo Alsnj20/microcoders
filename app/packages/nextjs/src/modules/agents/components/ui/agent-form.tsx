@@ -85,8 +85,7 @@ export function AgentForm({ agent, onSubmit, onClose, linkedMemories = [], onLin
   }, [agent, reset]);
 
   const handleFormSubmit = (data: AgentFormData) => {
-    const personalityText = [data.personality, data.instructions].filter(Boolean).join(": ");
-    onSubmit({ ...data, personality: personalityText });
+    onSubmit(data);
   };
 
   return (

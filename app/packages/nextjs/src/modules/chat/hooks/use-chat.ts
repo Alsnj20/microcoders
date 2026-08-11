@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { keccak256, toHex } from "viem";
 import { api } from "~~/services/api/client";
 import { useGlobalState } from "~~/services/store/store";
 import {
@@ -13,6 +14,10 @@ import type { AgentBlueprint, ChatConversation, ChatMessage, UserProtocolState }
 
 const ASSISTANT_AVATAR = "https://lh3.googleusercontent.com/aida-public/AB6AXuBUmXEidBO3zpY2rMxk3Oa3i1XCq9JMTtX2Y9Sdn73ycyngQdB2pmkTY3ahd-shRj26UBLDhdxlwfYjkteWRxaQCRUKifpT6JjM-TY_3heKXwGniuOyNrEOImrIPRuSmoY2d1pfaHODuGeGwNtyC3KLGCVhKxpt2tc_xE8QCJgxmyb66xqmZMI78lW4qAVuwwRaUB7X___-CJWsYXH8NzEmiuCsHog1vg35BEOKqDtpQGv5Ve-qfI3I";
 const USER_AVATAR = "https://lh3.googleusercontent.com/aida-public/AB6AXuCW8LUo9gm27dPmMFaHiMdj3UbYIv49SlmZ4WMcAnEsydpgz2LatC5HD8l3AGrVqpcq4qzI9RrxsSQgFSuWfYKZuNS6AOoRYrcuPizgq76APhWr_caPMr9Wvu2r0vEQxTrNCnVdIOhkoXauiZQP9WtG8s0X4acUrSGrwL_RS-pdrDOOEnB1R2WeILBHevRL2PgLUJRMyk3PCznh4zJquJr5-FDs_Tx5mTj0k6V8g8sEjrGyn_7sNsFH";
+
+function hashMemory(content: string): string {
+  return keccak256(toHex(content));
+}
 
 interface LinkedMemory {
   memoryId: string;
@@ -293,7 +298,7 @@ export function useChat() {
 
       refreshBalance();
     },
-    [selectedConversationId, agents, userState.activeAgentId, conversations, refreshBalance, messages],
+    [selectedConversationId, agents, userState.activeAgentId, conversations, refreshBalance, messages, selectedModel],
   );
 
   const saveAsMemory = useCallback(
@@ -306,7 +311,7 @@ export function useChat() {
           json: {
             name: msg.content.slice(0, 60) + (msg.content.length > 60 ? "..." : ""),
             cid: `chat-export-${Date.now()}`,
-            hash: "0x" + "00".repeat(32),
+            hash: hashMemory(msg.content),
             memoryType: 0,
             visibility: 0,
           },
