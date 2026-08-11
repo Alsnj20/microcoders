@@ -17,7 +17,7 @@ describe("IPFS client", () => {
       // CIDv0 (Qm...) or CIDv1 (bafy...) depending on Kubo config
       expect(result.cid).toMatch(/^(Qm|bafy)/);
       expect(result.hash).toBeTruthy();
-      expect(result.hash).toMatch(/^[a-f0-9]{64}$/);
+      expect(result.hash).toMatch(/^0x[a-f0-9]{64}$/);
       expect(result.size).toBeGreaterThan(0);
     });
 

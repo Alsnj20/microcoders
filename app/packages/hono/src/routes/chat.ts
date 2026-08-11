@@ -55,7 +55,7 @@ export function createChatRoutes(
 
     const { name } = parsed.data;
     const initialCid = `chat-init-${Date.now()}`;
-    const initialHash = "0x" + "00".repeat(32);
+    const initialHash = generateId();
 
     const result = await chatRegistry.createChat(session.address, name, initialCid, initialHash);
     if (!result.success) {
