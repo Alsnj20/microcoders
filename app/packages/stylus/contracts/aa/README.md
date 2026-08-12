@@ -1,7 +1,4 @@
-<<<<<<< Updated upstream
-## Foundry
-=======
-## MemoryChain — Account Abstraction (ERC-4337 v0.6)
+# MemoryChain — Account Abstraction (ERC-4337 v0.6)
 
 Proyecto Foundry con la infraestructura de Account Abstraction para que el
 usuario firme sus acciones a través de un **smart account** (session keys) en
@@ -24,10 +21,19 @@ Guarda las direcciones en `packages/stylus/aa/.env`, `packages/nextjs/.env.local
 (`NEXT_PUBLIC_SIMPLE_ACCOUNT_FACTORY_ADDRESS`) y `packages/hono/.env`
 (`FACTORY_ADDRESS`, `ENTRY_POINT_ADDRESS`, `CHAIN_ID`).
 
+### Desplegado en Arbitrum Sepolia
+
+| Contrato | Dirección |
+|---|---|
+| EntryPoint | `0x78fea18e70c9372df8f52a60f8b3f81c79c87af5` |
+| SimpleAccountFactory | `0xe9606ba1da696cd0fd14a4d195f50aecec2f1596` |
+
+> Artefactos: `broadcast/DeployAA.s.sol/421614/run-1786544235796.json`
+> (y `run-latest.json`, idéntico). Los runs anteriores fueron eliminados.
+
 ---
 
 # Foundry
->>>>>>> Stashed changes
 
 **Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
 

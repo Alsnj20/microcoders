@@ -191,17 +191,25 @@ Backend env (`packages/hono/.env`) required in production:
 NODE_ENV=production
 RPC_URL=https://sepolia-rollup.arbitrum.io/rpc
 CHAIN_ID=421614
-ENTRY_POINT_ADDRESS=0x5FF137D4b0FDCD49DcA30c7CF57C578A026d2789
-FACTORY_ADDRESS=<deployed SimpleAccountFactory>
+ENTRY_POINT_ADDRESS=0x78fea18e70c9372df8f52a60f8b3f81c79c87af5
+FACTORY_ADDRESS=0xe9606ba1da696cd0fd14a4d195f50aecec2f1596
 BUNDLER_URL=http://localhost:4337
 REDIS_URL=redis://localhost:6379
 SESSION_KEY_ENCRYPTION_KEY=<64 hex chars>
 ```
 
+> Direcciones AA desplegadas en **Arbitrum Sepolia** (ver `contracts/aa/README.md`):
+> EntryPoint `0x78fea18e…c87af5`, SimpleAccountFactory `0xe9606ba1…c2f1596`.
+> Bundler Alto en Docker (`memorychain-alto-sepolia`) con `ALTO_SAFE_MODE=false`.
+
 User flow: authenticate (SIWE) → `POST /session-keys/generate` (backend stores
 the encrypted session key) → fund their smart account (send ETH from the main
 wallet to `factory.getAddress(sessionKey)`) → every write is a UserOp signed
 with the session key and paid from the smart account.
+
+> ⚠️ La smart account necesita ETH para pagar el gas de los UserOps (los créditos
+> MC no cubren el gas). Listados y balance se leen sobre el smart account del
+> usuario (no la wallet) — ver `packages/hono/src/lib/resolve-account.ts`.
 
 **Note:** `DEV_PRIVATE_KEY` is dev-only (backend signs everything on the local
 Nitro node). Leave it unset in production.

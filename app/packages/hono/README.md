@@ -30,6 +30,22 @@ El backend decide cómo firmar según `NODE_ENV`:
 > session key activa de cada usuario (en Redis), la descifran y envían una UserOp
 > firmada por esa key. Las **lecturas** van directas al RPC.
 
+### Notas de producción (UserOps)
+
+- **Lecturas por smart account**: los listados (`GET /memories`, `/agents`, `/chat/list`)
+  y el balance (`GET /credits/balance`) resuelven el **smart account** del usuario
+  desde su session key activa (`src/lib/resolve-account.ts`), porque los datos
+  on-chain pertenecen al smart account (msg.sender del UserOp), no a la wallet.
+- **Gas limits** (`userop-builder.ts`): `callGasLimit=1_000_000`, `verificationGasLimit=250_000`,
+  `preVerificationGas=100_000`. Límites menores hacen que las llamadas Stylus
+  multi-contrato (compra, createMemory) se queden sin gas y el UserOp falle.
+- **Fallo real reportado**: `waitForUserOp` lanza error cuando el receipt tiene
+  `success:false` (no reportar "éxito" en ops fallidas).
+- **Firma**: el hash a firmar usa el prefijo EIP-191 de 28 bytes (`\x19Ethereum Signed Message:\n32`)
+  **sin** paddearlo a 32; de lo contrario `ecrecover` no coincide con el owner.
+- **Bundler**: si el executor se queda sin ETH, Alto responde `AA25` (nonce atascado);
+  reiniciar el contenedor limpia la cola.
+
 ## 3. Configuración (variables de entorno)
 
 Ver `.env.example`. Las importantes:
@@ -121,9 +137,9 @@ Todas las rutas excepto `/ipfs` requieren sesión (cookie `session=` o header `X
 ### `/credits` `/user` `/audit`
 | Método/Ruta | Recibe | Devuelve |
 |---|---|---|
-| `GET /credits/balance` | — | `{ balance, purchased, spent }` |
+| `GET /credits/balance` | — | `{ balance, purchased, spent, account, ethBalance }` — resuelve el smart account del usuario y reporta su balance ETH |
 | `GET /credits/fees` / `pricing` / `ai-fees` | — | Fees / pricing / costo de modelos |
-| `POST /credits/buy` | `{ amount }` | Compra créditos (calcula ETH exacto y paga) |
+| `POST /credits/buy` | `{ amount }` | Compra créditos (calcula ETH exacto y paga desde la smart account vía UserOp) |
 | `GET /user/me` | — | Perfil del usuario |
 | `POST /user/register` | `{ username }` | Registra usuario on-chain |
 | `PUT /user/username` | `{ username }` | Cambia username |

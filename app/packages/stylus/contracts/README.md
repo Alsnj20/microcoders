@@ -597,6 +597,22 @@ PRICE_PER_CREDIT_MAINNET=
 | Price per MC | 0.00001 ETH | 0.00001 ETH | 0.00001 ETH |
 | Explorer | — | sepolia.arbiscan.io | arbiscan.io |
 
+### Contratos desplegados en Arbitrum Sepolia (421614)
+
+| Contrato | Dirección |
+|---|---|
+| CreditManager | `0x671f90db2642a3ac78389f701431561921bb47fb` |
+| UserRegistry | `0x0b5b3c00965f7fe3f350bad3c49fdc989f71fbda` |
+| MemoryRegistry | `0x64cbfbda8218cf9d70974565cdb854ff608eec02` |
+| AgentRegistry | `0x0f863dc5615b771b4e7bc0510d34f8077a5b0753` |
+| ChatRegistry | `0xc0f809540de925a2a9cd3334c095a3b5cb8daebd` |
+| ContextRegistry | `0xa26daec24bc74cd36e4cab9b2ade0256adcda59f` |
+| AuditRegistry | `0xe2670b83bb20801759091931c5f14fe0aed2dd63` |
+
+> El `CreditManager` fue re-desplegado tras corregir `buy_credits` para aceptar pagos
+> vía smart account (Stylus no propaga `msg_value` en llamadas contrato→contrato; el
+> contrato mide el delta de `vm().balance(self)`). Ver `CHANGELOG.md` sección 0.
+
 ## Deployment
 
 ### Prerequisites
