@@ -50,11 +50,17 @@ export function createUserRoutes(userRegistry: UserRegistryContract): Hono<AppEn
     }
 
     const result = await userRegistry.registerUser(session.address, parsed.data.username);
+    console.log("[User] POST /register | result:", result);
     if (!result.success) {
-      const status = result.error === "ALREADY_REGISTERED" ? 409 : result.error === "USERNAME_TAKEN" ? 409 : 500;
-      return c.json({ code: result.error ?? "CONTRACT_ERROR", message: result.error }, status);
+      console.error("[User] POST /register | contract error:", result.error);
+      const isAlreadyRegistered = result.error?.includes("already exists") || result.error === "ALREADY_REGISTERED";
+      const isUsernameTaken = result.error?.includes("UsernameTaken") || result.error === "USERNAME_TAKEN";
+      const status = (isAlreadyRegistered || isUsernameTaken) ? 409 : 500;
+      const code = isAlreadyRegistered ? "ALREADY_REGISTERED" : isUsernameTaken ? "USERNAME_TAKEN" : "CONTRACT_ERROR";
+      return c.json({ code, message: result.error }, status);
     }
 
+    session.username = parsed.data.username;
     const user = await userRegistry.getUser(session.address);
     return c.json({
       address: session.address,

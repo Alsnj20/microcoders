@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import { createIpfsClient, type IpfsClient } from "../lib/ipfs.js";
+import type { IpfsClient } from "../lib/ipfs.js";
 
 const PinRequestSchema = z.object({
   data: z.string().min(1, "data is required"),

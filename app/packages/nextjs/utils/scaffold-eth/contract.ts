@@ -42,7 +42,7 @@ import deployedContractsData from "~~/contracts/deployedContracts";
 import externalContractsData from "~~/contracts/externalContracts";
 import type scaffoldConfig from "~~/scaffold.config";
 import type { AllowedChainIds } from "../scaffold-stylus/networks";
-import { getParsedError } from "./getParsedError";
+import { decodeRawUtf8Hex, extractHexData, getParsedError } from "./getParsedError";
 import { notification } from "./notification";
 
 type AddExternalFlag<T> = {
@@ -365,50 +365,73 @@ export type AbiParameterTuple = Extract<AbiParameter, { type: "tuple" | `tuple[$
  */
 // biome-ignore lint/suspicious/noExplicitAny: dynamic error parameter
 export const getParsedErrorWithAllAbis = (error: any, chainId: AllowedChainIds): string => {
+  const hexPayload = extractHexData(error);
+  if (hexPayload) {
+    const rawUtf8 = decodeRawUtf8Hex(hexPayload);
+    if (rawUtf8) {
+      return rawUtf8;
+    }
+  }
+
   const originalParsedError = getParsedError(error);
 
-  // Check if this is an unrecognized error signature
-  if (/Encoded error signature.*not found on ABI/i.test(originalParsedError)) {
-    const signatureMatch = originalParsedError.match(/0x[a-fA-F0-9]{8}/);
-    const signature = signatureMatch ? signatureMatch[0] : "";
-
-    if (!signature) {
-      return originalParsedError;
+  const rawHex = hexPayload || extractHexData(originalParsedError);
+  if (rawHex) {
+    const rawUtf8 = decodeRawUtf8Hex(rawHex);
+    if (rawUtf8) {
+      return rawUtf8;
     }
+  }
 
+  // Check if this is an unrecognized error signature or contains a 4-byte selector
+  const signatureMatch = originalParsedError.match(/0x[a-fA-F0-9]{8}/) || (rawHex ? rawHex.slice(0, 10).match(/0x[a-fA-F0-9]{8}/) : null);
+  const signature = signatureMatch ? signatureMatch[0].toLowerCase() : "";
+
+  if (signature === "0x6f809c4e") {
+    return "ProgramNotActivated: Stylus contract WASM is not activated on-chain.";
+  }
+
+  if (signature) {
     try {
       // Get all deployed contracts for the current chain
       const chainContracts = (deployedContractsData as GenericContractsDeclaration)[chainId];
 
-      if (!chainContracts) {
-        return originalParsedError;
-      }
-
       // Build a lookup table of error signatures to error names
-      const errorLookup: Record<string, { name: string; contract: string; signature: string }> = {};
+      const errorLookup: Record<string, { name: string; contract: string; signature: string }> = {
+        "0x6f809c4e": {
+          name: "ProgramNotActivated",
+          contract: "ArbSys/Stylus",
+          signature: "ProgramNotActivated()",
+        },
+        "0xabaea15a": {
+          name: "FailedOp",
+          contract: "EntryPoint",
+          signature: "FailedOp(uint256 opIndex, string reason)",
+        },
+      };
 
-      for (const [contractName, contract] of Object.entries(chainContracts)) {
-        // biome-ignore lint/suspicious/noExplicitAny: dynamic contract ABI
-        const typedContract = contract as any;
-        if (typedContract.abi) {
-          for (const item of typedContract.abi) {
-            if (item.type === "error") {
-              // Create the proper error signature like Solidity does
-              const errorName = item.name;
-              const inputs = item.inputs || [];
-              // biome-ignore lint/suspicious/noExplicitAny: dynamic ABI input
-              const inputTypes = inputs.map((input: any) => input.type).join(",");
-              const errorSignature = `${errorName}(${inputTypes})`;
+      if (chainContracts) {
+        for (const [contractName, contract] of Object.entries(chainContracts)) {
+          // biome-ignore lint/suspicious/noExplicitAny: dynamic contract ABI
+          const typedContract = contract as any;
+          if (typedContract.abi) {
+            for (const item of typedContract.abi) {
+              if (item.type === "error") {
+                const errorName = item.name;
+                const inputs = item.inputs || [];
+                // biome-ignore lint/suspicious/noExplicitAny: dynamic ABI input
+                const inputTypes = inputs.map((input: any) => input.type).join(",");
+                const errorSignature = `${errorName}(${inputTypes})`;
 
-              // Hash the signature and take the first 4 bytes (8 hex chars)
-              const hash = keccak256(toHex(errorSignature));
-              const errorSelector = hash.slice(0, 10); // 0x + 8 chars = 10 total
+                const hash = keccak256(toHex(errorSignature));
+                const errorSelector = hash.slice(0, 10).toLowerCase();
 
-              errorLookup[errorSelector] = {
-                name: errorName,
-                contract: contractName,
-                signature: errorSignature,
-              };
+                errorLookup[errorSelector] = {
+                  name: errorName,
+                  contract: contractName,
+                  signature: errorSignature,
+                };
+              }
             }
           }
         }
@@ -419,9 +442,6 @@ export const getParsedErrorWithAllAbis = (error: any, chainId: AllowedChainIds):
       if (errorInfo) {
         return `Contract function execution reverted with the following reason:\n${errorInfo.signature} from ${errorInfo.contract} contract`;
       }
-
-      // If not found in simple lookup, provide a helpful message with context
-      return `${originalParsedError}\n\nThis error occurred when calling a function that internally calls another contract. Check the contract that your function calls internally for more details.`;
     } catch (lookupError) {
       console.log("Failed to create error lookup table:", lookupError);
     }

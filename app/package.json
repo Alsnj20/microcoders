@@ -7,6 +7,9 @@
     "chain": "./nitro-devnode/start-chain-with-cors.sh",
     "clean-contracts": "pnpm --filter @ss/stylus clean-contracts",
     "compile": "pnpm --filter @ss/stylus compile",
+    "predeploy:contracts": "pnpm --filter @ss/stylus predeploy:contracts",
+    "deploy:aa": "cd packages/stylus/contracts/aa && ./script/deploy.sh",
+    "bundler": "cd packages/stylus/aa && docker compose up -d",
     "deploy:contracts": "pnpm --filter @ss/stylus deploy:contracts",
     "export-abi": "pnpm --filter @ss/stylus export-abi",
     "flatten": "pnpm --filter @ss/stylus flatten",
@@ -16,7 +19,6 @@
     "info:networks": "pnpm --filter @ss/stylus info:networks",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
-    "postinstall": "husky install",
     "hono:build": "pnpm --filter @ss/hono build",
     "hono:check-types": "pnpm --filter @ss/hono check-types",
     "hono:dev": "pnpm --filter @ss/hono dev",
@@ -26,6 +28,7 @@
     "new-module": "pnpm --filter @ss/stylus new-module",
     "next:build": "pnpm --filter @ss/nextjs build",
     "next:check-types": "pnpm --filter @ss/nextjs check-types",
+    "next:dev": "pnpm --filter @ss/nextjs dev",
     "next:format": "pnpm --filter @ss/nextjs format",
     "next:lint": "pnpm --filter @ss/nextjs lint",
     "precommit": "lint-staged",
@@ -41,7 +44,6 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
-    "husky": "^8.0.1",
     "lint-staged": "^13.0.3"
   },
   "packageManager": "pnpm@9.15.4"

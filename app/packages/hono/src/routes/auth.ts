@@ -2,13 +2,14 @@ import { Hono } from "hono";
 import { SiweMessage } from "siwe";
 import { randomBytes } from "node:crypto";
 import type { SessionStore, SessionData } from "../types/session.js";
+import type { UserRegistryContract } from "../types/contracts.js";
 import type { AppEnv } from "../index.js";
 
 function generateNonce(): string {
   return randomBytes(16).toString("hex");
 }
 
-export function createAuthRoutes(sessionStore: SessionStore): Hono<AppEnv> {
+export function createAuthRoutes(sessionStore: SessionStore, userRegistry?: UserRegistryContract): Hono<AppEnv> {
   const routes = new Hono<AppEnv>();
 
   // Store nonces temporarily (in production, use Redis with TTL)
@@ -16,6 +17,7 @@ export function createAuthRoutes(sessionStore: SessionStore): Hono<AppEnv> {
 
   routes.get("/challenge", async (c) => {
     const address = c.req.query("address");
+    console.log("[Auth] GET /challenge | address:", address);
     if (!address) {
       return c.json({ code: "VALIDATION_ERROR", message: "address query param required" }, 400);
     }
@@ -25,16 +27,18 @@ export function createAuthRoutes(sessionStore: SessionStore): Hono<AppEnv> {
     nonces.set(address.toLowerCase(), { nonce, expiresAt });
 
     const domain = new URL(c.req.url).host;
+    const chainId = Number(process.env.CHAIN_ID || 412346);
     const siweMessage = new SiweMessage({
       domain,
       address,
       statement: "Sign in to MemoryChain",
       uri: c.req.url,
       version: "1",
-      chainId: 412346,
+      chainId,
       nonce,
     });
 
+    console.log("[Auth] GET /challenge | nonce:", nonce, "| domain:", domain);
     return c.json({
       nonce,
       message: siweMessage.prepareMessage(),
@@ -45,20 +49,25 @@ export function createAuthRoutes(sessionStore: SessionStore): Hono<AppEnv> {
   routes.post("/verify", async (c) => {
     const body = await c.req.json();
     const { message, signature, address } = body;
+    console.log("[Auth] POST /verify | address:", address, "| sig:", signature?.substring(0, 20) + "...");
 
     if (!message || !signature || !address) {
+      console.error("[Auth] POST /verify | missing fields");
       return c.json({ code: "VALIDATION_ERROR", message: "message, signature, and address required" }, 400);
     }
 
     // Verify nonce
     const stored = nonces.get(address.toLowerCase());
+    console.log("[Auth] POST /verify | stored nonce:", stored ? stored.nonce : "(none)", "| expired:", stored ? stored.expiresAt < Date.now() : "n/a");
     if (!stored || stored.expiresAt < Date.now()) {
       return c.json({ code: "NONCE_EXPIRED", message: "Nonce expired or not found" }, 400);
     }
 
     // Verify SIWE message
     const siweMessage = new SiweMessage(message);
+    console.log("[Auth] POST /verify | verifying SIWE message...");
     const result = await siweMessage.verify({ signature, nonce: stored.nonce });
+    console.log("[Auth] POST /verify | verify result:", result.success);
 
     if (!result.success) {
       return c.json({ code: "INVALID_SIGNATURE", message: "Signature verification failed" }, 401);
@@ -67,18 +76,34 @@ export function createAuthRoutes(sessionStore: SessionStore): Hono<AppEnv> {
     // Clean up nonce
     nonces.delete(address.toLowerCase());
 
+    // Fetch on-chain username from UserRegistry contract if available
+    let initialUsername: string | null = null;
+    if (userRegistry) {
+      try {
+        const userRes = await userRegistry.getUser(siweMessage.address);
+        if (userRes.success && userRes.data?.username) {
+          initialUsername = userRes.data.username;
+        }
+      } catch (err: any) {
+        console.warn("[Auth] Failed to fetch on-chain username on verify:", err?.message);
+      }
+    }
+
     // Create session
     const sessionId = generateNonce();
     const sessionData: SessionData = {
       address: siweMessage.address,
       chainId: siweMessage.chainId,
-      username: null,
+      username: initialUsername,
     };
 
+    console.log("[Auth] POST /verify | creating session:", sessionId, "| address:", sessionData.address, "| username:", sessionData.username);
     await sessionStore.set(sessionId, sessionData, 24 * 60 * 60); // 24 hours
 
     // Set session cookie
-    c.header("Set-Cookie", `session=${sessionId}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${24 * 60 * 60}`);
+    const cookieValue = `session=${sessionId}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${24 * 60 * 60}`;
+    console.log("[Auth] POST /verify | Set-Cookie:", cookieValue);
+    c.header("Set-Cookie", cookieValue);
 
     return c.json({
       address: sessionData.address,
@@ -89,9 +114,29 @@ export function createAuthRoutes(sessionStore: SessionStore): Hono<AppEnv> {
 
   routes.get("/session", async (c) => {
     const session = c.get("session");
+    console.log("[Auth] GET /session | session:", session ? `${session.address}` : "(none)");
     if (!session) {
       return c.json({ code: "AUTH_REQUIRED", message: "No valid session" }, 401);
     }
+
+    // Always attempt to populate/sync username from on-chain UserRegistry if currently null or empty
+    if (userRegistry && session.address && !session.username) {
+      try {
+        const userRes = await userRegistry.getUser(session.address);
+        if (userRes.success && userRes.data?.username) {
+          session.username = userRes.data.username;
+          // Sync updated username to session store
+          const cookieHeader = c.req.header("Cookie");
+          const sessionId = cookieHeader?.split(";").map(s => s.trim()).find(s => s.startsWith("session="))?.split("=")[1];
+          if (sessionId) {
+            await sessionStore.set(sessionId, session, 24 * 60 * 60).catch(() => {});
+          }
+        }
+      } catch (err: any) {
+        console.warn("[Auth] Failed to fetch on-chain username on /session:", err?.message);
+      }
+    }
+
     return c.json(session);
   });
 

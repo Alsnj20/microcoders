@@ -178,6 +178,8 @@ export interface FeeSchedule {
   updateAgent: number;
   executeAgent: number;
   linkMemory: number;
+  createChat: number;
+  updateChat: number;
 }
 
 export interface PricingConfig {
@@ -225,6 +227,49 @@ export interface AuditEvent {
   entityId: string;
   action: number;
   timestamp: number;
+}
+
+export interface ChatData {
+  chatId: string;
+  owner: string;
+  name: string;
+  cid: string;
+  hash: string;
+  status: number;
+  version: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface ChatRegistryContract {
+  createChat(
+    owner: string,
+    name: string,
+    cid: string,
+    hash: string,
+  ): Promise<ContractResult<string>>;
+
+  updateChat(
+    owner: string,
+    chatId: string,
+    cid: string,
+    hash: string,
+    name: string,
+  ): Promise<ContractResult<void>>;
+
+  archiveChat(owner: string, chatId: string): Promise<ContractResult<void>>;
+
+  restoreChat(owner: string, chatId: string): Promise<ContractResult<void>>;
+
+  getChat(chatId: string): Promise<ContractResult<ChatData>>;
+
+  getChatCountByOwner(owner: string): Promise<ContractResult<number>>;
+
+  getChatsByOwner(
+    owner: string,
+    offset: number,
+    limit: number,
+  ): Promise<ContractResult<ChatData[]>>;
 }
 
 export interface AuditRegistryContract {

@@ -7,19 +7,16 @@ import { z } from "zod";
 import { Button } from "~~/components/ui/button";
 import { Input } from "~~/components/ui/input";
 import { api } from "~~/services/api/client";
-import type { Agent, AgentModel } from "../../types/agent";
+import type { Agent } from "../../types/agent";
 
 const AGENT_ICONS = ["🤖", "🧠", "📈", "💻", "🎯", "🔬", "📚", "✍️", "🎨", "🔧"];
-const AVAILABLE_TOOLS = ["SearchTool", "PDFLoader", "VectorStore", "BlockchainReader", "CodeAnalyzer", "WebSearch"];
 
 const agentFormSchema = z.object({
   name: z.string().min(1, "El nombre es requerido"),
   description: z.string().optional(),
   icon: z.string().default("🤖"),
-  model: z.enum(["gpt-4o", "gpt-4o-mini", "claude-sonnet-4-20250514", "gemini-2.0-flash"]).default("gpt-4o-mini"),
   personality: z.string().optional(),
   instructions: z.string().optional(),
-  tools: z.array(z.string()).default([]),
   persistentMemory: z.boolean().default(true),
 });
 
@@ -53,15 +50,13 @@ export function AgentForm({ agent, onSubmit, onClose, linkedMemories = [], onLin
     watch,
     setValue,
   } = useForm<AgentFormData>({
-    resolver: zodResolver(agentFormSchema),
+    resolver: zodResolver(agentFormSchema as any),
     defaultValues: {
       name: "",
       description: "",
       icon: "🤖",
-      model: "gpt-4o-mini",
       personality: "",
       instructions: "",
-      tools: [],
       persistentMemory: true,
     },
   });
@@ -82,18 +77,15 @@ export function AgentForm({ agent, onSubmit, onClose, linkedMemories = [], onLin
         name: agent.name,
         description: agent.description || "",
         icon: agent.icon || "🤖",
-        model: agent.model || "gpt-4o-mini",
         personality: agent.personality || "",
         instructions: (agent as any).instructions || "",
-        tools: [],
         persistentMemory: agent.persistentMemory,
       });
     }
   }, [agent, reset]);
 
   const handleFormSubmit = (data: AgentFormData) => {
-    const personalityText = [data.personality, data.instructions].filter(Boolean).join(": ");
-    onSubmit({ ...data, tools: [], personality: personalityText });
+    onSubmit(data);
   };
 
   return (
@@ -139,21 +131,6 @@ export function AgentForm({ agent, onSubmit, onClose, linkedMemories = [], onLin
           Configuración
         </h3>
         <div className="space-y-3">
-          <div>
-            <label htmlFor="model" className="block text-sm font-medium text-foreground mb-1">
-              Modelo de IA
-            </label>
-            <select
-              id="model"
-              {...register("model")}
-              className="w-full px-3 py-2 rounded-lg border border-input bg-transparent text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-            >
-              <option value="gpt-4o-mini">GPT-4o Mini (1 MC)</option>
-              <option value="gpt-4o">GPT-4o (2 MC)</option>
-              <option value="claude-sonnet-4-20250514">Claude 3.5 Sonnet (3 MC)</option>
-              <option value="gemini-2.0-flash">Gemini 2.0 Flash (1 MC)</option>
-            </select>
-          </div>
           <div>
             <label htmlFor="personality" className="block text-sm font-medium text-foreground mb-1">
               Personalidad <span className="text-muted-foreground font-normal">(opcional)</span>

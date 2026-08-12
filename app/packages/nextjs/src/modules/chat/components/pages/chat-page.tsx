@@ -26,6 +26,8 @@ export function ChatPage() {
     conversations,
     selectedConversationId,
     linkedMemories,
+    selectedModel,
+    setSelectedModel,
     onSelectConversation,
     onCreateConversation,
     onDeleteConversation,
@@ -107,7 +109,12 @@ export function ChatPage() {
             )}
           </ChatMessages>
 
-          <ChatInput onSendMessage={sendMessage} disabled={isGenerating} />
+          <ChatInput
+            onSendMessage={sendMessage}
+            selectedModel={selectedModel}
+            onModelChange={setSelectedModel}
+            disabled={isGenerating}
+          />
         </main>
 
         {/* Right Panel - desktop inline */}

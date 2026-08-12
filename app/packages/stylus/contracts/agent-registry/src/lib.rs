@@ -40,6 +40,7 @@ sol_storage! {
         uint32 latest_version;
         string current_cid;
         bytes32 current_hash;
+        string name;
         uint8 status;
         uint64 created_at;
         uint64 updated_at;
@@ -112,6 +113,7 @@ impl AgentRegistry {
     /// Creates a new agent. Metadata lives in IPFS; only CID and hash are stored.
     pub fn create_agent(
         &mut self,
+        name: String,
         cid: String,
         hash: FixedBytes<32>,
     ) -> Result<FixedBytes<32>, String> {
@@ -119,6 +121,9 @@ impl AgentRegistry {
 
         let caller = self.vm().msg_sender();
 
+        if name.is_empty() {
+            return Err(AgentError::InvalidName.into());
+        }
         if cid.is_empty() {
             return Err(AgentError::InvalidCid.into());
         }
@@ -150,6 +155,7 @@ impl AgentRegistry {
         agent.latest_version.set(Uint::from(1u32));
         agent.current_cid.set_str(&cid);
         agent.current_hash.set(hash);
+        agent.name.set_str(&name);
         agent.status.set(Uint::from(ResourceStatus::Active as u8));
         agent.created_at.set(timestamp);
         agent.updated_at.set(timestamp);
@@ -317,7 +323,7 @@ impl AgentRegistry {
     pub fn get_agent(
         &self,
         agent_id: FixedBytes<32>,
-    ) -> Result<(Address, u32, String, FixedBytes<32>, u8, u64, u64), String> {
+    ) -> Result<(Address, u32, String, FixedBytes<32>, String, u8, u64, u64), String> {
         let agent = self.agents.getter(agent_id);
         let owner = agent.owner.get();
 
@@ -330,6 +336,7 @@ impl AgentRegistry {
             u32::try_from(agent.latest_version.get()).unwrap_or(0),
             agent.current_cid.get_string(),
             agent.current_hash.get(),
+            agent.name.get_string(),
             u8::try_from(agent.status.get()).unwrap_or(0),
             u64::try_from(agent.created_at.get()).unwrap_or(0),
             u64::try_from(agent.updated_at.get()).unwrap_or(0),

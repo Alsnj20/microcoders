@@ -1,0 +1,24 @@
+services:
+  alto-bundler:
+    image: ghcr.io/pimlicolabs/alto:latest
+    container_name: memorychain-alto
+    ports:
+      - "4337:3000"
+    env_file:
+      - .env
+    environment:
+      - ALTO_RPC_URL=http://host.docker.internal:8547
+      - ALTO_ENTRYPOINTS=${ENTRY_POINT_ADDRESS:-0x5FF137D4b0FDCD49DcA30c7CF57C578A026d2789}
+      - ALTO_NETWORK_NAME=nitro-devnode
+      - ALTO_LOG_LEVEL=info
+      - ALTO_SAFE_MODE=true
+      - ALTO_EXECUTOR_PRIVATE_KEYS=0xb6b15c8cb491557369f3c7d2c287b053eb229daa9c22138887752191c9520659
+      - ALTO_UTILITY_PRIVATE_KEY=0xb6b15c8cb491557369f3c7d2c287b053eb229daa9c22138887752191c9520659
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:4337"]
+      interval: 10s
+      timeout: 5s
+      retries: 5

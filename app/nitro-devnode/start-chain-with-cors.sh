@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 NITRO_NODE_VERSION="v3.11.0-a618155"
 TARGET_IMAGE="offchainlabs/nitro-node:${NITRO_NODE_VERSION}"
@@ -44,6 +44,7 @@ fi
 
 # Start Nitro dev node in the background with CORS settings and WebSocket enabled
 echo "Starting Nitro dev node with CORS and WebSocket enabled..."
+docker rm -f nitro-dev >/dev/null 2>&1 || true
 docker run --rm --name nitro-dev -p 8547:8547 "${TARGET_IMAGE}" --dev --http.addr 0.0.0.0 --http.api=net,web3,eth,debug --http.corsdomain="*" --http.vhosts="*" --ws.addr 0.0.0.0 --ws.port 8547 --ws.api=net,web3,eth,debug --ws.origins="*" &
 
 # Kill background processes when exiting
@@ -104,13 +105,15 @@ if [ "$(cast code -r $RPC $CREATE2_FACTORY 2>/dev/null)" == "0x" ]; then
 fi
 
 # Deploy Cache Manager Contract
+# Uses cast mktx + cast publish to avoid "gas uint64 overflow" on Nitro dev,
+# which affects cast send --create's automatic gas estimation.
 echo "Deploying Cache Manager contract..."
-deploy_output=$(cast send --private-key $PRIVATE_KEY \
-  --rpc-url $RPC \
-  --create 0x60a06040523060805234801561001457600080fd5b50608051611d1c61003060003960006105260152611d1c6000f3fe)
+CACHE_MANAGER_BYTECODE=0x60a06040523060805234801561001457600080fd5b50608051611d1c61003060003960006105260152611d1c6000f3fe
+signed_tx=$(cast mktx --private-key $PRIVATE_KEY --rpc-url $RPC --gas-limit 1000000 --create "$CACHE_MANAGER_BYTECODE")
+deploy_output=$(cast publish --rpc-url $RPC "$signed_tx")
 
-# Extract contract address using awk from plain text output
-contract_address=$(echo "$deploy_output" | awk '/contractAddress/ {print $2}')
+# Extract contract address from JSON output
+contract_address=$(echo "$deploy_output" | jq -r '.contractAddress')
 
 # Check if contract deployment was successful
 if [[ -z "$contract_address" ]]; then
@@ -138,7 +141,7 @@ echo "Cache Manager deployed and registered successfully"
 
 # Deploy StylusDeployer
 deployer_code=$(cat ./nitro-devnode/stylus-deployer-bytecode.txt)
-deployer_address=$(cast create2 --init-code $deployer_code 2>/dev/null)
+deployer_address=$(cast create2 --salt $SALT --init-code $deployer_code 2>/dev/null)
 cast send --private-key $PRIVATE_KEY --rpc-url $RPC \
     $CREATE2_FACTORY "$SALT$deployer_code"
 if [ "$(cast code -r $RPC $deployer_address 2>/dev/null)" == "0x" ]; then

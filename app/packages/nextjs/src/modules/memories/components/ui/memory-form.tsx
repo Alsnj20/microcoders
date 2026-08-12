@@ -38,7 +38,7 @@ export function MemoryForm({ memory, onSubmit, onClose }: MemoryFormProps) {
     formState: { errors, isSubmitting },
     reset,
   } = useForm<MemoryFormData>({
-    resolver: zodResolver(memoryFormSchema),
+    resolver: zodResolver(memoryFormSchema as any),
     defaultValues: {
       title: "",
       description: "",
@@ -108,23 +108,6 @@ export function MemoryForm({ memory, onSubmit, onClose }: MemoryFormProps) {
             />
           </div>
 
-          {/* Type */}
-          <div>
-            <label htmlFor="type" className="block text-sm font-medium text-foreground mb-1.5">
-              Tipo
-            </label>
-            <select
-              id="type"
-              {...register("type")}
-              className="w-full px-4 py-2.5 rounded-xl border border-border/60 bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
-            >
-              {MEMORY_TYPES.map(t => (
-                <option key={t.value} value={t.value}>
-                  {t.label}
-                </option>
-              ))}
-            </select>
-          </div>
 
           {/* Content */}
           <div>

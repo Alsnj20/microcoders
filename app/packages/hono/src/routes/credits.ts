@@ -2,15 +2,8 @@ import { Hono } from "hono";
 import { z } from "zod";
 import type { CreditManagerContract } from "../types/contracts.js";
 import type { AppEnv } from "../index.js";
-
-const AI_FEES = [
-  { provider: "openai", model: "gpt-4o", costInMC: 2, label: "GPT-4o" },
-  { provider: "openai", model: "gpt-4o-mini", costInMC: 1, label: "GPT-4o Mini" },
-  { provider: "anthropic", model: "claude-sonnet-4-20250514", costInMC: 3, label: "Claude Sonnet" },
-  { provider: "anthropic", model: "claude-haiku", costInMC: 1, label: "Claude Haiku" },
-  { provider: "google", model: "gemini-2.0-flash", costInMC: 1, label: "Gemini Flash" },
-  { provider: "google", model: "gemini-2.5-pro", costInMC: 2, label: "Gemini Pro" },
-];
+import { listFoundryDeployments, type FoundryDeployment } from "../lib/foundry.js";
+import { getModelCost } from "../lib/prices.js";
 
 function requireSession(c: { get: (key: string) => unknown; json: (body: unknown, status?: number) => Response }) {
   const session = c.get("session");
@@ -18,7 +11,10 @@ function requireSession(c: { get: (key: string) => unknown; json: (body: unknown
   return session as { address: string; chainId: number; username: string | null };
 }
 
-export function createCreditRoutes(creditManager: CreditManagerContract): Hono<AppEnv> {
+export function createCreditRoutes(
+  creditManager: CreditManagerContract,
+  getDeployments: () => Promise<FoundryDeployment[]> = listFoundryDeployments,
+): Hono<AppEnv> {
   const routes = new Hono<AppEnv>();
 
   routes.get("/balance", async (c) => {
@@ -53,8 +49,18 @@ export function createCreditRoutes(creditManager: CreditManagerContract): Hono<A
     return c.json(result.data);
   });
 
-  routes.get("/ai-fees", (c) => {
-    return c.json({ fees: AI_FEES });
+  routes.get("/ai-fees", async (c) => {
+    const deployments = await getDeployments();
+    const fees = deployments.map((d) => ({
+      provider: d.modelPublisher || "foundry",
+      model: d.name,
+      label: d.name,
+      costInMC: getModelCost(d.name),
+      deploymentName: d.name,
+      modelName: d.modelName,
+      modelVersion: d.modelVersion,
+    }));
+    return c.json({ fees, source: deployments.length > 0 ? "live" : "error" });
   });
 
   const BuyCreditsSchema = z.object({

@@ -74,14 +74,31 @@ export default function MemoriesPage() {
     setShowPanel("create");
   };
 
-  const handleViewDetail = (memory: Memory) => {
-    setSelectedMemory(memory);
+  const handleViewDetail = async (memory: Memory) => {
+    let full = memory;
+    try {
+      full = (await getMemory(memory.id)) ?? memory;
+    } catch (err) {
+      console.error("Failed to load memory content:", err);
+    }
+    setSelectedMemory(full);
     setShowPanel("detail");
   };
 
-  const handleEdit = (memory: Memory) => {
-    setSelectedMemory(memory);
-    setFormData({ title: memory.title, description: memory.description || "", type: memory.type, content: "" });
+  const handleEdit = async (memory: Memory) => {
+    let full = memory;
+    try {
+      full = (await getMemory(memory.id)) ?? memory;
+    } catch (err) {
+      console.error("Failed to load memory content:", err);
+    }
+    setSelectedMemory(full);
+    setFormData({
+      title: full.title,
+      description: full.description || "",
+      type: full.type || "documento",
+      content: full.content ?? "",
+    });
     setShowPanel("edit");
   };
 
@@ -307,6 +324,12 @@ export default function MemoriesPage() {
             </div>
 
             <div className="space-y-3">
+              {selectedMemory.content && (
+                <div className="p-3 rounded-lg bg-muted/50">
+                  <p className="text-xs font-medium text-muted-foreground mb-1">Contenido</p>
+                  <p className="text-sm text-foreground whitespace-pre-wrap font-mono">{selectedMemory.content}</p>
+                </div>
+              )}
               <div className="p-3 rounded-lg bg-muted/50">
                 <p className="text-xs font-medium text-muted-foreground mb-1">Descripción</p>
                 <p className="text-sm text-foreground">{selectedMemory.description || "Sin descripción"}</p>
@@ -354,20 +377,15 @@ export default function MemoriesPage() {
               />
             </div>
             <div>
-              <label htmlFor="memory-type" className="block text-sm font-medium text-foreground mb-1">Tipo</label>
-              <select
-                id="memory-type"
-                value={formData.type}
-                onChange={e => setFormData({ ...formData, type: e.target.value as MemoryType })}
-                className="w-full px-3 py-2 rounded-lg border border-input bg-transparent text-sm text-foreground"
-              >
-                <option value="documento">Documento</option>
-                <option value="texto">Texto</option>
-                <option value="codigo">Código</option>
-                <option value="pdf">PDF</option>
-                <option value="enlace">Enlace</option>
-                <option value="imagen">Imagen</option>
-              </select>
+              <label htmlFor="memory-content" className="block text-sm font-medium text-foreground mb-1">Contenido</label>
+              <textarea
+                id="memory-content"
+                value={formData.content}
+                onChange={e => setFormData({ ...formData, content: e.target.value })}
+                rows={4}
+                className="w-full px-3 py-2 rounded-lg border border-input bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring resize-none font-mono"
+                placeholder="Contenido de la memoria..."
+              />
             </div>
             <div className="flex gap-3 pt-2">
               <Button

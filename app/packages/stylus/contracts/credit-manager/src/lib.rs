@@ -15,8 +15,8 @@ use memorychain_common::{
     events::*,
     impl_admin_transfer, impl_pausable,
     types::{
-        OP_CREATE_AGENT, OP_CREATE_MEMORY, OP_EXECUTE_AGENT, OP_LINK_MEMORY,
-        OP_REGISTER_USER, OP_UPDATE_AGENT, OP_UPDATE_MEMORY,
+        OP_CREATE_AGENT, OP_CREATE_CHAT, OP_CREATE_MEMORY, OP_EXECUTE_AGENT, OP_LINK_MEMORY,
+        OP_REGISTER_USER, OP_UPDATE_AGENT, OP_UPDATE_CHAT, OP_UPDATE_MEMORY,
     },
 };
 use stylus_sdk::{call::transfer::transfer_eth, prelude::*};
@@ -56,6 +56,8 @@ sol_storage! {
         uint16 update_agent;     // default: 2 MC
         uint16 execute_agent;    // default: 2 MC
         uint16 link_memory;      // default: 1 MC
+        uint16 create_chat;      // default: 1 MC
+        uint16 update_chat;      // default: 1 MC
     }
 
     pub struct PricingConfig {
@@ -75,6 +77,8 @@ pub const DEFAULT_UPDATE_AGENT_FEE: u16 = 2;
 pub const DEFAULT_EXECUTE_AGENT_FEE: u16 = 2;
 pub const DEFAULT_LINK_MEMORY_FEE: u16 = 1;
 pub const DEFAULT_REGISTER_USER_FEE: u16 = 0;
+pub const DEFAULT_CREATE_CHAT_FEE: u16 = 1;
+pub const DEFAULT_UPDATE_CHAT_FEE: u16 = 1;
 
 // ── Default Pricing Parameters ──────────────────────────────────────────────
 // 1 MC = 0.00001 ETH = 10^14 Wei
@@ -100,6 +104,8 @@ impl CreditManager {
         self.fees.update_agent.set(Uint::from(DEFAULT_UPDATE_AGENT_FEE));
         self.fees.execute_agent.set(Uint::from(DEFAULT_EXECUTE_AGENT_FEE));
         self.fees.link_memory.set(Uint::from(DEFAULT_LINK_MEMORY_FEE));
+        self.fees.create_chat.set(Uint::from(DEFAULT_CREATE_CHAT_FEE));
+        self.fees.update_chat.set(Uint::from(DEFAULT_UPDATE_CHAT_FEE));
 
         // Default pricing config
         self.pricing.is_testnet.set(false);
@@ -350,6 +356,8 @@ impl CreditManager {
             OP_UPDATE_AGENT => u16::try_from(self.fees.update_agent.get()).unwrap_or(0),
             OP_EXECUTE_AGENT => u16::try_from(self.fees.execute_agent.get()).unwrap_or(0),
             OP_LINK_MEMORY => u16::try_from(self.fees.link_memory.get()).unwrap_or(0),
+            OP_CREATE_CHAT => u16::try_from(self.fees.create_chat.get()).unwrap_or(0),
+            OP_UPDATE_CHAT => u16::try_from(self.fees.update_chat.get()).unwrap_or(0),
             _ => return Err(CommonError::InvalidInput { reason: "invalid operation type" }.into()),
         };
 
@@ -361,6 +369,8 @@ impl CreditManager {
             OP_UPDATE_AGENT => self.fees.update_agent.set(Uint::from(fee)),
             OP_EXECUTE_AGENT => self.fees.execute_agent.set(Uint::from(fee)),
             OP_LINK_MEMORY => self.fees.link_memory.set(Uint::from(fee)),
+            OP_CREATE_CHAT => self.fees.create_chat.set(Uint::from(fee)),
+            OP_UPDATE_CHAT => self.fees.update_chat.set(Uint::from(fee)),
             _ => unreachable!(),
         }
 
@@ -503,6 +513,8 @@ impl CreditManager {
             OP_UPDATE_AGENT => self.fees.update_agent.get(),
             OP_EXECUTE_AGENT => self.fees.execute_agent.get(),
             OP_LINK_MEMORY => self.fees.link_memory.get(),
+            OP_CREATE_CHAT => self.fees.create_chat.get(),
+            OP_UPDATE_CHAT => self.fees.update_chat.get(),
             _ => Uint::ZERO,
         };
         u16::try_from(val).unwrap_or(0)

@@ -72,7 +72,7 @@ export const useGlobalState = create<GlobalState>(set => ({
   setSessionKey: sessionKey => set(() => ({ sessionKey })),
 
   // Default Provider
-  selectedProvider: "google:gemini-2.0-flash",
+  selectedProvider: "openai:gpt-4o-mini",
   setSelectedProvider: selectedProvider => set(() => ({ selectedProvider })),
 
   // Default Credit Balance

@@ -10,9 +10,11 @@
   "scripts": {
     "build": "tsc",
     "clean-contracts": "git clean -xdf -e .env -e contracts/ -e node_modules/",
+    "predeploy:contracts": "bash scripts/build_wasm.sh",
     "deploy:contracts": "ts-node scripts/deploy_wrapper.ts",
     "dev": "tsc --watch",
     "export-abi": "ts-node scripts/export_abi.ts",
+    "init-contracts": "ts-node scripts/init_contracts.ts",
     "format": "biome format --write .",
     "info:networks": "ts-node scripts/test_network.ts",
     "lint": "biome check .",

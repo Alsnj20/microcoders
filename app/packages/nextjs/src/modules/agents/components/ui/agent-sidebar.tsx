@@ -33,7 +33,6 @@ export function AgentSidebar({
           <span className="text-2xl">{agent?.icon || "🤖"}</span>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-foreground truncate">{agent?.name || "Sin agente"}</p>
-            <p className="text-xs text-muted-foreground truncate">{agent?.model}</p>
           </div>
           <span className="material-symbols-outlined text-lg text-muted-foreground">expand_more</span>
         </div>

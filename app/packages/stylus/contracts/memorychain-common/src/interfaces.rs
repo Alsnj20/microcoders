@@ -19,7 +19,7 @@ sol_interface! {
 // Used by ContextRegistry to verify memory exists.
 sol_interface! {
     interface IMemoryRegistry {
-        function getMemory(bytes32 memoryId) external view returns (address, uint32, string, bytes32, uint8, uint8, uint8);
+        function getMemory(bytes32 memoryId) external view returns (address, uint32, string, bytes32, string, uint8, uint8, uint8);
         function totalMemories() external view returns (uint256);
     }
 }
@@ -28,7 +28,7 @@ sol_interface! {
 // Used by ContextRegistry to verify agent exists.
 sol_interface! {
     interface IAgentRegistry {
-        function getAgent(bytes32 agentId) external view returns (address, uint32, string, bytes32, uint8, uint64, uint64);
+        function getAgent(bytes32 agentId) external view returns (address, uint32, string, bytes32, string, uint8, uint64, uint64);
         function totalAgents() external view returns (uint256);
     }
 }
@@ -39,6 +39,7 @@ sol_interface! {
     interface IUserRegistry {
         function incrementAgents(address owner) external;
         function incrementMemories(address owner) external;
+        function incrementChats(address owner) external;
         function isRegistered(address owner) external view returns (bool);
     }
 }

@@ -12,12 +12,10 @@ import type { Agent, AgentChatMessage, Conversation, CreateAgent, UpdateAgent } 
 // Agent blueprint = all rich metadata stored encrypted on IPFS
 // On-chain only stores: name, description (plain), cid, hash
 interface AgentBlueprint {
-  name: string;
-  description: string;
   personality: string;
-  model: string;
+  instructions: string;
+  description?: string;
   icon: string;
-  tools: string[];
   persistentMemory: boolean;
 }
 
@@ -46,7 +44,6 @@ export function useAgent() {
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isGenerating, setIsGenerating] = useState(false);
 
   const selectedAgent = agents.find(a => a.id === selectedAgentId) || null;
   const agentConversations = conversations.filter(c => c.agentId === selectedAgentId);
@@ -69,9 +66,8 @@ export function useAgent() {
           name: a.name,
           description: a.description || "",
           icon: "🤖",
-          model: "gpt-4o-mini" as any,
           personality: "",
-          tools: [],
+          instructions: "",
           connectedMemories: [],
           persistentMemory: true,
           cid: a.cid,
@@ -110,9 +106,8 @@ export function useAgent() {
         const fullAgent: Agent = {
           ...localMeta,
           icon: "🤖",
-          model: "gpt-4o-mini" as any,
           personality: "",
-          tools: [],
+          instructions: "",
           persistentMemory: true,
         };
         setAgents(prev => prev.map(a => (a.id === id ? fullAgent : a)));
@@ -132,12 +127,10 @@ export function useAgent() {
 
         const fullAgent: Agent = {
           ...localMeta,
-          name: blueprint.name || localMeta.name,
-          description: blueprint.description || localMeta.description,
           icon: blueprint.icon || "🤖",
-          model: blueprint.model as any,
           personality: blueprint.personality || "",
-          tools: blueprint.tools || [],
+          instructions: blueprint.instructions || "",
+          description: blueprint.description || localMeta.description || "",
           persistentMemory: blueprint.persistentMemory ?? true,
         };
 
@@ -161,12 +154,10 @@ export function useAgent() {
         let ipfsResult = { cid: `dev-${Date.now()}`, hash: generateDevHash() };
 
         const blueprint: AgentBlueprint = {
-          name: data.name,
-          description: data.description || "",
           personality: data.personality || "",
-          model: data.model || "gpt-4o-mini",
+          instructions: (data as any).instructions || "",
+          description: data.description || "",
           icon: data.icon || "🤖",
-          tools: data.tools || [],
           persistentMemory: data.persistentMemory ?? true,
         };
 
@@ -208,9 +199,8 @@ export function useAgent() {
           name: data.name,
           description: data.description || "",
           icon: blueprint.icon,
-          model: blueprint.model as any,
           personality: blueprint.personality,
-          tools: blueprint.tools,
+          instructions: blueprint.instructions,
           connectedMemories: [],
           persistentMemory: blueprint.persistentMemory,
           createdAt: new Date().toISOString().split("T")[0],
@@ -245,12 +235,10 @@ export function useAgent() {
         let ipfsResult = { cid: `dev-${Date.now()}`, hash: generateDevHash() };
 
         const blueprint: AgentBlueprint = {
-          name: data.name ?? localAgent.name,
-          description: data.description ?? localAgent.description ?? "",
           personality: data.personality ?? localAgent.personality ?? "",
-          model: data.model ?? localAgent.model ?? "gpt-4o-mini",
+          instructions: (data as any).instructions ?? (localAgent as any).instructions ?? "",
+          description: data.description ?? localAgent.description ?? "",
           icon: data.icon ?? localAgent.icon ?? "🤖",
-          tools: data.tools ?? localAgent.tools ?? [],
           persistentMemory: data.persistentMemory ?? localAgent.persistentMemory ?? true,
         };
 
@@ -289,11 +277,10 @@ export function useAgent() {
               ? {
                   ...a,
                   name: data.name ?? a.name,
-                  description: data.description ?? a.description,
+                  description: blueprint.description ?? a.description,
                   icon: blueprint.icon,
-                  model: blueprint.model as any,
                   personality: blueprint.personality,
-                  tools: blueprint.tools,
+                  instructions: blueprint.instructions,
                   persistentMemory: blueprint.persistentMemory,
                   updatedAt: new Date().toISOString().split("T")[0],
                 }
@@ -392,10 +379,6 @@ export function useAgent() {
 
   // ─── Local message handling (Phase 5 will replace with real streaming) ─────
   const sendMessage = useCallback((conversationId: string, content: string) => {
-    if (!content.trim() || isGenerating) return;
-
-    setIsGenerating(true);
-
     const now = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
     const userMsg: AgentChatMessage = {
       id: crypto.randomUUID(),
@@ -422,9 +405,8 @@ export function useAgent() {
       setConversations(prev =>
         prev.map(c => (c.id === conversationId ? { ...c, lastMessage: content, timestamp: now } : c)),
       );
-      setIsGenerating(false);
     }, 800);
-  }, [isGenerating]);
+  }, []);
 
   return {
     agents,
@@ -447,6 +429,5 @@ export function useAgent() {
     linkMemory,
     unlinkMemory,
     fetchLinkedMemories,
-    isGenerating,
   };
 }

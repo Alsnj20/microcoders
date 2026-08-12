@@ -28,6 +28,7 @@ export default function AgentsPage() {
     createAgent,
     updateAgent,
     deleteAgent,
+    getAgent,
     linkMemory,
     unlinkMemory,
   } = useAgent();
@@ -40,6 +41,13 @@ export default function AgentsPage() {
   const [linkedMemories, setLinkedMemories] = useState<{ memoryId: string; title: string; cid: string }[]>([]);
   const [showLeftPanel, setShowLeftPanel] = useState(false);
   const [showRightPanel, setShowRightPanel] = useState(false);
+
+  // Hydrate selected agent's full blueprint (personality, instructions, description)
+  useEffect(() => {
+    if (selectedAgent && !selectedAgent.personality && !selectedAgent.instructions) {
+      getAgent(selectedAgent.id).catch(() => {});
+    }
+  }, [selectedAgent, getAgent]);
 
   useEffect(() => {
     if (selectedAgentId) {
@@ -78,8 +86,13 @@ export default function AgentsPage() {
     setShowPanel("create");
   };
 
-  const handleEdit = () => {
-    if (selectedAgent) {
+  const handleEdit = async () => {
+    if (!selectedAgent) return;
+    try {
+      const fullAgent = await getAgent(selectedAgent.id);
+      setEditingAgent(fullAgent || selectedAgent);
+      setShowPanel("edit");
+    } catch {
       setEditingAgent(selectedAgent);
       setShowPanel("edit");
     }
@@ -90,7 +103,7 @@ export default function AgentsPage() {
     await deleteAgent(selectedAgent.id);
   };
 
-  const handleFormSubmit = async (data: { name: string; icon: string; model: AgentModel; tools: string[]; persistentMemory: boolean; description?: string; personality?: string; connectedMemories?: string[] }) => {
+  const handleFormSubmit = async (data: { name: string; icon: string; persistentMemory: boolean; description?: string; personality?: string; instructions?: string; model?: string; tools?: string[] }) => {
     try {
       if (editingAgent) {
         await updateAgent(editingAgent.id, data);
@@ -311,6 +324,10 @@ export default function AgentsPage() {
               onEdit={handleEdit}
               onDelete={handleDelete}
               onLinkMemory={() => setShowMemoryLinker(true)}
+              onUnlinkMemory={async (memoryId) => {
+                await unlinkMemory(selectedAgent.id, memoryId);
+                loadLinkedMemories(selectedAgent.id);
+              }}
             />
           </aside>
         )}
@@ -324,6 +341,10 @@ export default function AgentsPage() {
               onEdit={() => { setShowRightPanel(false); handleEdit(); }}
               onDelete={handleDelete}
               onLinkMemory={() => { setShowRightPanel(false); setShowMemoryLinker(true); }}
+              onUnlinkMemory={async (memoryId) => {
+                await unlinkMemory(selectedAgent.id, memoryId);
+                loadLinkedMemories(selectedAgent.id);
+              }}
             />
           )}
         </SlideOver>
@@ -370,12 +391,14 @@ function AgentDetailsPanel({
   onEdit,
   onDelete,
   onLinkMemory,
+  onUnlinkMemory,
 }: {
   agent: Agent;
   linkedMemories: { memoryId: string; title: string; cid: string }[];
   onEdit: () => void;
   onDelete: () => void;
   onLinkMemory: () => void;
+  onUnlinkMemory: (memoryId: string) => void;
 }) {
   return (
     <>
@@ -398,7 +421,7 @@ function AgentDetailsPanel({
           </div>
           <div>
             <p className="text-base font-bold text-foreground">{agent.name}</p>
-            <p className="text-xs text-muted-foreground">{agent.model}</p>
+            {agent.model && <p className="text-xs text-muted-foreground">{agent.model}</p>}
           </div>
         </div>
       </div>
@@ -412,22 +435,16 @@ function AgentDetailsPanel({
         {agent.personality && (
           <div>
             <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Personalidad</h4>
-            <p className="text-sm text-foreground">{agent.personality}</p>
+            <p className="text-sm text-foreground bg-muted/60 p-2.5 rounded-lg border border-border/50 whitespace-pre-wrap">{agent.personality}</p>
           </div>
         )}
 
-        <div>
-          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Herramientas</h4>
-          <div className="flex flex-wrap gap-1.5">
-            {agent.tools.length > 0 ? agent.tools.map(tool => (
-              <span key={tool} className="px-2 py-1 rounded-full bg-muted border border-border text-xs text-foreground">
-                {tool}
-              </span>
-            )) : (
-              <p className="text-xs text-muted-foreground">Sin herramientas</p>
-            )}
+        {agent.instructions && (
+          <div>
+            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Instrucciones personalizadas</h4>
+            <p className="text-sm text-foreground bg-muted/60 p-2.5 rounded-lg border border-border/50 whitespace-pre-wrap">{agent.instructions}</p>
           </div>
-        </div>
+        )}
 
         <div>
           <div className="flex items-center justify-between mb-2">
@@ -437,21 +454,29 @@ function AgentDetailsPanel({
               Vincular
             </Button>
           </div>
-          <p className="text-sm text-foreground">
-            {agent.connectedMemories.length} memoria{agent.connectedMemories.length !== 1 ? "s" : ""}
-          </p>
-        </div>
-
-        <div className="flex items-center justify-between">
-          <div>
-            <h4 className="text-sm font-medium text-foreground">Memoria Persistente</h4>
-            <p className="text-xs text-muted-foreground">Recordar contexto entre sesiones</p>
-          </div>
-          <div className={`w-9 h-5 rounded-full transition-colors ${agent.persistentMemory ? "bg-primary" : "bg-muted"}`}>
-            <div className={`w-3.5 h-3.5 rounded-full bg-white shadow-sm transform transition-transform mt-0.5 ${
-              agent.persistentMemory ? "translate-x-4.5 ml-0.5" : "translate-x-0.5"
-            }`} />
-          </div>
+          {linkedMemories.length === 0 ? (
+            <p className="text-xs text-muted-foreground py-1">No hay memorias vinculadas.</p>
+          ) : (
+            <div className="space-y-2">
+              {linkedMemories.map((mem) => (
+                <div key={mem.memoryId} className="flex items-center justify-between p-2.5 rounded-lg bg-muted border border-border">
+                  <div className="min-w-0 flex-1 pr-2">
+                    <p className="text-sm font-medium text-foreground truncate">{mem.title}</p>
+                    <p className="text-xs text-muted-foreground truncate">{mem.cid}</p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-muted-foreground hover:text-destructive shrink-0"
+                    onClick={() => onUnlinkMemory(mem.memoryId)}
+                    title="Desvincular"
+                  >
+                    <span className="material-symbols-outlined text-sm">close</span>
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="pt-3 border-t border-border">

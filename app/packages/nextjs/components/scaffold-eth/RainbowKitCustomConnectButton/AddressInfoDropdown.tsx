@@ -12,9 +12,10 @@ import { useTheme } from "next-themes";
 import { useRef, useState } from "react";
 import { getAddress } from "viem";
 import type { Address } from "viem";
-import { useAccount, useDisconnect } from "wagmi";
+import { useAccount } from "wagmi";
 import { BlockieAvatar, isENS } from "~~/components/scaffold-eth";
 import { useCopyToClipboard, useOutsideClick } from "~~/hooks/scaffold-eth";
+import { useSiwe } from "~~/src/modules/auth/hooks/useSiwe";
 import { getTargetNetworks } from "~~/utils/scaffold-stylus";
 import { arbitrumNitro } from "~~/utils/scaffold-stylus/supportedChains";
 import { NetworkOptions } from "./NetworkOptions";
@@ -40,7 +41,7 @@ export const AddressInfoDropdown = ({
   onShowQRCode,
   onRevealPK,
 }: AddressInfoDropdownProps) => {
-  const { disconnect } = useDisconnect();
+  const { logout } = useSiwe();
   const { connector } = useAccount();
   const checkSumAddress = getAddress(address);
   const { resolvedTheme } = useTheme();
@@ -243,7 +244,7 @@ export const AddressInfoDropdown = ({
               <button
                 className="flex gap-3 py-3 px-3 cursor-pointer rounded-lg transition-all duration-200 hover:bg-gradient-to-r hover:from-[rgba(48,180,237,0.16)] hover:to-[rgba(227,6,110,0.16)] w-full text-left"
                 type="button"
-                onClick={() => disconnect()}
+                onClick={() => logout()}
               >
                 <ArrowLeftEndOnRectangleIcon className="h-5 w-5" style={{ color: "#FB3748" }} />
                 <span style={{ color: "#FB3748" }}>Disconnect</span>

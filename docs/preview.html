@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>MemoryChain · Arquitectura técnica (vista previa)</title>
+<script type="module">
+  import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+  mermaid.initialize({ startOnLoad: true, securityLevel: "loose", theme: "default" });
+</script>
+</head>
+<body>
+<h2 style="margin:2rem 0 .5rem">Diagrama de arquitectura (3 capas)</h2><pre class="mermaid">flowchart LR
+    wallet@{ img: "img/metamask.webp", label: "Wallet", pos: "b", h: 44, constraint: "on" }
+
+    subgraph FRONT["Capa 1 · Frontend Next.js"]
+        ui@{ img: "img/app.png", label: "App Next.js", pos: "b", h: 44, constraint: "on" }
+        apiclient@{ img: "img/api-client.png", label: "API Client hc", pos: "b", h: 44, constraint: "on" }
+        crypto@{ img: "img/crypto-aes.webp", label: "Crypto AES-GCM", pos: "b", h: 44, constraint: "on" }
+        ipfsclient@{ img: "img/ipfs.png", label: "IPFS Client", pos: "b", h: 44, constraint: "on" }
+    end
+
+    subgraph BACK["Capa 2 · Backend Hono"]
+        hono@{ img: "img/hono.png", label: "Hono API", pos: "b", h: 44, constraint: "on" }
+        viem@{ img: "img/key.png", label: "Adapters viem signer", pos: "b", h: 44, constraint: "on" }
+        redis@{ img: "img/redis.png", label: "Redis", pos: "b", h: 44, constraint: "on" }
+        ai@{ img: "img/azure-ai.png", label: "Azure AI Foundry", pos: "b", h: 44, constraint: "on" }
+        kubo@{ img: "img/ipfs.png", label: "IPFS Kubo", pos: "b", h: 44, constraint: "on" }
+    end
+
+    subgraph CHAIN["Capa 3 · Web3 Arbitrum Stylus"]
+        user_reg@{ img: "img/contract.png", label: "UserRegistry", pos: "b", h: 44, constraint: "on" }
+        mem@{ img: "img/contract.png", label: "MemoryRegistry", pos: "b", h: 44, constraint: "on" }
+        agent@{ img: "img/contract.png", label: "AgentRegistry", pos: "b", h: 44, constraint: "on" }
+        ctx@{ img: "img/contract.png", label: "ContextRegistry", pos: "b", h: 44, constraint: "on" }
+        credits@{ img: "img/contract.png", label: "CreditManager", pos: "b", h: 44, constraint: "on" }
+        audit@{ img: "img/contract.png", label: "AuditRegistry", pos: "b", h: 44, constraint: "on" }
+        chat_reg@{ img: "img/contract.png", label: "ChatRegistry", pos: "b", h: 44, constraint: "on" }
+        treasury@{ img: "img/treasury.png", label: "Treasury", pos: "b", h: 44, constraint: "on" }
+    end
+
+    wallet --> ui
+    ui --> apiclient
+    ui --> crypto
+    ui --> ipfsclient
+    ipfsclient --> kubo
+    apiclient --> hono
+    apiclient --> user_reg
+    hono --> redis
+    hono --> ai
+    hono --> kubo
+    hono --> viem
+    viem --> user_reg
+    viem --> mem
+    viem --> agent
+    viem --> ctx
+    viem --> credits
+    viem --> audit
+    viem --> chat_reg
+    mem --> credits
+    agent --> credits
+    ctx --> credits
+    chat_reg --> credits
+    mem --> user_reg
+    agent --> user_reg
+    chat_reg --> user_reg
+    ctx &lt;--&gt; mem
+    ctx &lt;--&gt; agent
+    credits --> treasury
+
+    style FRONT fill:#e3f2fd,stroke:#90caf9,color:#1565c0
+    style BACK fill:#e8f5e9,stroke:#a5d6a7,color:#2e7d32
+    style CHAIN fill:#fff3e0,stroke:#ffcc80,color:#e65100
+
+    classDef imgNode stroke:none, fill:none, stroke-width:0
+    class wallet,ui,apiclient,crypto,ipfsclient,hono,viem,redis,ai,kubo,user_reg,mem,agent,ctx,credits,audit,chat_reg,treasury imgNode</pre>
+</body>
+</html>

@@ -43,7 +43,6 @@ export function AgentInfoPanel({ agent, onEdit, onLinkMemory, onStartChat }: Age
           </div>
           <div>
             <h2 className="font-bold text-foreground text-lg">{agent.name}</h2>
-            <p className="text-sm text-muted-foreground">{agent.model}</p>
           </div>
         </div>
 
@@ -61,22 +60,6 @@ export function AgentInfoPanel({ agent, onEdit, onLinkMemory, onStartChat }: Age
           </div>
         )}
 
-        {/* Tools */}
-        <div>
-          <h4 className="text-xs font-semibold text-muted-foreground tracking-wider mb-2">HERRAMIENTAS PERMITIDAS</h4>
-          <div className="flex flex-wrap gap-2">
-            {agent.tools.map(tool => (
-              <span
-                key={tool}
-                className="px-3 py-1.5 rounded-full bg-muted border border-border/60 text-xs text-foreground font-medium"
-              >
-                {tool}
-              </span>
-            ))}
-            {agent.tools.length === 0 && <p className="text-sm text-muted-foreground">Sin herramientas configuradas</p>}
-          </div>
-        </div>
-
         {/* Connected Memories */}
         <div>
           <h4 className="text-xs font-semibold text-muted-foreground tracking-wider mb-2">MEMORIAS CONECTADAS</h4>
@@ -90,23 +73,6 @@ export function AgentInfoPanel({ agent, onEdit, onLinkMemory, onStartChat }: Age
               Vincular memoria
             </Button>
           )}
-        </div>
-
-        {/* Persistent Memory */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h4 className="text-sm font-medium text-foreground">Memoria Persistente</h4>
-            <p className="text-xs text-muted-foreground">Recordar contexto entre sesiones</p>
-          </div>
-          <div
-            className={`w-10 h-6 rounded-full transition-colors ${agent.persistentMemory ? "bg-primary" : "bg-muted"}`}
-          >
-            <div
-              className={`w-4 h-4 rounded-full bg-white shadow-sm transform transition-transform mt-1 ${
-                agent.persistentMemory ? "translate-x-5" : "translate-x-1"
-              }`}
-            />
-          </div>
         </div>
 
         {/* Start Chat Button */}

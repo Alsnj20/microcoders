@@ -31,6 +31,7 @@ export interface DeploymentConfig {
   contractName: string;
   deploymentDir: string;
   chain: Chain;
+  networkName: string;
 }
 
 export interface ExportConfig {

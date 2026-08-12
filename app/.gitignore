@@ -4,3 +4,11 @@ node_modules
 .env
 .env.*
 !.env.example
+
+# Foundry artifacts
+packages/stylus/contracts/aa/out
+packages/stylus/contracts/aa/cache
+packages/stylus/contracts/aa/broadcast
+
+# Alto bundler generated config
+packages/stylus/aa/.env

@@ -1,15 +1,14 @@
 import { z } from "zod";
 
-export const AgentModelSchema = z.enum(["gpt-4o", "gpt-4o-mini", "claude-sonnet-4-20250514", "gemini-2.0-flash"]);
-
 export const AgentSchema = z.object({
   id: z.string(),
   name: z.string().min(1, "El nombre es requerido"),
   description: z.string().optional(),
   icon: z.string().default("🤖"),
-  model: AgentModelSchema.default("gpt-4o-mini"),
   personality: z.string().optional(),
-  tools: z.array(z.string()).default([]),
+  instructions: z.string().optional(),
+  model: z.string().optional(),
+  tools: z.array(z.string()).optional(),
   connectedMemories: z.array(z.string()).default([]),
   persistentMemory: z.boolean().default(true),
   createdAt: z.string(),
@@ -40,7 +39,7 @@ export const ChatMessageSchema = z.object({
 });
 
 export type Agent = z.infer<typeof AgentSchema>;
-export type AgentModel = z.infer<typeof AgentModelSchema>;
+export type AgentModel = string;
 export type CreateAgent = z.infer<typeof CreateAgentSchema>;
 export type UpdateAgent = z.infer<typeof UpdateAgentSchema>;
 export type Conversation = z.infer<typeof ConversationSchema>;

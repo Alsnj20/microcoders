@@ -17,7 +17,7 @@ const ScaffoldEthApp = ({ children }: { children: React.ReactNode }) => {
   const { targetNetwork } = useTargetNetwork();
 
   useEffect(() => {
-    if (targetNetwork.id === arbitrumNitro.id) {
+    if (targetNetwork.id === arbitrumNitro.id && process.env.NEXT_PUBLIC_ENABLE_DEV_WALLET_AUTH === "true") {
       initBurnerPK();
     }
   }, [targetNetwork]);
@@ -26,7 +26,7 @@ const ScaffoldEthApp = ({ children }: { children: React.ReactNode }) => {
     <>
       <div className="flex flex-col min-h-screen">
         <main className="relative flex flex-col flex-1">
-          {/*<BackGround />*/}
+          <BackGround />
           {children}
         </main>
       </div>

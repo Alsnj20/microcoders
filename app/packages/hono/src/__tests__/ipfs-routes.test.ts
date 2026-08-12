@@ -18,7 +18,7 @@ describe("IPFS routes", () => {
       expect(res.status).toBe(200);
       const body = await res.json();
       expect(body.cid).toBeTruthy();
-      expect(body.hash).toMatch(/^[a-f0-9]{64}$/);
+      expect(body.hash).toMatch(/^0x[a-f0-9]{64}$/);
       expect(body.size).toBeGreaterThan(0);
     });
 

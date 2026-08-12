@@ -2,6 +2,8 @@ export interface SessionKeyData {
   keyId: string;
   address: string;
   sessionKeyAddress: string;
+  /** AES-GCM encrypted session key private key (only present when backend signs). */
+  privateKeyEncrypted?: string;
   permissionsContext: string;
   expiry: number;
   scopes: string[];

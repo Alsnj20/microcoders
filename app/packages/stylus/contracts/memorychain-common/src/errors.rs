@@ -1,8 +1,50 @@
-//! Shared error types for MemoryChain contracts.
-//!
-//! Using enums instead of strings saves gas and provides type safety.
-
 use alloy_primitives::Address;
+use stylus_sdk::alloy_sol_types::sol;
+
+sol! {
+    /// Generic EVM string revert error.
+    error Error(string message);
+
+    /// Custom error definitions for MemoryChain.
+    error NotAdmin(address caller);
+    error NotOwner(address caller, address owner);
+    error NotRegistered(address caller);
+    error ResourceNotFound();
+    error ResourceArchived();
+    error AlreadyExists();
+    error InvalidInput(string reason);
+    error Paused();
+    error NotPaused();
+
+    error InsufficientBalance(uint64 required, uint64 available);
+    error ZeroAmount();
+    error UnauthorizedConsumer(address caller);
+    error InsufficientPayment(uint64 required, uint64 provided);
+    error PurchaseOutOfRange(uint64 min, uint64 max, uint64 requested);
+
+    error NotFound();
+    error Archived();
+    error NotArchived();
+    error InvalidName();
+    error InvalidCid();
+    error InvalidHash();
+    error IdCollision();
+    error InsufficientCredits();
+    error CreditConsumptionFailed();
+
+    error LinkNotFound();
+    error AlreadyLinked();
+    error LinkNotActive();
+    error AlreadyDisabled();
+    error AlreadyEnabled();
+    error MemoryNotFound();
+    error AgentNotFound();
+    error CrossContractCallFailed();
+
+    error UsernameTaken(string username);
+    error UnauthorizedRecorder(address caller);
+}
+
 
 /// Common errors shared across all contracts.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -53,6 +95,8 @@ pub enum MemoryError {
     Archived,
     /// Memory is not archived (when trying to restore).
     NotArchived,
+    /// Invalid name (empty).
+    InvalidName,
     /// Invalid CID (empty).
     InvalidCid,
     /// Invalid hash (zero).
@@ -116,6 +160,29 @@ pub enum ContextError {
 pub enum UserError {
     /// Username is already taken.
     UsernameTaken { username: alloc::string::String },
+}
+
+/// Errors specific to ChatRegistry.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ChatError {
+    /// Chat not found.
+    NotFound,
+    /// Caller does not own this chat.
+    NotOwner,
+    /// Chat is archived.
+    Archived,
+    /// Chat is not archived (when trying to restore).
+    NotArchived,
+    /// Invalid CID (empty).
+    InvalidCid,
+    /// Invalid hash (zero).
+    InvalidHash,
+    /// Invalid name (empty).
+    InvalidName,
+    /// ID collision during generation.
+    IdCollision,
+    /// Credit consumption failed (cross-contract call).
+    CreditConsumptionFailed,
 }
 
 /// Errors specific to AuditRegistry.
@@ -190,6 +257,7 @@ impl From<MemoryError> for String {
             MemoryError::NotOwner => String::from("MemoryError: not owner"),
             MemoryError::Archived => String::from("MemoryError: archived"),
             MemoryError::NotArchived => String::from("MemoryError: not archived"),
+            MemoryError::InvalidName => String::from("MemoryError: empty name"),
             MemoryError::InvalidCid => String::from("MemoryError: empty CID"),
             MemoryError::InvalidHash => String::from("MemoryError: zero hash"),
             MemoryError::IdCollision => String::from("MemoryError: ID collision"),
@@ -242,6 +310,24 @@ impl From<AuditError> for String {
         match err {
             AuditError::UnauthorizedRecorder { caller } => {
                 alloc::format!("AuditError: unauthorized recorder ({})", caller)
+            }
+        }
+    }
+}
+
+impl From<ChatError> for String {
+    fn from(err: ChatError) -> Self {
+        match err {
+            ChatError::NotFound => String::from("ChatError: not found"),
+            ChatError::NotOwner => String::from("ChatError: not owner"),
+            ChatError::Archived => String::from("ChatError: archived"),
+            ChatError::NotArchived => String::from("ChatError: not archived"),
+            ChatError::InvalidCid => String::from("ChatError: empty CID"),
+            ChatError::InvalidHash => String::from("ChatError: zero hash"),
+            ChatError::InvalidName => String::from("ChatError: empty name"),
+            ChatError::IdCollision => String::from("ChatError: ID collision"),
+            ChatError::CreditConsumptionFailed => {
+                String::from("ChatError: credit consumption failed")
             }
         }
     }
