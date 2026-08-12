@@ -324,6 +324,12 @@ export default function MemoriesPage() {
             </div>
 
             <div className="space-y-3">
+              {selectedMemory.content && (
+                <div className="p-3 rounded-lg bg-muted/50">
+                  <p className="text-xs font-medium text-muted-foreground mb-1">Contenido</p>
+                  <p className="text-sm text-foreground whitespace-pre-wrap font-mono">{selectedMemory.content}</p>
+                </div>
+              )}
               <div className="p-3 rounded-lg bg-muted/50">
                 <p className="text-xs font-medium text-muted-foreground mb-1">Descripción</p>
                 <p className="text-sm text-foreground">{selectedMemory.description || "Sin descripción"}</p>
@@ -368,6 +374,17 @@ export default function MemoriesPage() {
                 rows={2}
                 className="w-full px-3 py-2 rounded-lg border border-input bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring resize-none"
                 placeholder="Descripción breve..."
+              />
+            </div>
+            <div>
+              <label htmlFor="memory-content" className="block text-sm font-medium text-foreground mb-1">Contenido</label>
+              <textarea
+                id="memory-content"
+                value={formData.content}
+                onChange={e => setFormData({ ...formData, content: e.target.value })}
+                rows={4}
+                className="w-full px-3 py-2 rounded-lg border border-input bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring resize-none font-mono"
+                placeholder="Contenido de la memoria..."
               />
             </div>
             <div className="flex gap-3 pt-2">
