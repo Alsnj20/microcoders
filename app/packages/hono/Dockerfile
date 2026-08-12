@@ -5,7 +5,7 @@ RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
 
 FROM base AS build
 
-RUN apk add --no-cache gcompat
+RUN apk add --no-cache gcompat python3 make g++
 WORKDIR /usr/src/app
 
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./

@@ -6,6 +6,8 @@ ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME/bin:$PATH"
 RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
 
+RUN apk add --no-cache python3 make g++
+
 WORKDIR /app
 
 # Copy workspace manifests first to leverage Docker cache
