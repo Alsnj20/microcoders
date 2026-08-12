@@ -14,8 +14,6 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_HONO: ghcr.io/${{ github.repository }}/hono
-  IMAGE_NEXTJS: ghcr.io/${{ github.repository }}/nextjs
 
 jobs:
   build-hono:
@@ -29,6 +27,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Set lowercase image name
+        id: image
+        run: echo "name=ghcr.io/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')/hono" >> $GITHUB_OUTPUT
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -43,7 +48,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.IMAGE_HONO }}
+          images: ${{ steps.image.outputs.name }}
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
             type=sha,prefix=sha-,format=short
@@ -55,11 +60,12 @@ jobs:
         with:
           context: ./app
           file: ./app/packages/hono/Dockerfile
+          platforms: linux/amd64,linux/arm64
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=registry,ref=${{ env.IMAGE_HONO }}:cache
-          cache-to: type=registry,ref=${{ env.IMAGE_HONO }}:cache,mode=max
+          cache-from: type=registry,ref=${{ steps.image.outputs.name }}:cache
+          cache-to: type=registry,ref=${{ steps.image.outputs.name }}:cache,mode=max
 
   build-nextjs:
     name: Build & Push — Next.js (frontend)
@@ -72,6 +78,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Set lowercase image name
+        id: image
+        run: echo "name=ghcr.io/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')/nextjs" >> $GITHUB_OUTPUT
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -86,7 +99,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.IMAGE_NEXTJS }}
+          images: ${{ steps.image.outputs.name }}
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
             type=sha,prefix=sha-,format=short
@@ -98,8 +111,9 @@ jobs:
         with:
           context: ./app
           file: ./app/packages/nextjs/Dockerfile
+          platforms: linux/amd64,linux/arm64
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=registry,ref=${{ env.IMAGE_NEXTJS }}:cache
-          cache-to: type=registry,ref=${{ env.IMAGE_NEXTJS }}:cache,mode=max
+          cache-from: type=registry,ref=${{ steps.image.outputs.name }}:cache
+          cache-to: type=registry,ref=${{ steps.image.outputs.name }}:cache,mode=max

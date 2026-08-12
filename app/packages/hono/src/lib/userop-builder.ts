@@ -232,7 +232,7 @@ export async function buildAndSendUserOp(params: BuildUserOpParams): Promise<Use
   const maxAttempts = 30;
   for (let i = 0; i < maxAttempts; i++) {
     try {
-      const receipt = await rpcCall(bundlerUrl, "eth_getUserOperationReceipt", [userOpHash]);
+      const receipt = await rpcCall(bundlerUrl, "eth_getUserOperationReceipt", [userOpHash]) as { success: boolean } | null;
       if (receipt) {
         if (receipt.success === false) {
           throw new Error(`UserOperation failed on-chain (hash ${userOpHash.slice(0, 10)}…)`);
