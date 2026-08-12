@@ -38,7 +38,7 @@ export function MemoryForm({ memory, onSubmit, onClose }: MemoryFormProps) {
     formState: { errors, isSubmitting },
     reset,
   } = useForm<MemoryFormData>({
-    resolver: zodResolver(memoryFormSchema),
+    resolver: zodResolver(memoryFormSchema as any),
     defaultValues: {
       title: "",
       description: "",

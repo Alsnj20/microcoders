@@ -1,7 +1,7 @@
-import { Hanken_Grotesk, Inter, Orbitron, Source_Serif_4 } from "next/font/google";
+import { Coral_Pixels, Geist_Pixel, Hanken_Grotesk, Inter, Jersey_15, Orbitron, Pixelify_Sans, Poppins } from "next/font/google";
 import { ViewTransition } from "react";
 import "@rainbow-me/rainbowkit/styles.css";
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { ScaffoldEthAppWithProviders } from "~~/components/ScaffoldEthAppWithProviders";
 import { ThemeProvider } from "~~/components/ThemeProvider";
 import "~~/styles/globals.css";
@@ -11,22 +11,16 @@ const inter = Inter({
   variable: "--font-inter",
 });
 
-const orbitron = Orbitron({
-  subsets: ["latin"],
-  variable: "--font-orbitron",
-  weight: ["400", "700", "900"],
-});
-
 const hankenGrotesk = Hanken_Grotesk({
   subsets: ["latin"],
   variable: "--font-hanken-grotesk",
   weight: ["400", "500", "600", "700"],
 });
 
-const sourceSerif4 = Source_Serif_4({
+const orbitron = Orbitron({
   subsets: ["latin"],
-  variable: "--font-source-serif",
-  weight: ["400", "500", "600", "700"],
+  variable: "--font-orbitron",
+  weight: ["400", "700", "900"],
 });
 
 const baseUrl = process.env.VERCEL_URL
@@ -72,11 +66,17 @@ export const metadata: Metadata = {
   },
 };
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+};
+
 const ScaffoldEthApp = ({ children }: { children: React.ReactNode }) => {
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${inter.variable} ${orbitron.variable} ${hankenGrotesk.variable} ${sourceSerif4.variable} font-sans`}
+        className={`${inter.variable} ${orbitron.variable} ${hankenGrotesk.variable} font-sans overflow-x-hidden`}
         suppressHydrationWarning
       >
         <ThemeProvider>

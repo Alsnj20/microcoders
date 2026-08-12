@@ -81,6 +81,7 @@ export function useChat() {
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [linkedMemories, setLinkedMemories] = useState<LinkedMemory[]>([]);
   const [selectedModel, setSelectedModel] = useState<string>("gpt-4o-mini");
+  const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [userState, setUserState] = useState<UserProtocolState>({
     username: session.username || "",
     memoryCredits: 0,
@@ -494,5 +495,6 @@ export function useChat() {
     onSaveAsMemory: saveAsMemory,
     userState,
     sendMessage,
+    isGenerating,
   };
 }

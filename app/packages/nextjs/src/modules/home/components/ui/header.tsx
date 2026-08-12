@@ -2,11 +2,8 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { PetAvatar } from "~~/src/modules/pet/components/pet-avatar";
 import { usePet } from "~~/src/modules/pet/hooks/use-pet";
-
-const PET_SIZE = 32;
-const SPRITE_SCALE = PET_SIZE / 16;
+import { ThemeToggle } from "./theme-toggle";
 
 export const Header = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -14,50 +11,38 @@ export const Header = () => {
 
   const navLinks = [
     { name: "Inicio", href: "#hero" },
-    { name: "Características", href: "#features" },
-    { name: "Debug", href: "/debug" },
+    { name: "Cómo funciona", href: "#how-it-works" },
+    { name: "Caracteristicas", href: "#features" },
+    { name: "Precios", href: "#pricing" },
+    { name: "FAQ", href: "#faq" },
   ];
 
   return (
-    <nav className="fixed top-0 w-full z-50 bg-background/90 backdrop-blur-md border-b border-border/30">
+    <nav className="min-w-dvw fixed top-0 z-50 bg-background/90 backdrop-blur-md border-b border-border/30">
       <div className="flex justify-between items-center h-20 px-6 md:px-12 max-w-7xl mx-auto">
-        {/* Brand Logo */}
         <Link href="/" className="flex items-center gap-3 font-semibold text-xl tracking-tight text-primary">
-          <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center overflow-hidden shadow-sm">
-            <PetAvatar
-              spritesheet="/sprites/pet.png"
-              currentState={pet.currentState}
-              currentFrame={pet.currentFrame}
-              position={{ x: 0, y: 0 }}
-              frameWidth={16}
-              frameHeight={16}
-              scale={SPRITE_SCALE}
-              positionMode="relative"
-              onClick={pet.onClick}
-              onHover={pet.onHover}
-            />
-          </div>
-          <div className="flex flex-col">
-            <span className="leading-none text-lg font-bold text-foreground">MemoryChain</span>
-            <span className="text-xs text-muted-foreground font-normal">Arbitrum Stylus</span>
+          <div className="flex flex-col leading-none">
+            <h1 className="text-primary text-2xl -mb-2">
+              M<span className="leading-none text-xl font-bold text-foreground">chain</span>
+            </h1>
+            <span className="text-xs text-muted-foreground font-normal -mt-2">Arbitrum Stylus</span>
           </div>
         </Link>
 
-        {/* Desktop Nav Links */}
         <div className="hidden lg:flex items-center gap-8">
           {navLinks.map(link => (
             <a
               key={link.name}
               href={link.href}
-              className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors duration-200"
+              className="text-md text-muted-foreground hover:text-primary transition-colors duration-200"
             >
               {link.name}
             </a>
           ))}
         </div>
 
-        {/* Action Button & Mobile Toggle */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
+          <ThemeToggle />
           <Link
             href="/chat"
             className="bg-primary text-primary-foreground text-sm font-semibold px-6 py-3 rounded-lg hover:opacity-90 transition-all duration-200 shadow-md hover:shadow-primary/20 active:scale-95 hidden sm:inline-flex items-center gap-2"
@@ -69,7 +54,7 @@ export const Header = () => {
           <button
             type="button"
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="lg:hidden p-2 text-primary hover:bg-accent rounded-lg transition-colors"
+            className="lg:hidden p-2 text-primary hover:text-primary/70 rounded-lg transition-colors"
             aria-label="Toggle Navigation"
           >
             <span className="material-symbols-outlined">{isMobileMenuOpen ? "close" : "menu"}</span>
@@ -77,7 +62,6 @@ export const Header = () => {
         </div>
       </div>
 
-      {/* Mobile Menu Dropdown */}
       {isMobileMenuOpen && (
         <div className="lg:hidden border-b border-border/40 bg-background/95 backdrop-blur-xl px-6 py-6 flex flex-col gap-4 shadow-xl">
           {navLinks.map(link => (

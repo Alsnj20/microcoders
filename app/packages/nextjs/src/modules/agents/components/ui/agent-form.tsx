@@ -50,7 +50,7 @@ export function AgentForm({ agent, onSubmit, onClose, linkedMemories = [], onLin
     watch,
     setValue,
   } = useForm<AgentFormData>({
-    resolver: zodResolver(agentFormSchema),
+    resolver: zodResolver(agentFormSchema as any),
     defaultValues: {
       name: "",
       description: "",
@@ -65,8 +65,8 @@ export function AgentForm({ agent, onSubmit, onClose, linkedMemories = [], onLin
 
   useEffect(() => {
     if (showMemorySelector) {
-      api.memories.$get().then(res => {
-        if (res.ok) res.json().then(data => setAvailableMemories(data.memories || []));
+      api.memories.$get().then((res: any) => {
+        if (res.ok) res.json().then((data: any) => setAvailableMemories(data.memories || []));
       }).catch(() => {});
     }
   }, [showMemorySelector]);

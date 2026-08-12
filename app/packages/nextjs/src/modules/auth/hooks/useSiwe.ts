@@ -172,7 +172,7 @@ export function useSiwe() {
       const targetAddress = smartAccountAddress || address;
 
       const result = await walletClient.request({
-        method: "wallet_grantPermissions",
+        method: "wallet_grantPermissions" as any,
         params: [
           {
             permissions: [
@@ -190,11 +190,11 @@ export function useSiwe() {
             ],
             expiry: Math.floor(Date.now() / 1000) + 86400, // 24 hours
           },
-        ],
+        ] as any,
       });
 
       console.log("[SIWE] grantPermissions result:", result);
-      return result as GrantPermissionsResult;
+      return result as unknown as GrantPermissionsResult;
     } catch (err) {
       console.error("[SIWE] grantPermissions error:", err);
       return null;
