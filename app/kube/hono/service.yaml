@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+
+metadata:
+  name: microcoders-hono
+  namespace: microcoders
+
+spec:
+  selector:
+    app: microcoders-hono
+  ports:
+    - name: http
+      port: 3001
+      targetPort: 3001

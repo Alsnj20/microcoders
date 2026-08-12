@@ -16,7 +16,7 @@ import { createSessionKeyRoutes } from "./routes/session-keys.js";
 import { createAuditRoutes } from "./routes/audit.js";
 import { createChatRoutes } from "./routes/chat.js";
 import Redis from "ioredis";
-import { createRedisSessionKeyStore, createMemorySessionKeyStore } from "./lib/session-keys.js";
+import { createRedisSessionKeyStore } from "./lib/session-keys.js";
 import { listFoundryDeployments, type FoundryDeployment } from "./lib/foundry.js";
 import type {
   MemoryRegistryContract,

@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+
+metadata:
+  name: microcoders-nextjs
+  namespace: microcoders
+
+spec:
+  selector:
+    app: microcoders-nextjs
+  ports:
+    - name: http
+      port: 3000
+      targetPort: 3000

@@ -1,0 +1,48 @@
+# Dependencies
+node_modules
+packages/*/node_modules
+
+# Build outputs
+packages/hono/dist
+packages/nextjs/.next
+packages/stylus/out
+
+# Dev / local env files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+packages/**/.env
+packages/**/.env.local
+
+# Git & CI
+.git
+.gitignore
+.github
+
+# Nix
+.envrc
+flake.lock
+flake.nix
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Editors / OS
+.DS_Store
+.idea
+.vscode
+*.swp
+*.swo
+Thumbs.db
+
+# Test output
+coverage
+.nyc_output
+
+# Misc
+nitro-devnode
+dist

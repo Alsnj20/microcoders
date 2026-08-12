@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: microcoders-hono
+  namespace: microcoders
+  labels:
+    app: microcoders-hono
+
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: microcoders-hono
+  template:
+    metadata:
+      labels:
+        app: microcoders-hono
+    spec:
+      containers:
+        - name: hono
+          image: "" # TODO: set image after pushing to GHCR (e.g. ghcr.io/org/repo/hono:latest)
+          ports:
+            - name: http
+              containerPort: 3001
+          envFrom:
+            - configMapRef:
+                name: microcoders-hono
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3001
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3001
+            initialDelaySeconds: 5
+            periodSeconds: 10
