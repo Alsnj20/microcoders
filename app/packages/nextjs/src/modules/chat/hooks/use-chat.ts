@@ -17,6 +17,7 @@ import {
 } from "~~/services/api/chat-storage";
 import type { AgentBlueprint, ChatConversation, ChatMessage, UserProtocolState } from "../types/chat";
 import { resolveMemoryTitleSafe } from "~~/src/modules/memories/services/memory-title";
+import { resolveAgentNameFromIpfs } from "~~/src/modules/agents/services/agent-blueprint";
 
 const ASSISTANT_AVATAR = "https://lh3.googleusercontent.com/aida-public/AB6AXuBUmXEidBO3zpY2rMxk3Oa3i1XCq9JMTtX2Y9Sdn73ycyngQdB2pmkTY3ahd-shRj26UBLDhdxlwfYjkteWRxaQCRUKifpT6JjM-TY_3heKXwGniuOyNrEOImrIPRuSmoY2d1pfaHODuGeGwNtyC3KLGCVhKxpt2tc_xE8QCJgxmyb66xqmZMI78lW4qAVuwwRaUB7X___-CJWsYXH8NzEmiuCsHog1vg35BEOKqDtpQGv5Ve-qfI3I";
 const USER_AVATAR = "https://lh3.googleusercontent.com/aida-public/AB6AXuCW8LUo9gm27dPmMFaHiMdj3UbYIv49SlmZ4WMcAnEsydpgz2LatC5HD8l3AGrVqpcq4qzI9RrxsSQgFSuWfYKZuNS6AOoRYrcuPizgq76APhWr_caPMr9Wvu2r0vEQxTrNCnVdIOhkoXauiZQP9WtG8s0X4acUrSGrwL_RS-pdrDOOEnB1R2WeILBHevRL2PgLUJRMyk3PCznh4zJquJr5-FDs_Tx5mTj0k6V8g8sEjrGyn_7sNsFH";
@@ -93,11 +94,6 @@ export function useChat() {
   });
   const welcomeLoaded = useRef(false);
 
-  useEffect(() => {
-    loadAgents();
-    loadConversations();
-  }, []);
-
   const fetchWelcomeMessage = useCallback(async (): Promise<ChatMessage | null> => {
     try {
       const username = localStorage.getItem("mc_username") || session.username || "";
@@ -141,20 +137,25 @@ export function useChat() {
     } catch {}
   }, [setCreditBalance]);
 
-  const loadAgents = async () => {
+  const loadAgents = useCallback(async () => {
     try {
       const res = await api.agents.$get();
       if (res.ok) {
         const data = await res.json();
-        const mapped: AgentBlueprint[] = data.agents.map((a: any) => ({
-          id: a.agentId,
-          name: a.name || "Agent",
-          description: a.description || "",
-          icon: "smart_toy",
-          version: `v${a.version}`,
-          blueprintCid: a.cid,
-          active: a.status === 0,
-        }));
+        const mapped: AgentBlueprint[] = await Promise.all(
+          data.agents.map(async (a: any) => {
+            const name = await resolveAgentNameFromIpfs(a.cid, session.kWallet, a.name || "Agent");
+            return {
+              id: a.agentId,
+              name,
+              description: a.description || "",
+              icon: "smart_toy",
+              version: `v${a.version}`,
+              blueprintCid: a.cid,
+              active: a.status === 0,
+            };
+          }),
+        );
         setAgents(mapped);
         if (mapped.length > 0 && !userState.activeAgentId) {
           setUserState((prev) => ({ ...prev, activeAgentId: mapped[0].id }));
@@ -163,7 +164,12 @@ export function useChat() {
     } catch {
       setAgents([]);
     }
-  };
+  }, [session.kWallet]);
+
+  useEffect(() => {
+    loadAgents();
+    loadConversations();
+  }, [loadAgents]);
 
   const loadConversations = async () => {
     try {
