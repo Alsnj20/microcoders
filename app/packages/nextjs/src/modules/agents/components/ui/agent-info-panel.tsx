@@ -7,10 +7,11 @@ interface AgentInfoPanelProps {
   agent: Agent | null;
   onEdit: (agent: Agent) => void;
   onLinkMemory?: () => void;
+  onUnlinkMemory?: (agentId: string, memoryId: string) => void;
   onStartChat?: () => void;
 }
 
-export function AgentInfoPanel({ agent, onEdit, onLinkMemory, onStartChat }: AgentInfoPanelProps) {
+export function AgentInfoPanel({ agent, onEdit, onLinkMemory, onUnlinkMemory, onStartChat }: AgentInfoPanelProps) {
   if (!agent) {
     return (
       <aside className="hidden xl:block w-80 min-h-[calc(100vh-4rem)] border-l border-border/40 bg-background p-6">
@@ -63,10 +64,31 @@ export function AgentInfoPanel({ agent, onEdit, onLinkMemory, onStartChat }: Age
         {/* Connected Memories */}
         <div>
           <h4 className="text-xs font-semibold text-muted-foreground tracking-wider mb-2">MEMORIAS CONECTADAS</h4>
-          <p className="text-sm text-foreground">
-            {agent.connectedMemories.length} memoria{agent.connectedMemories.length !== 1 ? "s" : ""} conectada
-            {agent.connectedMemories.length !== 1 ? "s" : ""}
-          </p>
+          {agent.connectedMemories.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No hay memorias conectadas.</p>
+          ) : (
+            <div className="space-y-2">
+              {agent.connectedMemories.map((mem) => (
+                <div
+                  key={mem.memoryId}
+                  className="flex items-center justify-between gap-2 p-2 rounded-lg bg-muted border border-border"
+                >
+                  <span className="text-sm font-medium text-foreground truncate">{mem.name}</span>
+                  {onUnlinkMemory && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 shrink-0 text-muted-foreground hover:text-destructive"
+                      onClick={() => onUnlinkMemory(agent.id, mem.memoryId)}
+                      title="Desvincular memoria"
+                    >
+                      <span className="material-symbols-outlined text-sm">link_off</span>
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
           {onLinkMemory && (
             <Button variant="outline" size="sm" className="mt-2" onClick={onLinkMemory}>
               <span className="material-symbols-outlined text-sm">link</span>

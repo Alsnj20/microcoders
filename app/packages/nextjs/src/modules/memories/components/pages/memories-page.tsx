@@ -38,6 +38,7 @@ export default function MemoriesPage() {
     createMemory,
     updateMemory,
     deleteMemory,
+    restoreMemory,
     toggleFavorite,
     totalByCollection,
     archivedCount,
@@ -56,8 +57,8 @@ export default function MemoriesPage() {
   const filteredMemories = memories
     .filter(m => {
       if (selectedCollection === "favorites") return m.isFavorite;
-      if (selectedCollection === "archived") return (m as Memory & { isArchived?: boolean }).isArchived;
-      return !(m as Memory & { isArchived?: boolean }).isArchived;
+      if (selectedCollection === "archived") return m.isArchived;
+      return !m.isArchived;
     })
     .filter(m => {
       if (!searchQuery) return true;
@@ -103,8 +104,11 @@ export default function MemoriesPage() {
   };
 
   const handleDelete = (id: string) => {
-    if (!confirm("¿Archivar esta memoria?")) return;
     deleteMemory(id);
+  };
+
+  const handleRestore = (id: string) => {
+    restoreMemory(id);
   };
 
   const handleFormSubmit = async () => {
@@ -112,12 +116,13 @@ export default function MemoriesPage() {
       if (showPanel === "edit" && selectedMemory) {
         await updateMemory(selectedMemory.id, formData);
       } else {
-        await createMemory({ ...formData, isFavorite: false });
+        await createMemory({ ...formData, isFavorite: false, isArchived: false });
       }
       setShowPanel(null);
       setSelectedMemory(null);
-    } catch (e) {
+    } catch (e: any) {
       console.error("Form error:", e);
+      alert(`Error al guardar: ${e.message || "Inténtalo de nuevo"}`);
     }
   };
 
@@ -272,6 +277,7 @@ export default function MemoriesPage() {
                     onToggleFavorite={toggleFavorite}
                     onEdit={handleEdit}
                     onDelete={handleDelete}
+                    onRestore={handleRestore}
                   />
                 </button>
               ))}
@@ -323,6 +329,11 @@ export default function MemoriesPage() {
               </div>
             </div>
 
+            <div className="p-3 rounded-lg bg-muted/50">
+              <p className="text-xs font-medium text-muted-foreground mb-1">Descripción</p>
+              <p className="text-sm text-foreground">{selectedMemory.description || "Sin descripción"}</p>
+            </div>
+
             <div className="space-y-3">
               {selectedMemory.content && (
                 <div className="p-3 rounded-lg bg-muted/50">
@@ -330,10 +341,6 @@ export default function MemoriesPage() {
                   <p className="text-sm text-foreground whitespace-pre-wrap font-mono">{selectedMemory.content}</p>
                 </div>
               )}
-              <div className="p-3 rounded-lg bg-muted/50">
-                <p className="text-xs font-medium text-muted-foreground mb-1">Descripción</p>
-                <p className="text-sm text-foreground">{selectedMemory.description || "Sin descripción"}</p>
-              </div>
               <div className="p-3 rounded-lg bg-muted/50">
                 <p className="text-xs font-medium text-muted-foreground mb-1">CID</p>
                 <p className="text-sm text-foreground font-mono break-all">{selectedMemory.cid}</p>

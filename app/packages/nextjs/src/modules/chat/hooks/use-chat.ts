@@ -4,9 +4,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { keccak256, toHex } from "viem";
 import { api } from "~~/services/api/client";
 import { useGlobalState } from "~~/services/store/store";
-import { retrieveFromIpfs } from "~~/services/api/ipfs";
-import { decryptData, decryptWalletEnvelope } from "~~/services/crypto/envelope";
-import { base64ToArrayBuffer } from "~~/services/crypto/utils";
+import { pinToIpfs, retrieveFromIpfs } from "~~/services/api/ipfs";
+import { encryptData, decryptData, decryptWalletEnvelope, createWalletEnvelope } from "~~/services/crypto/envelope";
+import { generateKData } from "~~/services/crypto/keys";
+import { arrayBufferToBase64, base64ToArrayBuffer } from "~~/services/crypto/utils";
 import {
   saveConversation,
   listConversations,
@@ -15,6 +16,7 @@ import {
   loadConversationMessages,
 } from "~~/services/api/chat-storage";
 import type { AgentBlueprint, ChatConversation, ChatMessage, UserProtocolState } from "../types/chat";
+import { resolveMemoryTitleSafe } from "~~/src/modules/memories/services/memory-title";
 
 const ASSISTANT_AVATAR = "https://lh3.googleusercontent.com/aida-public/AB6AXuBUmXEidBO3zpY2rMxk3Oa3i1XCq9JMTtX2Y9Sdn73ycyngQdB2pmkTY3ahd-shRj26UBLDhdxlwfYjkteWRxaQCRUKifpT6JjM-TY_3heKXwGniuOyNrEOImrIPRuSmoY2d1pfaHODuGeGwNtyC3KLGCVhKxpt2tc_xE8QCJgxmyb66xqmZMI78lW4qAVuwwRaUB7X___-CJWsYXH8NzEmiuCsHog1vg35BEOKqDtpQGv5Ve-qfI3I";
 const USER_AVATAR = "https://lh3.googleusercontent.com/aida-public/AB6AXuCW8LUo9gm27dPmMFaHiMdj3UbYIv49SlmZ4WMcAnEsydpgz2LatC5HD8l3AGrVqpcq4qzI9RrxsSQgFSuWfYKZuNS6AOoRYrcuPizgq76APhWr_caPMr9Wvu2r0vEQxTrNCnVdIOhkoXauiZQP9WtG8s0X4acUrSGrwL_RS-pdrDOOEnB1R2WeILBHevRL2PgLUJRMyk3PCznh4zJquJr5-FDs_Tx5mTj0k6V8g8sEjrGyn_7sNsFH";
@@ -59,9 +61,11 @@ async function fetchDecryptedMemoryContent(cid: string, kWallet: Uint8Array): Pr
   return decryptData(base64ToArrayBuffer(envelope.ciphertext), kData);
 }
 
-const NEUTRAL_SYSTEM_PROMPT = "Eres un asistente útil. Responde en español.";
-const MEMORYCHAIN_BRANDING =
-  "Eres un agente de IA de MemoryChain, una plataforma de conocimiento descentralizado donde los usuarios guardan y gestionan su información personal.";
+const MARKDOWN_RULES =
+  "Formatea tus respuestas en Markdown (GFM): usa bloques de código con ``` (indicando el lenguaje) para cualquier código, tablas con | para comparaciones/datos, y listas, negritas y títulos para claridad. No escribas código sin las cercas ```.";
+
+const NEUTRAL_SYSTEM_PROMPT = `Eres un asistente útil. Responde en español.\n${MARKDOWN_RULES}`;
+const MEMORYCHAIN_BRANDING = `Eres un agente de IA de MemoryChain, una plataforma de conocimiento descentralizado donde los usuarios guardan y gestionan su información personal.\n${MARKDOWN_RULES}`;
 
 function buildSystemPrompt(agent: AgentBlueprintContent | null): string {
   if (!agent) return NEUTRAL_SYSTEM_PROMPT;
@@ -190,9 +194,10 @@ export function useChat() {
                   console.error("Failed to decrypt linked memory:", err);
                 }
               }
+              const title = await resolveMemoryTitleSafe(memData.cid, session.kWallet, memData.name || link.memoryId);
               memories.push({
                 memoryId: link.memoryId,
-                title: memData.name || link.memoryId,
+                title,
                 cid: memData.cid,
                 content,
               });
@@ -236,9 +241,10 @@ export function useChat() {
                 console.error("Failed to decrypt linked memory:", err);
               }
             }
+            const title = await resolveMemoryTitleSafe(memData.cid, session.kWallet, memData.name || memoryId);
             setLinkedMemories((prev) => {
               if (prev.some((m) => m.memoryId === memoryId)) return prev;
-              return [...prev, { memoryId, title: memData.name || memoryId, cid: memData.cid, content }];
+              return [...prev, { memoryId, title, cid: memData.cid, content }];
             });
           }
         }
@@ -439,11 +445,52 @@ export function useChat() {
       if (!msg) return;
 
       try {
+        const extractRes = await api.chat["extract-memory"].$post({
+          json: { content: msg.content },
+        });
+
+        let title = msg.content.slice(0, 60);
+        let description = msg.content.slice(0, 150);
+        let content = msg.content;
+        if (extractRes.ok) {
+          const extracted = await extractRes.json();
+          title = extracted.title || title;
+          description = extracted.description || description;
+          content = extracted.content || content;
+        }
+
+        // Pin content to IPFS (like use-memory.ts createMemory does)
+        let ipfsResult = { cid: `chat-export-${Date.now()}`, hash: hashMemory(content) };
+
+        if (session.kWallet) {
+          // Production: encrypt payload and pin to IPFS
+          const kData = generateKData();
+          const memoryPayload = JSON.stringify({ description, content });
+          const ciphertext = await encryptData(memoryPayload, kData);
+          const walletEnvelope = await createWalletEnvelope(kData, session.kWallet);
+
+          const ipfsPayload = {
+            ciphertext: arrayBufferToBase64(ciphertext),
+            walletEnvelope: arrayBufferToBase64(walletEnvelope),
+            recoveryEnvelope: "",
+          };
+
+          const rawJsonBytes = new TextEncoder().encode(JSON.stringify(ipfsPayload));
+          const base64Payload = arrayBufferToBase64(rawJsonBytes);
+          ipfsResult = await pinToIpfs(base64Payload, title);
+        } else {
+          // Dev mode: pin plain JSON
+          const plainPayload = JSON.stringify({ description, content });
+          const base64Payload = arrayBufferToBase64(new TextEncoder().encode(plainPayload));
+          ipfsResult = await pinToIpfs(base64Payload, title);
+        }
+
         const res = await api.memories.create.$post({
           json: {
-            name: msg.content.slice(0, 60) + (msg.content.length > 60 ? "..." : ""),
-            cid: `chat-export-${Date.now()}`,
-            hash: hashMemory(msg.content),
+            name: title,
+            description,
+            cid: ipfsResult.cid,
+            hash: ipfsResult.hash,
             memoryType: 0,
             visibility: 0,
           },
@@ -451,7 +498,7 @@ export function useChat() {
         if (res.ok) {
           setMessages((prev) =>
             prev.map((m) =>
-              m.id === messageId ? { ...m, memoryCid: "Guardada como memoria" } : m,
+              m.id === messageId ? { ...m, memoryCid: title } : m,
             ),
           );
         }
@@ -459,7 +506,7 @@ export function useChat() {
         console.error("Failed to save as memory:", err);
       }
     },
-    [messages],
+    [messages, session.kWallet],
   );
 
   const deleteConversationHandler = useCallback(
@@ -493,6 +540,8 @@ export function useChat() {
     onLinkMemory: linkMemory,
     onUnlinkMemory: unlinkMemory,
     onSaveAsMemory: saveAsMemory,
+    refreshAgents: loadAgents,
+    refreshLinkedMemories: () => userState.activeAgentId && loadLinkedMemories(userState.activeAgentId),
     userState,
     sendMessage,
     isGenerating,

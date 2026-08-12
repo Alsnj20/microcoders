@@ -1,5 +1,20 @@
-import { type Hex, type Chain, createPublicClient, encodeFunctionData, http } from "viem";
+import { type Hex, type Chain, createPublicClient, encodeFunctionData, http, keccak256, concat, stringToHex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
+
+function max(a: bigint, b: bigint): bigint {
+  return a > b ? a : b;
+}
+
+/**
+ * Solidity `toEthSignedMessageHash(bytes32)` — the message hash that SimpleAccount
+ * validates against. EIP-191 prefixes the 32-byte value with
+ * `\x19Ethereum Signed Message:\n32`. The prefix string is 28 bytes — do NOT pad
+ * it to 32 (stringToHex with { size: 32 } appends 4 zero bytes → wrong hash).
+ */
+function toEthSignedMessageHash(hash: Hex): Hex {
+  const prefix = stringToHex("\x19Ethereum Signed Message:\n32");
+  return keccak256(concat([prefix, hash]));
+}
 
 const BUNDLER_URL = process.env.BUNDLER_URL || "http://localhost:4337";
 
@@ -94,15 +109,20 @@ export interface UserOperation {
 }
 
 async function rpcCall(bundlerUrl: string, method: string, params: unknown[]): Promise<unknown> {
+  // ERC-4337 RPC quantities must be HEX strings (0x-prefixed), and viem's UserOp
+  // carries bigint fields. Serialize bigints to 0x hex so the bundler validates.
+  const toHexQuantity = (value: bigint) => `0x${value.toString(16)}`;
+  const body = JSON.stringify({
+    jsonrpc: "2.0",
+    id: Date.now(),
+    method,
+    params,
+  }, (_, value) => (typeof value === "bigint" ? toHexQuantity(value) : value));
+  console.log(`[UserOp] rpcCall ${method} body:`, body.substring(0, 500));
   const response = await fetch(bundlerUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      jsonrpc: "2.0",
-      id: Date.now(),
-      method,
-      params,
-    }),
+    body,
   });
   const data = await response.json();
   if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
@@ -159,25 +179,31 @@ export async function buildAndSendUserOp(params: BuildUserOpParams): Promise<Use
     nonce,
     initCode,
     callData: executeData,
-    callGasLimit: 500_000n,
-    verificationGasLimit: 200_000n,
-    preVerificationGas: 50_000n,
+    callGasLimit: 1_000_000n,
+    verificationGasLimit: 250_000n,
+    preVerificationGas: 100_000n,
     maxFeePerGas,
     maxPriorityFeePerGas: 0n,
     paymasterAndData: "0x",
     signature: "0x",
   };
 
-  // Prefer bundler gas estimation; fall back to the generous defaults above.
+  // Prefer bundler gas estimation, but never go below the generous defaults
+  // (a deployed-with-initCode smart account needs a lot of verification gas —
+  // taking the minimum here causes AA40 over verificationGasLimit).
   try {
     const estimated = (await rpcCall(bundlerUrl, "eth_estimateUserOperationGas", [
       userOp,
       entryPointAddress,
     ])) as { callGasLimit?: string; verificationGasLimit?: string; preVerificationGas?: string };
     if (estimated) {
-      if (estimated.callGasLimit) userOp.callGasLimit = BigInt(estimated.callGasLimit);
-      if (estimated.verificationGasLimit) userOp.verificationGasLimit = BigInt(estimated.verificationGasLimit);
-      if (estimated.preVerificationGas) userOp.preVerificationGas = BigInt(estimated.preVerificationGas);
+      if (estimated.callGasLimit) userOp.callGasLimit = max(userOp.callGasLimit, BigInt(estimated.callGasLimit));
+      if (estimated.verificationGasLimit) {
+        userOp.verificationGasLimit = max(userOp.verificationGasLimit, BigInt(estimated.verificationGasLimit));
+      }
+      if (estimated.preVerificationGas) {
+        userOp.preVerificationGas = max(userOp.preVerificationGas, BigInt(estimated.preVerificationGas));
+      }
     }
   } catch {
     // fallback defaults are already set
@@ -191,9 +217,10 @@ export async function buildAndSendUserOp(params: BuildUserOpParams): Promise<Use
     args: [userOp],
   })) as Hex;
 
-  // viem's account.sign returns the serialized ECDSA signature (r||s||v, v=27/28),
-  // which is exactly what SimpleAccount._validateSignature expects via ECDSA.recover.
-  userOp.signature = await sessionAccount.sign({ hash: userOpHash });
+  // SimpleAccount._validateSignature computes toEthSignedMessageHash(userOpHash)
+  // before ECDSA.recover, so we must sign THAT (not the raw userOpHash).
+  const messageHash = toEthSignedMessageHash(userOpHash);
+  userOp.signature = await sessionAccount.sign({ hash: messageHash });
 
   const opHash = (await rpcCall(bundlerUrl, "eth_sendUserOperation", [
     userOp,
@@ -201,14 +228,17 @@ export async function buildAndSendUserOp(params: BuildUserOpParams): Promise<Use
   ])) as Hex;
 
   return { userOpHash: opHash };
-}
-
-export async function waitForUserOp(userOpHash: Hex, bundlerUrl: string = BUNDLER_URL) {
+}export async function waitForUserOp(userOpHash: Hex, bundlerUrl: string = BUNDLER_URL) {
   const maxAttempts = 30;
   for (let i = 0; i < maxAttempts; i++) {
     try {
       const receipt = await rpcCall(bundlerUrl, "eth_getUserOperationReceipt", [userOpHash]);
-      if (receipt) return receipt;
+      if (receipt) {
+        if (receipt.success === false) {
+          throw new Error(`UserOperation failed on-chain (hash ${userOpHash.slice(0, 10)}…)`);
+        }
+        return receipt;
+      }
     } catch {
       // retry
     }

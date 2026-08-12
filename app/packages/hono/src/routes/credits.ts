@@ -1,9 +1,13 @@
 import { Hono } from "hono";
 import { z } from "zod";
+import { createPublicClient, http, defineChain, type Hex } from "viem";
+import { arbitrum, arbitrumSepolia } from "viem/chains";
 import type { CreditManagerContract } from "../types/contracts.js";
+import type { SessionKeyStore } from "../types/session.js";
 import type { AppEnv } from "../index.js";
 import { listFoundryDeployments, type FoundryDeployment } from "../lib/foundry.js";
 import { getModelCost } from "../lib/prices.js";
+import { resolveAccountFor } from "../lib/resolve-account.js";
 
 function requireSession(c: { get: (key: string) => unknown; json: (body: unknown, status?: number) => Response }) {
   const session = c.get("session");
@@ -11,9 +15,22 @@ function requireSession(c: { get: (key: string) => unknown; json: (body: unknown
   return session as { address: string; chainId: number; username: string | null };
 }
 
+function getRpcClient() {
+  const rpcUrl = process.env.RPC_URL || "http://localhost:8547";
+  const chainId = Number(process.env.CHAIN_ID || 412346);
+  const chain =
+    chainId === 42161
+      ? arbitrum
+      : chainId === 421614
+        ? arbitrumSepolia
+        : defineChain({ id: 412346, name: "Nitro DevNode", nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 }, rpcUrls: { default: { http: [rpcUrl] }, public: { http: [rpcUrl] } } });
+  return createPublicClient({ chain, transport: http(rpcUrl) });
+}
+
 export function createCreditRoutes(
   creditManager: CreditManagerContract,
   getDeployments: () => Promise<FoundryDeployment[]> = listFoundryDeployments,
+  sessionKeyStore?: SessionKeyStore,
 ): Hono<AppEnv> {
   const routes = new Hono<AppEnv>();
 
@@ -23,12 +40,21 @@ export function createCreditRoutes(
       return c.json({ code: "AUTH_REQUIRED", message: "No valid session" }, 401);
     }
 
-    const result = await creditManager.balanceOf(session.address);
+    const account = await resolveAccountFor(sessionKeyStore, session.address);
+    const result = await creditManager.balanceOf(account);
     if (!result.success || !result.data) {
       return c.json({ code: "CONTRACT_ERROR", message: result.error ?? "Failed to read balance" }, 500);
     }
 
-    return c.json(result.data);
+    // ETH balance of the smart account (pays for UserOp gas + credit value).
+    let ethBalance = "0";
+    try {
+      ethBalance = (await getRpcClient().getBalance({ address: account as Hex })).toString();
+    } catch {
+      // non-fatal: report MC balance only
+    }
+
+    return c.json({ ...result.data, account, ethBalance });
   });
 
   routes.get("/fees", async (c) => {
@@ -96,8 +122,9 @@ export function createCreditRoutes(
       return c.json({ code: "CONTRACT_ERROR", message: result.error }, 500);
     }
 
-    const balance = await creditManager.balanceOf(session.address);
-    return c.json({ success: true, balance: balance.data?.balance ?? 0 });
+    const account = await resolveAccountFor(sessionKeyStore, session.address);
+    const balance = await creditManager.balanceOf(account);
+    return c.json({ success: true, balance: balance.data?.balance ?? 0, account });
   });
 
   return routes;

@@ -8,10 +8,17 @@ import { encryptData, decryptData, createWalletEnvelope, decryptWalletEnvelope }
 import { generateKData } from "~~/services/crypto/keys";
 import { arrayBufferToBase64, base64ToArrayBuffer } from "~~/services/crypto/utils";
 import type { Agent, AgentChatMessage, Conversation, CreateAgent, UpdateAgent } from "../types/agent";
+import { resolveMemoryTitleSafe } from "~~/src/modules/memories/services/memory-title";
+
+export interface ConnectedMemory {
+  memoryId: string;
+  name: string;
+}
 
 // Agent blueprint = all rich metadata stored encrypted on IPFS
 // On-chain only stores: name, description (plain), cid, hash
 interface AgentBlueprint {
+  name?: string;
   personality: string;
   instructions: string;
   description?: string;
@@ -60,7 +67,6 @@ export function useAgent() {
       const data = (await res.json()) as any;
 
       const mapped: Agent[] = (data.agents || [])
-        .filter((a: any) => a.status === 0)
         .map((a: any) => ({
           id: a.agentId,
           name: a.name,
@@ -72,13 +78,74 @@ export function useAgent() {
           persistentMemory: true,
           cid: a.cid,
           hash: a.hash,
+          isArchived: a.status === 1,
           createdAt: new Date(a.createdAt * 1000).toISOString().split("T")[0],
-          updatedAt: new Date(a.createdAt * 1000).toISOString().split("T")[0],
+          updatedAt: new Date((a.updatedAt || a.createdAt) * 1000).toISOString().split("T")[0],
         }));
 
-      setAgents(mapped);
-      if (mapped.length > 0 && !selectedAgentId) {
-        setSelectedAgentId(mapped[0].id);
+      // Decrypt blueprints from IPFS for each agent (if kWallet available)
+      let resolved: Agent[];
+      if (session.kWallet) {
+        const decrypted = await Promise.allSettled(
+          mapped.map(async (agent) => {
+            if (!agent.cid || agent.cid.startsWith("dev-")) return agent;
+            try {
+              const base64Data = await retrieveFromIpfs(agent.cid);
+              const jsonStr = new TextDecoder().decode(base64ToArrayBuffer(base64Data));
+              const envelope = JSON.parse(jsonStr);
+              const kData = await decryptWalletEnvelope(base64ToArrayBuffer(envelope.walletEnvelope), session.kWallet!);
+              const plaintext = await decryptData(base64ToArrayBuffer(envelope.ciphertext), kData);
+              const blueprint: AgentBlueprint = JSON.parse(plaintext);
+              return {
+                ...agent,
+                name: blueprint.name || agent.name,
+                description: blueprint.description || agent.description || "",
+                icon: blueprint.icon || "🤖",
+                personality: blueprint.personality || "",
+                instructions: blueprint.instructions || "",
+                persistentMemory: blueprint.persistentMemory ?? true,
+              };
+            } catch {
+              return agent;
+            }
+          }),
+        );
+        resolved = decrypted.map(r => r.status === "fulfilled" ? r.value : mapped[decrypted.indexOf(r)]);
+      } else {
+        resolved = mapped;
+      }
+
+      // Populate connectedMemories from on-chain ContextRegistry
+      const withLinks = await Promise.allSettled(
+        resolved.map(async (agent) => {
+          try {
+            const memoryIds = await fetchLinkedMemories(agent.id);
+            const memories: ConnectedMemory[] = [];
+            for (const memoryId of memoryIds) {
+              try {
+                const memRes = await api.memories[":id"].$get({ param: { id: memoryId } });
+                if (memRes.ok) {
+                  const memData = await memRes.json();
+                  const name = await resolveMemoryTitleSafe(memData.cid, session.kWallet, memData.name || memoryId.slice(0, 12));
+                  memories.push({ memoryId, name });
+                } else {
+                  memories.push({ memoryId, name: memoryId.slice(0, 12) });
+                }
+              } catch {
+                memories.push({ memoryId, name: memoryId.slice(0, 12) });
+              }
+            }
+            return { ...agent, connectedMemories: memories };
+          } catch {
+            return agent;
+          }
+        }),
+      );
+      const final = withLinks.map(r => r.status === "fulfilled" ? r.value : resolved[withLinks.indexOf(r)]);
+
+      setAgents(final);
+      if (final.length > 0 && !selectedAgentId) {
+        setSelectedAgentId(final[0].id);
       }
     } catch (err: any) {
       console.error("Fetch agents error:", err);
@@ -86,7 +153,7 @@ export function useAgent() {
     } finally {
       setLoading(false);
     }
-  }, [session.isAuthenticated, selectedAgentId]);
+  }, [session.isAuthenticated, session.kWallet, selectedAgentId]);
 
   useEffect(() => {
     fetchAgents();
@@ -154,6 +221,7 @@ export function useAgent() {
         let ipfsResult = { cid: `dev-${Date.now()}`, hash: generateDevHash() };
 
         const blueprint: AgentBlueprint = {
+          name: data.name,
           personality: data.personality || "",
           instructions: (data as any).instructions || "",
           description: data.description || "",
@@ -203,6 +271,7 @@ export function useAgent() {
           instructions: blueprint.instructions,
           connectedMemories: [],
           persistentMemory: blueprint.persistentMemory,
+          isArchived: false,
           createdAt: new Date().toISOString().split("T")[0],
           updatedAt: new Date().toISOString().split("T")[0],
         };
@@ -235,6 +304,7 @@ export function useAgent() {
         let ipfsResult = { cid: `dev-${Date.now()}`, hash: generateDevHash() };
 
         const blueprint: AgentBlueprint = {
+          name: data.name ?? localAgent.name,
           personality: data.personality ?? localAgent.personality ?? "",
           instructions: (data as any).instructions ?? (localAgent as any).instructions ?? "",
           description: data.description ?? localAgent.description ?? "",
@@ -282,6 +352,8 @@ export function useAgent() {
                   personality: blueprint.personality,
                   instructions: blueprint.instructions,
                   persistentMemory: blueprint.persistentMemory,
+                  cid: ipfsResult.cid,
+                  hash: ipfsResult.hash,
                   updatedAt: new Date().toISOString().split("T")[0],
                 }
               : a,
@@ -316,6 +388,22 @@ export function useAgent() {
     }
   }, []);
 
+  // ─── Restore archived agent ──────────────────────────────────────────────
+  const restoreAgent = useCallback(async (id: string) => {
+    setLoading(true);
+    try {
+      const res = await api.agents[":id"].restore.$post({ param: { id } });
+      if (!res.ok) throw new Error("Failed to restore agent on-chain");
+      await fetchAgents();
+    } catch (err: any) {
+      console.error("Restore agent error:", err);
+      setError(err.message || "Failed to restore agent");
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [fetchAgents]);
+
   // ─── Link / Unlink a memory to an agent ───────────────────────────────────
   const linkMemory = useCallback(async (agentId: string, memoryId: string) => {
     const res = await api.context.link.$post({
@@ -326,12 +414,28 @@ export function useAgent() {
       const errBody = (await res.json()) as any;
       throw new Error(errBody.message || "Failed to link memory");
     }
+    let name = memoryId.slice(0, 12);
+    try {
+      const memRes = await api.memories[":id"].$get({ param: { id: memoryId } });
+      if (memRes.ok) {
+        const memData = await memRes.json();
+        name = await resolveMemoryTitleSafe(memData.cid, session.kWallet, memData.name || name);
+      }
+    } catch {}
     setAgents(prev =>
       prev.map(a =>
-        a.id === agentId ? { ...a, connectedMemories: [...new Set([...a.connectedMemories, memoryId])] } : a,
+        a.id === agentId
+          ? {
+              ...a,
+              connectedMemories: [
+                ...a.connectedMemories.filter(m => m.memoryId !== memoryId),
+                { memoryId, name },
+              ],
+            }
+          : a,
       ),
     );
-  }, []);
+  }, [session.kWallet]);
 
   const unlinkMemory = useCallback(async (agentId: string, memoryId: string) => {
     const res = await api.context.unlink.$delete({
@@ -343,7 +447,7 @@ export function useAgent() {
     }
     setAgents(prev =>
       prev.map(a =>
-        a.id === agentId ? { ...a, connectedMemories: a.connectedMemories.filter(m => m !== memoryId) } : a,
+        a.id === agentId ? { ...a, connectedMemories: a.connectedMemories.filter(m => m.memoryId !== memoryId) } : a,
       ),
     );
   }, []);
@@ -423,6 +527,8 @@ export function useAgent() {
     createAgent,
     updateAgent,
     deleteAgent,
+    restoreAgent,
+    fetchAgents,
     getConversations,
     createConversation,
     sendMessage,

@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "~~/components/ui/dialog";
 import { Button } from "~~/components/ui/button";
 import { api } from "~~/services/api/client";
+import { useGlobalState } from "~~/services/store/store";
+import { resolveMemoryTitleSafe } from "~~/src/modules/memories/services/memory-title";
 
 interface MemoryItem {
   memoryId: string;
@@ -28,21 +30,33 @@ export function AgentMemoryLinker({
   const [memories, setMemories] = useState<MemoryItem[]>([]);
   const [linkedIds, setLinkedIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
+  const { session } = useGlobalState();
 
   useEffect(() => {
+    let cancelled = false;
     const fetchData = async () => {
+      setLoading(true);
       try {
         const [memRes, ctxRes] = await Promise.all([
           api.memories.$get(),
           api.context.agent[agentId].memories.$get(),
         ]);
 
-        if (memRes.ok) {
+        if (!cancelled && memRes.ok) {
           const memData = await memRes.json();
-          setMemories(memData.memories || []);
+          const items = (memData.memories || []).filter((m: any) => m.status !== 1);
+          const resolved = await Promise.all(
+            items.map(async (m: any) => ({
+              memoryId: m.memoryId,
+              name: await resolveMemoryTitleSafe(m.cid, session.kWallet, m.name),
+              cid: m.cid,
+              memoryType: m.memoryType,
+            })),
+          );
+          if (!cancelled) setMemories(resolved);
         }
 
-        if (ctxRes.ok) {
+        if (!cancelled && ctxRes.ok) {
           const ctxData = await ctxRes.json();
           const ids = new Set<string>((ctxData.links || []).map((l: any) => String(l.memoryId)));
           setLinkedIds(ids);
@@ -50,11 +64,12 @@ export function AgentMemoryLinker({
       } catch (err) {
         console.error("Failed to fetch data:", err);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
     fetchData();
-  }, [agentId]);
+    return () => { cancelled = true; };
+  }, [agentId, session.kWallet]);
 
   const handleToggle = (memoryId: string) => {
     if (linkedIds.has(memoryId)) {
@@ -104,7 +119,7 @@ export function AgentMemoryLinker({
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-foreground truncate">{mem.name}</p>
-                    <p className="text-xs text-muted-foreground truncate">{mem.cid}</p>
+                    {/*<p className="text-xs text-muted-foreground truncate">{mem.cid}</p>*/}
                   </div>
                   <Button
                     variant={isLinked ? "default" : "outline"}

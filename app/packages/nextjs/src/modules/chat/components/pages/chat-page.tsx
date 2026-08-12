@@ -35,6 +35,8 @@ export function ChatPage() {
     onLinkMemory,
     onUnlinkMemory,
     onSaveAsMemory,
+    refreshAgents,
+    refreshLinkedMemories,
     userState,
     sendMessage,
     isGenerating,
@@ -122,8 +124,9 @@ export function ChatPage() {
           <ChatContextPanel
             activeAgent={activeAgent}
             linkedMemories={linkedMemories}
-            onSelectAgent={() => setShowAgentModal(true)}
-            onAddMemory={() => setShowMemoryModal(true)}
+            onSelectAgent={() => { refreshAgents(); setShowAgentModal(true); }}
+            onAddMemory={() => { refreshLinkedMemories(); setShowMemoryModal(true); }}
+            onUnlinkMemory={onUnlinkMemory}
           />
         </div>
 
@@ -140,12 +143,15 @@ export function ChatPage() {
             linkedMemories={linkedMemories}
             onSelectAgent={() => {
               setShowRightPanel(false);
+              refreshAgents();
               setShowAgentModal(true);
             }}
             onAddMemory={() => {
               setShowRightPanel(false);
+              refreshLinkedMemories();
               setShowMemoryModal(true);
             }}
+            onUnlinkMemory={onUnlinkMemory}
           />
         </SlideOver>
       </div>
@@ -170,7 +176,7 @@ export function ChatPage() {
           linkedMemoryIds={linkedMemories.map(m => m.memoryId)}
           onLink={onLinkMemory}
           onUnlink={onUnlinkMemory}
-          onClose={() => setShowMemoryModal(false)}
+          onClose={() => { refreshLinkedMemories(); setShowMemoryModal(false); }}
         />
       )}
     </div>

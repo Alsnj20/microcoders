@@ -16,7 +16,7 @@ import { createSessionKeyRoutes } from "./routes/session-keys.js";
 import { createAuditRoutes } from "./routes/audit.js";
 import { createChatRoutes } from "./routes/chat.js";
 import Redis from "ioredis";
-import { createRedisSessionKeyStore, createMemorySessionKeyStore } from "./lib/session-keys.js";
+import { createRedisSessionKeyStore } from "./lib/session-keys.js";
 import { listFoundryDeployments, type FoundryDeployment } from "./lib/foundry.js";
 import type {
   MemoryRegistryContract,
@@ -159,11 +159,11 @@ export function createApp(deps: AppDependencies = {}): Hono<AppEnv> {
   app.route("/ipfs", createIpfsRoutes(ipfs));
 
   if (memoryRegistry) {
-    app.route("/memories", createMemoryRoutes(memoryRegistry, auditRegistry));
+    app.route("/memories", createMemoryRoutes(memoryRegistry, auditRegistry, sessionKeyStore));
   }
 
   if (agentRegistry) {
-    app.route("/agents", createAgentRoutes(agentRegistry, auditRegistry));
+    app.route("/agents", createAgentRoutes(agentRegistry, auditRegistry, sessionKeyStore));
   }
 
   if (contextRegistry) {
@@ -171,7 +171,7 @@ export function createApp(deps: AppDependencies = {}): Hono<AppEnv> {
   }
 
   if (creditManager) {
-    app.route("/credits", createCreditRoutes(creditManager, getDeployments));
+    app.route("/credits", createCreditRoutes(creditManager, getDeployments, sessionKeyStore));
   }
 
   if (userRegistry) {
@@ -183,7 +183,7 @@ export function createApp(deps: AppDependencies = {}): Hono<AppEnv> {
   }
 
   // Chat routes (always available)
-  app.route("/chat", createChatRoutes(chatRegistry));
+  app.route("/chat", createChatRoutes(chatRegistry, sessionKeyStore));
 
   return app;
 }

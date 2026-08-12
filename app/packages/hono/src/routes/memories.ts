@@ -1,7 +1,9 @@
 import { Hono } from "hono";
 import { z } from "zod";
 import type { MemoryRegistryContract, AuditRegistryContract } from "../types/contracts.js";
+import type { SessionKeyStore } from "../types/session.js";
 import type { AppEnv } from "../index.js";
+import { resolveAccountFor } from "../lib/resolve-account.js";
 
 const CreateMemorySchema = z.object({
   name: z.string().min(1),
@@ -25,7 +27,11 @@ function requireSession(c: { get: (key: string) => unknown; json: (body: unknown
   return session as { address: string; chainId: number; username: string | null };
 }
 
-export function createMemoryRoutes(memoryRegistry: MemoryRegistryContract, auditRegistry?: AuditRegistryContract): Hono<AppEnv> {
+export function createMemoryRoutes(
+  memoryRegistry: MemoryRegistryContract,
+  auditRegistry?: AuditRegistryContract,
+  sessionKeyStore?: SessionKeyStore,
+): Hono<AppEnv> {
   const routes = new Hono<AppEnv>();
 
   routes.post("/create", async (c) => {
@@ -86,13 +92,14 @@ export function createMemoryRoutes(memoryRegistry: MemoryRegistryContract, audit
       return c.json({ code: "AUTH_REQUIRED", message: "No valid session" }, 401);
     }
 
-    const countResult = await memoryRegistry.getMemoryCountByOwner(session.address);
+    const account = await resolveAccountFor(sessionKeyStore, session.address);
+    const countResult = await memoryRegistry.getMemoryCountByOwner(account);
     if (!countResult.success) {
       return c.json({ code: "CONTRACT_ERROR", message: countResult.error }, 500);
     }
 
     const total = countResult.data ?? 0;
-    const memoriesResult = await memoryRegistry.getMemoriesByOwner(session.address, 0, total);
+    const memoriesResult = await memoryRegistry.getMemoriesByOwner(account, 0, total);
     if (!memoriesResult.success) {
       return c.json({ code: "CONTRACT_ERROR", message: memoriesResult.error }, 500);
     }
@@ -100,6 +107,7 @@ export function createMemoryRoutes(memoryRegistry: MemoryRegistryContract, audit
     return c.json({
       memories: memoriesResult.data ?? [],
       total,
+      account,
       page: 1,
       limit: total,
     });

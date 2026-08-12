@@ -293,16 +293,18 @@ export function createAgentRegistryAdapter(): AgentRegistryContract {
         const confirmed = await executeContractWrite(request, { to: address, data: calldata });
         if (!confirmed.success) return { success: false, error: confirmed.error };
 
-        const total = await publicClient.readContract({
+        const count = (await publicClient.readContract({
           address,
           abi: agentAbi,
-          functionName: "totalAgents",
-        });
+          functionName: "getAgentCountByOwner",
+          args: [owner as `0x${string}`],
+        })) as bigint;
+        if (count === 0n) return { success: false, error: "agent not found after create" };
         const agentId = await publicClient.readContract({
           address,
           abi: agentAbi,
           functionName: "getAgentByOwnerIndex",
-          args: [owner as `0x${string}`, BigInt(toNumber(total) - 1)],
+          args: [owner as `0x${string}`, count - 1n],
         });
 
         const agentIdHex = bytes32ToHex(agentId);
@@ -472,16 +474,18 @@ export function createMemoryRegistryAdapter(): MemoryRegistryContract {
         const confirmed = await executeContractWrite(request, { to: address, data: calldata });
         if (!confirmed.success) return { success: false, error: confirmed.error };
 
-        const total = await publicClient.readContract({
+        const count = (await publicClient.readContract({
           address,
           abi: memoryAbi,
-          functionName: "totalMemories",
-        });
+          functionName: "getMemoryCountByOwner",
+          args: [owner as `0x${string}`],
+        })) as bigint;
+        if (count === 0n) return { success: false, error: "memory not found after create" };
         const memoryId = await publicClient.readContract({
           address,
           abi: memoryAbi,
           functionName: "getMemoryByOwnerIndex",
-          args: [owner as `0x${string}`, BigInt(toNumber(total) - 1)],
+          args: [owner as `0x${string}`, count - 1n],
         });
 
         const memoryIdHex = bytes32ToHex(memoryId);
@@ -1105,17 +1109,19 @@ export function createChatRegistryAdapter(): ChatRegistryContract {
         const confirmed = await executeContractWrite(request, { to: address, data: calldata });
         if (!confirmed.success) return { success: false, error: confirmed.error };
 
-        // Read the new chat ID from event or totalChats
-        const total = await publicClient.readContract({
+        // Read the new chat ID from this owner's count
+        const count = (await publicClient.readContract({
           address,
           abi: chatAbi,
-          functionName: "totalChats",
-        });
+          functionName: "getChatCountByOwner",
+          args: [owner as `0x${string}`],
+        })) as bigint;
+        if (count === 0n) return { success: false, error: "chat not found after create" };
         const chatId = await publicClient.readContract({
           address,
           abi: chatAbi,
           functionName: "getChatByOwnerIndex",
-          args: [owner as `0x${string}`, BigInt(toNumber(total) - 1)],
+          args: [owner as `0x${string}`, count - 1n],
         });
 
         const chatIdHex = bytes32ToHex(chatId);
@@ -1373,6 +1379,12 @@ function userOpConfig(sessionKeyPrivateKey: Hex): UserOpConfig {
   };
 }
 
+/** Resolves the user's smart account (owner = session key) for UserOp writes. */
+async function resolveSmartAccount(config: UserOpConfig): Promise<Hex> {
+  const sessionAccount = privateKeyToAccount(config.sessionKeyPrivateKey);
+  return getSmartAccountAddress(publicClient, config.factoryAddress, sessionAccount.address);
+}
+
 /** Resolves the user's smart account (owner = session key) and sends a UserOp. */
 async function sendUserOp(config: UserOpConfig, target: Hex, calldata: Hex, value = 0n): Promise<void> {
   const sessionAccount = privateKeyToAccount(config.sessionKeyPrivateKey);
@@ -1439,7 +1451,7 @@ export function createUserOpAdapters(): UserOpAdapterFactory {
       const config = userOpConfig(sessionKeyPrivateKey);
       const address = getDeployments()["memory-registry"].address as Hex;
       return {
-        async createMemory(owner, name, _description, cid, hash, memoryType, visibility) {
+        async createMemory(_owner, name, _description, cid, hash, memoryType, visibility) {
           try {
             const calldata = encodeFunctionData({
               abi: memoryAbi,
@@ -1447,12 +1459,18 @@ export function createUserOpAdapters(): UserOpAdapterFactory {
               args: [name, cid, hash as `0x${string}`, memoryType, visibility],
             });
             await sendUserOp(config, address, calldata);
-            const total = await publicClient.readContract({ address, abi: memoryAbi, functionName: "totalMemories" });
+            // The UserOp executes from the SMART ACCOUNT (msg.sender), not the
+            // connected wallet. Resolve the smart account so we read the right index.
+            const smartAccount = await resolveSmartAccount(config);
+            const count = (await publicClient.readContract({
+              address, abi: memoryAbi, functionName: "getMemoryCountByOwner", args: [smartAccount],
+            })) as bigint;
+            if (count === 0n) return { success: false, error: "memory not found after create" };
             const memoryId = await publicClient.readContract({
               address,
               abi: memoryAbi,
               functionName: "getMemoryByOwnerIndex",
-              args: [owner as `0x${string}`, BigInt(toNumber(total) - 1)],
+              args: [smartAccount, count - 1n],
             });
             return { success: true, data: bytes32ToHex(memoryId) };
           } catch (err: any) {
@@ -1501,7 +1519,7 @@ export function createUserOpAdapters(): UserOpAdapterFactory {
       const config = userOpConfig(sessionKeyPrivateKey);
       const address = getDeployments()["agent-registry"].address as Hex;
       return {
-        async createAgent(owner, name, _description, cid, hash) {
+        async createAgent(_owner, name, _description, cid, hash) {
           try {
             const calldata = encodeFunctionData({
               abi: agentAbi,
@@ -1509,12 +1527,16 @@ export function createUserOpAdapters(): UserOpAdapterFactory {
               args: [name, cid, hash as `0x${string}`],
             });
             await sendUserOp(config, address, calldata);
-            const total = await publicClient.readContract({ address, abi: agentAbi, functionName: "totalAgents" });
+            const smartAccount = await resolveSmartAccount(config);
+            const count = (await publicClient.readContract({
+              address, abi: agentAbi, functionName: "getAgentCountByOwner", args: [smartAccount],
+            })) as bigint;
+            if (count === 0n) return { success: false, error: "agent not found after create" };
             const agentId = await publicClient.readContract({
               address,
               abi: agentAbi,
               functionName: "getAgentByOwnerIndex",
-              args: [owner as `0x${string}`, BigInt(toNumber(total) - 1)],
+              args: [smartAccount, count - 1n],
             });
             return { success: true, data: bytes32ToHex(agentId) };
           } catch (err: any) {
@@ -1563,7 +1585,7 @@ export function createUserOpAdapters(): UserOpAdapterFactory {
       const config = userOpConfig(sessionKeyPrivateKey);
       const address = getDeployments()["chat-registry"].address as Hex;
       return {
-        async createChat(owner, name, cid, hash) {
+        async createChat(_owner, name, cid, hash) {
           try {
             const calldata = encodeFunctionData({
               abi: chatAbi,
@@ -1571,12 +1593,16 @@ export function createUserOpAdapters(): UserOpAdapterFactory {
               args: [name, cid, hash as `0x${string}`],
             });
             await sendUserOp(config, address, calldata);
-            const total = await publicClient.readContract({ address, abi: chatAbi, functionName: "totalChats" });
+            const smartAccount = await resolveSmartAccount(config);
+            const count = (await publicClient.readContract({
+              address, abi: chatAbi, functionName: "getChatCountByOwner", args: [smartAccount],
+            })) as bigint;
+            if (count === 0n) return { success: false, error: "chat not found after create" };
             const chatId = await publicClient.readContract({
               address,
               abi: chatAbi,
               functionName: "getChatByOwnerIndex",
-              args: [owner as `0x${string}`, BigInt(toNumber(total) - 1)],
+              args: [smartAccount, count - 1n],
             });
             return { success: true, data: bytes32ToHex(chatId) };
           } catch (err: any) {

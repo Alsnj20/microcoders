@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAccount, useDisconnect } from "wagmi";
 import { Button } from "~~/components/ui/button";
 import { Input } from "~~/components/ui/input";
@@ -37,6 +37,8 @@ export default function ProfilePage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [smartAccount, setSmartAccount] = useState<string | null>(null);
+  const [ethBalance, setEthBalance] = useState("0");
 
   const selectedPack = CREDIT_PACKS.find(p => p.amount === amount);
   const planName = selectedPack ? selectedPack.label : amount > 0 ? "Personalizado" : "Free";
@@ -49,12 +51,34 @@ export default function ProfilePage() {
       if (res.ok) {
         const data = await res.json();
         setCreditBalance(data.balance ?? 0);
+        if (data.account) setSmartAccount(data.account);
+        if (data.ethBalance) setEthBalance(data.ethBalance);
       }
     } catch {}
   };
 
+  const refreshBalanceOnMount = () => { refreshBalance(); };
+  const ethBalanceNum = Number(ethBalance) / 1e18;
+
+  useEffect(() => {
+    if (session.isAuthenticated) {
+      refreshBalanceOnMount();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session.isAuthenticated]);
+
   const handlePurchase = async () => {
     if (!address) return;
+
+    // Pre-flight: the smart account must have enough ETH for value + gas.
+    const selected = selectedPack;
+    const packPrice = selected ? Number(selected.price) : 0;
+    const minEth = packPrice + 0.002; // price + gas buffer
+    if (ethBalanceNum < minEth) {
+      setError(`Tu smart account necesita fondos para pagar la compra. Envía al menos ${minEth.toFixed(4)} ETH a tu smart account (${smartAccount ?? "ver perfil"}) y recarga.`);
+      return;
+    }
+
     setLoading(true);
     setError(null);
     setSuccess(false);
@@ -144,6 +168,31 @@ export default function ProfilePage() {
             <span className="material-symbols-outlined text-primary">token</span>
           </div>
         </div>
+
+        {smartAccount && (
+          <div className="mb-4 p-3 rounded-lg bg-muted border border-border">
+            <p className="text-xs text-muted-foreground mb-1">
+              Saldo de tu smart account (paga operaciones)
+            </p>
+            <p className="text-sm font-medium text-foreground">{ethBalanceNum.toFixed(5)} ETH</p>
+            {ethBalanceNum < 0.01 && (
+              <p className="text-xs text-amber-600 mt-1">
+                Saldo bajo. Envía ETH a tu smart account para poder comprar y operar:
+              </p>
+            )}
+            <div className="flex items-center gap-2 mt-1">
+              <span className="text-xs font-mono text-muted-foreground truncate">{smartAccount}</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="shrink-0"
+                onClick={() => { navigator.clipboard.writeText(smartAccount); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
+              >
+                <span className="material-symbols-outlined text-sm">{copied ? "check" : "content_copy"}</span>
+              </Button>
+            </div>
+          </div>
+        )}
 
         <div className="h-2 bg-border rounded-full overflow-hidden mb-2">
           <div

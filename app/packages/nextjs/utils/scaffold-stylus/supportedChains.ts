@@ -1,5 +1,31 @@
 import { defineChain } from "viem";
-import { arbitrum, arbitrumNova, arbitrumSepolia, eduChain, eduChainTestnet, superposition } from "viem/chains";
+import { arbitrum, arbitrumNova, eduChain, eduChainTestnet, superposition } from "viem/chains";
+
+// Arbitrum Sepolia with a reliable public RPC as the default. The official
+// rollup RPC (sepolia-rollup.arbitrum.io) rate-limits heavily → wallets fail to
+// estimate/broadcast with misleading "not enough ETH for fees" errors.
+const arbitrumSepolia = defineChain({
+  id: 421614,
+  name: "Arbitrum Sepolia",
+  network: "arbitrum-sepolia",
+  nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+  rpcUrls: {
+    default: {
+      http: ["https://arbitrum-sepolia-rpc.publicnode.com"],
+    },
+    public: {
+      http: ["https://arbitrum-sepolia-rpc.publicnode.com"],
+    },
+  },
+  blockExplorers: {
+    default: {
+      name: "Arbiscan",
+      url: "https://sepolia.arbiscan.io",
+      apiUrl: "https://api-sepolia.arbiscan.io/api",
+    },
+  },
+  testnet: true,
+});
 
 const arbitrumNitro = defineChain({
   id: 412346,

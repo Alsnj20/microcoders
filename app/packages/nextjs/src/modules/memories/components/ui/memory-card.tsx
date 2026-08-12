@@ -24,9 +24,10 @@ interface MemoryCardProps {
   onToggleFavorite: (id: string) => void;
   onEdit: (memory: Memory) => void;
   onDelete: (id: string) => void;
+  onRestore: (id: string) => void;
 }
 
-export function MemoryCard({ memory, onToggleFavorite, onEdit, onDelete }: MemoryCardProps) {
+export function MemoryCard({ memory, onToggleFavorite, onEdit, onDelete, onRestore }: MemoryCardProps) {
   const typeInfo = TYPE_LABELS[memory.type] || TYPE_LABELS.texto;
   const [menuOpen, setMenuOpen] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -83,14 +84,25 @@ export function MemoryCard({ memory, onToggleFavorite, onEdit, onDelete }: Memor
                     <span className="material-symbols-outlined text-lg">edit</span>
                     Editar
                   </button>
-                  <button
-                    type="button"
-                    onClick={e => { e.stopPropagation(); setMenuOpen(false); setShowDeleteModal(true); }}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-destructive hover:bg-destructive/10 transition-colors"
-                  >
-                    <span className="material-symbols-outlined text-lg">archive</span>
-                    Archivar
-                  </button>
+                  {memory.isArchived ? (
+                    <button
+                      type="button"
+                      onClick={e => { e.stopPropagation(); setMenuOpen(false); setShowDeleteModal(true); }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-sm text-primary hover:bg-primary/10 transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-lg">unarchive</span>
+                      Restaurar
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={e => { e.stopPropagation(); setMenuOpen(false); setShowDeleteModal(true); }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-sm text-destructive hover:bg-destructive/10 transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-lg">archive</span>
+                      Archivar
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -112,21 +124,28 @@ export function MemoryCard({ memory, onToggleFavorite, onEdit, onDelete }: Memor
         </div>
       </div>
 
-      {/* Delete Confirmation Modal */}
+      {/* Delete/Restore Confirmation Modal */}
       {showDeleteModal && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setShowDeleteModal(false)}>
           <div className="bg-card rounded-2xl border border-border shadow-xl max-w-sm w-full p-6" onClick={e => e.stopPropagation()}>
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-full bg-destructive/10 flex items-center justify-center">
-                <span className="material-symbols-outlined text-destructive">delete</span>
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center ${memory.isArchived ? "bg-primary/10" : "bg-destructive/10"}`}>
+                <span className={`material-symbols-outlined ${memory.isArchived ? "text-primary" : "text-destructive"}`}>
+                  {memory.isArchived ? "unarchive" : "delete"}
+                </span>
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-foreground">Eliminar memoria</h3>
+                <h3 className="text-lg font-semibold text-foreground">
+                  {memory.isArchived ? "Restaurar memoria" : "Eliminar memoria"}
+                </h3>
                 <p className="text-sm text-muted-foreground">¿Estás seguro?</p>
               </div>
             </div>
             <p className="text-sm text-muted-foreground mb-6">
-              La memoria &ldquo;{memory.title}&rdquo; será archivada. Esta acción no se puede deshacer.
+              {memory.isArchived
+                ? `La memoria "${memory.title}" será restaurada y volverá a estar visible.`
+                : `La memoria "${memory.title}" será archivada. Puedes restaurarla después desde la colección Archivados.`
+              }
             </p>
             <div className="flex gap-3 justify-end">
               <button
@@ -138,10 +157,19 @@ export function MemoryCard({ memory, onToggleFavorite, onEdit, onDelete }: Memor
               </button>
               <button
                 type="button"
-                onClick={() => { onDelete(memory.id); setShowDeleteModal(false); }}
-                className="px-4 py-2 text-sm font-medium text-white bg-destructive rounded-lg hover:bg-destructive/90 transition-colors"
+                onClick={() => {
+                  if (memory.isArchived) {
+                    onRestore(memory.id);
+                  } else {
+                    onDelete(memory.id);
+                  }
+                  setShowDeleteModal(false);
+                }}
+                className={`px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors ${
+                  memory.isArchived ? "bg-primary hover:bg-primary/90" : "bg-destructive hover:bg-destructive/90"
+                }`}
               >
-                Archivar
+                {memory.isArchived ? "Restaurar" : "Archivar"}
               </button>
             </div>
           </div>

@@ -144,7 +144,7 @@ export async function listConversations(): Promise<ChatConversation[]> {
           hour: "2-digit",
           minute: "2-digit",
         }),
-      }));
+      })).reverse();
     }
     return [];
   } catch {

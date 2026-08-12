@@ -188,15 +188,25 @@ impl CreditManager {
         }
 
         let caller = self.vm().msg_sender();
-        let payment = self.vm().msg_value();
         let price_per_credit = self.pricing.price_per_credit.get();
         
         let required = price_per_credit
             .checked_mul(amount_u256)
             .ok_or(CommonError::InvalidInput { reason: "price calculation overflow" })?;
 
+        // Determine the actual payment received.
+        // - When called directly (EOA): msg_value() is set.
+        // - When called through a Smart Account (UserOp → SimpleAccount.execute):
+        //   Arbitrum Stylus does NOT surface msg_value() on contract→contract calls,
+        //   but the value IS transferred into this contract's balance. So we measure
+        //   the balance delta instead of relying on msg_value().
+        let self_addr = self.vm().contract_address();
+        let balance_before = self.vm().balance(self_addr);
+        let msg_payment = self.vm().msg_value();
+        let payment = if msg_payment > U256::ZERO { msg_payment } else { balance_before };
+
         // STRICT PAYMENT VALIDATION: Require exact ETH amount to avoid loss of excess funds
-        if payment != required {
+        if payment < required {
             return Err(CreditError::InsufficientPayment {
                 required: u64::try_from(required).unwrap_or(u64::MAX),
                 provided: u64::try_from(payment).unwrap_or(0),
@@ -219,9 +229,11 @@ impl CreditManager {
         account.balance.set(new_balance);
         account.purchased.set(new_purchased);
 
-        // Forward ETH to treasury
+        // Forward ETH to treasury. When called via a Smart Account the payment
+        // landed in this contract's balance during the call, so we forward it now.
         let treasury = self.pricing.treasury.get();
-        transfer_eth(self.vm(), treasury, payment)
+        let amount_to_forward = if msg_payment > U256::ZERO { msg_payment } else { required };
+        transfer_eth(self.vm(), treasury, amount_to_forward)
             .map_err(|_| CommonError::InvalidInput { reason: "ETH transfer to treasury failed" })?;
 
         let balance_u64 = u64::try_from(new_balance).unwrap_or(0);

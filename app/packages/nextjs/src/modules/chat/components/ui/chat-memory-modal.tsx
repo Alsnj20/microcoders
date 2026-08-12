@@ -4,12 +4,15 @@ import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "~~/components/ui/dialog";
 import { Button } from "~~/components/ui/button";
 import { api } from "~~/services/api/client";
+import { useGlobalState } from "~~/services/store/store";
+import { resolveMemoryTitleSafe } from "~~/src/modules/memories/services/memory-title";
 
 interface MemoryItem {
   memoryId: string;
   name: string;
   cid: string;
   memoryType: number;
+  status?: number;
 }
 
 interface MemorySelectorModalProps {
@@ -27,23 +30,37 @@ export function MemorySelectorModal({
 }: MemorySelectorModalProps) {
   const [memories, setMemories] = useState<MemoryItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const { session } = useGlobalState();
 
   useEffect(() => {
+    let cancelled = false;
     const fetchMemories = async () => {
+      setLoading(true);
       try {
         const res = await api.memories.$get();
-        if (res.ok) {
+        if (!cancelled && res.ok) {
           const data = await res.json();
-          setMemories(data.memories || []);
+          const items = data.memories || [];
+          const resolved = await Promise.all(
+            items.map(async (m: any) => ({
+              memoryId: m.memoryId,
+              name: await resolveMemoryTitleSafe(m.cid, session.kWallet, m.name),
+              cid: m.cid,
+              memoryType: m.memoryType,
+              status: m.status,
+            })),
+          );
+          if (!cancelled) setMemories(resolved);
         }
       } catch (err) {
         console.error("Failed to fetch memories:", err);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
     fetchMemories();
-  }, []);
+    return () => { cancelled = true; };
+  }, [session.kWallet]);
 
   const isLinked = (id: string) => linkedMemoryIds.includes(id);
 
@@ -65,7 +82,7 @@ export function MemorySelectorModal({
               No hay memorias creadas. Crea una primero.
             </p>
           ) : (
-            memories.map((mem) => {
+            memories.filter(m => m.status !== 1).map((mem) => {
               const linked = isLinked(mem.memoryId);
               return (
                 <div
@@ -81,7 +98,7 @@ export function MemorySelectorModal({
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-foreground truncate">{mem.name}</p>
-                    <p className="text-xs text-muted-foreground truncate">{mem.cid}</p>
+                    {/*<p className="text-xs text-muted-foreground truncate">{mem.memoryType}</p>*/}
                   </div>
                   <Button
                     variant={linked ? "default" : "outline"}

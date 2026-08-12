@@ -8,9 +8,10 @@ interface ChatContextPanelProps {
   linkedMemories: { memoryId: string; title: string; cid: string }[];
   onSelectAgent: () => void;
   onAddMemory: () => void;
+  onUnlinkMemory: (memoryId: string) => void;
 }
 
-export function ChatContextPanel({ activeAgent, linkedMemories, onSelectAgent, onAddMemory }: ChatContextPanelProps) {
+export function ChatContextPanel({ activeAgent, linkedMemories, onSelectAgent, onAddMemory, onUnlinkMemory }: ChatContextPanelProps) {
   return (
     <aside className="flex w-72 flex-col h-full border-l border-border bg-background overflow-hidden">
       {/* Contexto Activo */}
@@ -24,7 +25,7 @@ export function ChatContextPanel({ activeAgent, linkedMemories, onSelectAgent, o
         {activeAgent ? (
           <div className="p-3 rounded-lg bg-muted border border-border">
             <p className="text-sm font-medium text-foreground truncate">{activeAgent.name}</p>
-            <p className="text-xs text-muted-foreground truncate">{activeAgent.description || "Sin descripción"}</p>
+            {/*<p className="text-xs text-muted-foreground truncate">{activeAgent.description || "Sin descripción"}</p>*/}
           </div>
         ) : (
           <Button variant="outline" className="w-full" onClick={onSelectAgent}>
@@ -49,8 +50,18 @@ export function ChatContextPanel({ activeAgent, linkedMemories, onSelectAgent, o
           <div className="space-y-2">
             {linkedMemories.map(mem => (
               <div key={mem.memoryId} className="p-2.5 rounded-lg bg-muted border border-border">
-                <p className="text-sm font-medium text-foreground truncate">{mem.title}</p>
-                <p className="text-xs text-muted-foreground truncate mt-0.5">{mem.cid}</p>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-medium text-foreground truncate">{mem.title}</p>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 shrink-0 text-muted-foreground hover:text-destructive"
+                    onClick={() => onUnlinkMemory(mem.memoryId)}
+                    title="Desvincular memoria"
+                  >
+                    <span className="material-symbols-outlined text-sm">link_off</span>
+                  </Button>
+                </div>
               </div>
             ))}
           </div>

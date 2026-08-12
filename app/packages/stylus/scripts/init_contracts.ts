@@ -96,6 +96,28 @@ async function initializeContracts(
 ) {
   console.log("\n🔧 Initializing contracts...");
 
+  // viem v1 caches the nonce inside the wallet client, which desyncs when the
+  // same account has already broadcast txs in earlier runs → "nonce too low".
+  // Read the fresh on-chain nonce (pending pool included) before every write,
+  // and retry on the race where a block mined between the read and the send.
+  const write = async (request: any) => {
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const nonce = await publicClient.getTransactionCount({ address: account.address, blockTag: "pending" });
+      try {
+        return await walletClient.writeContract({ ...request, nonce });
+      } catch (e: any) {
+        const msg = e.shortMessage || e.message || "";
+        if (msg.includes("nonce too low") || msg.toLowerCase().includes("nonce")) {
+          if (attempt === 4) throw e;
+          await new Promise(r => setTimeout(r, 500));
+          continue;
+        }
+        throw e;
+      }
+    }
+    throw new Error("Unreachable: write loop exhausted");
+  };
+
   // Helper: try to initialize, skip if already initialized
   const tryInit = async (name: string, fn: () => Promise<any>) => {
     try {
@@ -116,7 +138,7 @@ async function initializeContracts(
     const { request } = await publicClient.simulateContract({
       account, address: addresses.creditManager, abi: INITIALIZE_ABI, functionName: "initialize",
     });
-    await walletClient.writeContract(request);
+    await write(request);
   });
 
   const treasury = (getTreasuryFor(network) || account.address) as `0x${string}`;
@@ -130,7 +152,7 @@ async function initializeContracts(
       functionName: "initializeNetwork",
       args: [isTestnet, treasury, pricePerCredit],
     });
-    await walletClient.writeContract(request);
+    await write(request);
   });
 
   // 2. UserRegistry.initialize()
@@ -138,7 +160,7 @@ async function initializeContracts(
     const { request } = await publicClient.simulateContract({
       account, address: addresses.userRegistry, abi: INITIALIZE_ABI, functionName: "initialize",
     });
-    await walletClient.writeContract(request);
+    await write(request);
   });
 
   // 3. MemoryRegistry.initialize(creditManager, userRegistry)
@@ -147,7 +169,7 @@ async function initializeContracts(
       account, address: addresses.memoryRegistry, abi: INITIALIZE_ABI, functionName: "initialize",
       args: [addresses.creditManager, addresses.userRegistry],
     });
-    await walletClient.writeContract(request);
+    await write(request);
   });
 
   // 4. AgentRegistry.initialize(creditManager, userRegistry)
@@ -156,7 +178,7 @@ async function initializeContracts(
       account, address: addresses.agentRegistry, abi: INITIALIZE_ABI, functionName: "initialize",
       args: [addresses.creditManager, addresses.userRegistry],
     });
-    await walletClient.writeContract(request);
+    await write(request);
   });
 
   // 5. ChatRegistry.initialize(creditManager, userRegistry)
@@ -165,7 +187,7 @@ async function initializeContracts(
       account, address: addresses.chatRegistry, abi: INITIALIZE_ABI, functionName: "initialize",
       args: [addresses.creditManager, addresses.userRegistry],
     });
-    await walletClient.writeContract(request);
+    await write(request);
   });
 
   // 6. ContextRegistry.initialize(memoryRegistry, agentRegistry, creditManager)
@@ -174,7 +196,7 @@ async function initializeContracts(
       account, address: addresses.contextRegistry, abi: INITIALIZE_ABI, functionName: "initialize",
       args: [addresses.memoryRegistry, addresses.agentRegistry, addresses.creditManager],
     });
-    await walletClient.writeContract(request);
+    await write(request);
   });
 
   // 7. AuditRegistry.initialize()
@@ -182,7 +204,7 @@ async function initializeContracts(
     const { request } = await publicClient.simulateContract({
       account, address: addresses.auditRegistry, abi: INITIALIZE_ABI, functionName: "initialize",
     });
-    await walletClient.writeContract(request);
+    await write(request);
   });
   console.log("✅ All contracts initialized\n");
 }
@@ -196,6 +218,26 @@ async function authorizeContracts(
   addresses: ContractAddresses,
 ) {
   console.log("🔗 Authorizing cross-contract calls...");
+
+  // Read the fresh on-chain nonce (pending pool included) before every write,
+  // and retry on the race where a block mined between the read and the send.
+  const write = async (request: any) => {
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const nonce = await publicClient.getTransactionCount({ address: account.address, blockTag: "pending" });
+      try {
+        return await walletClient.writeContract({ ...request, nonce });
+      } catch (e: any) {
+        const msg = e.shortMessage || e.message || "";
+        if (msg.includes("nonce too low") || msg.toLowerCase().includes("nonce")) {
+          if (attempt === 4) throw e;
+          await new Promise(r => setTimeout(r, 500));
+          continue;
+        }
+        throw e;
+      }
+    }
+    throw new Error("Unreachable: write loop exhausted");
+  };
 
   // CreditManager.authorizeConsumer — allow MemoryRegistry, AgentRegistry, ChatRegistry, ContextRegistry to consume credits
   for (const [label, addr] of [
@@ -212,7 +254,7 @@ async function authorizeContracts(
       functionName: "authorizeConsumer",
       args: [addr],
     });
-    await walletClient.writeContract(request);
+    await write(request);
   }
 
   // UserRegistry.authorizeUpdater — allow MemoryRegistry, AgentRegistry, ChatRegistry to update user stats
@@ -229,7 +271,7 @@ async function authorizeContracts(
       functionName: "authorizeUpdater",
       args: [addr],
     });
-    await walletClient.writeContract(request);
+    await write(request);
   }
 
   console.log("✅ All authorizations complete\n");

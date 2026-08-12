@@ -52,17 +52,18 @@ Toda la información privada permanece cifrada fuera de la cadena.
                         │
                  UserRegistry
                         │
-         ┌──────────────┴──────────────┐
-         ▼                             ▼
-  MemoryRegistry               AgentRegistry
-         │                             │
-         └──────────────┬──────────────┘
-                        ▼
-                ContextRegistry
-                        │
-         ┌──────────────┴──────────────┐
-         ▼                             ▼
-  CreditManager                 AuditRegistry
+        ┌───────────────┼───────────────┐
+        ▼               ▼               ▼
+ MemoryRegistry    AgentRegistry    ChatRegistry
+        │               │               │
+        └───────┬───────┴───────┬───────┘
+                ▼               ▼
+         ContextRegistry  (relaciones N:M)
+                │
+                ▼
+         CreditManager ──► ETH Treasury
+
+   AuditRegistry — historial verificable (independiente)
 ```
 
 > 📐 Diagramas técnicos detallados (capa web3, backend, frontend, flujo del usuario y vista de 3 capas) en Mermaid: **[docs/architecture.md](docs/architecture.md)**
@@ -377,3 +378,19 @@ MemoryChain utiliza Arbitrum para garantizar:
 Sin blockchain, el protocolo perdería la capacidad de demostrar quién es el propietario del conocimiento, cómo evolucionó y qué agentes están autorizados para utilizarlo.
 
 Por ello, Arbitrum no es un complemento, sino un componente esencial de MemoryChain.
+
+---
+
+# 🗂 Documentación técnica y estado
+
+- **[CHANGELOG.md](./CHANGELOG.md)** — cambios realizados, auditoría de uso (qué se usa y qué no), estado de eventos y trabajo futuro.
+- **[app/readme.md](./app/readme.md)** — guía de desarrollo (Scaffold-Stylus): deploy red-aware, credenciales estandarizadas y setup de Account Abstraction.
+- **[app/packages/stylus/contracts/README.md](./app/packages/stylus/contracts/README.md)** — documentación de los contratos (funciones, eventos, deploy legacy + moderno).
+
+## Estado actual (resumen)
+
+- **Contratos:** 7 (CreditManager, UserRegistry, MemoryRegistry, AgentRegistry, ChatRegistry, ContextRegistry, AuditRegistry) en Arbitrum Stylus (Rust → WASM).
+- **Redes:** Nitro (dev local), Arbitrum Sepolia y Arbitrum One — deploy red-aware vía `pnpm run deploy:contracts --network <red>`.
+- **Autenticación:** SIWE (sesión por cookie) + `kWallet` para cifrar datos en IPFS.
+- **Producción (en desarrollo):** Account Abstraction v0.6 — el usuario firma a través de su smart account mediante **session keys** (UserOps vía bundler); el backend firma solo en dev.
+- **Eventos:** los contratos emiten ~40 eventos on-chain; el **consumo** (indexado/feed) es trabajo futuro (ver CHANGELOG).

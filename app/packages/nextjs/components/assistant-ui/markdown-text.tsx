@@ -140,15 +140,14 @@ const defaultComponents = {
     <hr className={cn("aui-md-hr border-muted-foreground/20 my-3", className)} {...props} />
   ),
   table: ({ className, ...props }: any) => (
-    <table
-      className={cn("aui-md-table my-3 w-full border-separate border-spacing-0 overflow-y-auto", className)}
-      {...props}
-    />
+    <div className="aui-md-table-wrap my-3 w-full overflow-x-auto rounded-lg border border-border/50">
+      <table className={cn("aui-md-table w-full border-separate border-spacing-0 text-sm", className)} {...props} />
+    </div>
   ),
   th: ({ className, ...props }: any) => (
     <th
       className={cn(
-        "aui-md-th bg-muted px-3 py-1.5 text-start font-medium first:rounded-ss-lg last:rounded-se-lg [[align=center]]:text-center [[align=right]]:text-right",
+        "aui-md-th border-border/40 bg-muted border-s border-b px-3 py-1.5 text-start font-medium last:border-e [[align=center]]:text-center [[align=right]]:text-right",
         className,
       )}
       {...props}
@@ -157,20 +156,14 @@ const defaultComponents = {
   td: ({ className, ...props }: any) => (
     <td
       className={cn(
-        "aui-md-td border-muted-foreground/20 border-s border-b px-3 py-1.5 text-start last:border-e [[align=center]]:text-center [[align=right]]:text-right",
+        "aui-md-td border-border/40 border-s border-b px-3 py-1.5 text-start last:border-e [[align=center]]:text-center [[align=right]]:text-right",
         className,
       )}
       {...props}
     />
   ),
   tr: ({ className, ...props }: any) => (
-    <tr
-      className={cn(
-        "aui-md-tr m-0 border-b p-0 first:border-t [&:last-child>td:first-child]:rounded-es-lg [&:last-child>td:last-child]:rounded-ee-lg",
-        className,
-      )}
-      {...props}
-    />
+    <tr className={cn("aui-md-tr m-0 p-0", className)} {...props} />
   ),
   li: ({ className, ...props }: any) => <li className={cn("aui-md-li leading-relaxed", className)} {...props} />,
   strong: ({ className, ...props }: any) => <strong className={cn("aui-md-strong font-semibold", className)} {...props} />,

@@ -35,19 +35,26 @@ export default async function deployStylusContract(deployOptions: DeployOptions)
     // The verbose output (stderr) contains: "deployed code at address: 0x..." and "deployment tx hash: 0x..."
 
     const deployCommand = await buildDeployCommand(config, deployOptions);
-    const { stderr: deployOutput } = await executeCommand(
+    // cargo stylus 0.10.x prints deploy progress + addresses to stdout (info!).
+    // Capture both streams so we can always find the "deployed code at address".
+    const { stdout: deployStdout, stderr: deployStderr } = await executeCommand(
       deployCommand,
       path.join("contracts", deployOptions.contract!),
       "Deploying contract with cargo stylus",
     );
+    const deployOutput = `${deployStdout}\n${deployStderr}`;
 
     if (deployOptions.estimateGas) {
       return;
     }
 
     // Parse address and tx hash from verbose output
-    const addressMatch = deployOutput.match(/deployed code at address:\s*(0x[0-9a-fA-F]{40})/);
-    const txHashMatch = deployOutput.match(/deployment tx hash:\s*(0x[0-9a-fA-F]{64})/);
+    // cargo stylus 0.10.x prints ANSI color codes between the label and the
+    // value (e.g. "deployed code at address: \x1b[38;5;183;1m0x..."). Strip them
+    // so the regex can match, otherwise deployment fails to record addresses.
+    const cleanOutput = deployOutput.replace(/\x1b\[[0-9;]*m/g, "");
+    const addressMatch = cleanOutput.match(/deployed code at address:\s*(0x[0-9a-fA-F]{40})/);
+    const txHashMatch = cleanOutput.match(/deployment tx hash:\s*(0x[0-9a-fA-F]{64})/);
 
     let deploymentInfo: DeploymentData | null = null;
 
@@ -62,7 +69,7 @@ export default async function deployStylusContract(deployOptions: DeployOptions)
     if (!deploymentInfo) {
       const publicClient = createPublicClient({
         chain: config.chain,
-        transport: http(),
+        transport: http(getRpcUrlFromChain(config.chain)),
       });
       await new Promise(resolve => setTimeout(resolve, 2000));
       const blockAfter = await publicClient.getBlockNumber();
@@ -129,13 +136,13 @@ export default async function deployStylusContract(deployOptions: DeployOptions)
     ) {
       const publicClient = createPublicClient({
         chain: config.chain,
-        transport: http(),
+        transport: http(getRpcUrlFromChain(config.chain)),
       });
 
       // need wallet client to sign the transaction
       const walletClient = createWalletClient({
         chain: config.chain,
-        transport: http(),
+        transport: http(getRpcUrlFromChain(config.chain)),
       });
 
       const pkOrbit = config.privateKey.startsWith("0x") ? config.privateKey : `0x${config.privateKey}`;

@@ -1,7 +1,9 @@
 import { Hono } from "hono";
 import { z } from "zod";
 import type { AgentRegistryContract, AuditRegistryContract } from "../types/contracts.js";
+import type { SessionKeyStore } from "../types/session.js";
 import type { AppEnv } from "../index.js";
+import { resolveAccountFor } from "../lib/resolve-account.js";
 
 const CreateAgentSchema = z.object({
   name: z.string().min(1),
@@ -21,7 +23,11 @@ function requireSession(c: { get: (key: string) => unknown; json: (body: unknown
   return session as { address: string; chainId: number; username: string | null };
 }
 
-export function createAgentRoutes(agentRegistry: AgentRegistryContract, auditRegistry?: AuditRegistryContract): Hono<AppEnv> {
+export function createAgentRoutes(
+  agentRegistry: AgentRegistryContract,
+  auditRegistry?: AuditRegistryContract,
+  sessionKeyStore?: SessionKeyStore,
+): Hono<AppEnv> {
   const routes = new Hono<AppEnv>();
 
   routes.post("/create", async (c) => {
@@ -78,13 +84,14 @@ export function createAgentRoutes(agentRegistry: AgentRegistryContract, auditReg
       return c.json({ code: "AUTH_REQUIRED", message: "No valid session" }, 401);
     }
 
-    const countResult = await agentRegistry.getAgentCountByOwner(session.address);
+    const account = await resolveAccountFor(sessionKeyStore, session.address);
+    const countResult = await agentRegistry.getAgentCountByOwner(account);
     if (!countResult.success) {
       return c.json({ code: "CONTRACT_ERROR", message: countResult.error }, 500);
     }
 
     const total = countResult.data ?? 0;
-    const agentsResult = await agentRegistry.getAgentsByOwner(session.address, 0, total);
+    const agentsResult = await agentRegistry.getAgentsByOwner(account, 0, total);
     if (!agentsResult.success) {
       return c.json({ code: "CONTRACT_ERROR", message: agentsResult.error }, 500);
     }
@@ -92,6 +99,7 @@ export function createAgentRoutes(agentRegistry: AgentRegistryContract, auditReg
     return c.json({
       agents: agentsResult.data ?? [],
       total,
+      account,
       page: 1,
       limit: total,
     });

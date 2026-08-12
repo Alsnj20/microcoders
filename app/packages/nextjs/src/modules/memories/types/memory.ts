@@ -17,6 +17,7 @@ export const MemorySchema = z.object({
   content: z.string().optional(),
   collectionId: z.string().optional(),
   isFavorite: z.boolean().default(false),
+  isArchived: z.boolean().default(false),
   fileSize: z.number().optional(),
   cid: z.string().optional(),
   hash: z.string().optional(),

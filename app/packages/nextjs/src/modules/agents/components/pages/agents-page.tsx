@@ -25,6 +25,7 @@ export function AgentsPage() {
     createAgent,
     updateAgent,
     deleteAgent,
+    restoreAgent,
     createConversation,
     sendMessage,
     linkMemory,
@@ -62,7 +63,7 @@ export function AgentsPage() {
       if (editingAgent) {
         await updateAgent(editingAgent.id, data);
       } else {
-        await createAgent({ ...data, connectedMemories: [] });
+        await createAgent({ ...data, connectedMemories: [], isArchived: false });
       }
       setIsFormOpen(false);
       setEditingAgent(null);
@@ -120,49 +121,81 @@ export function AgentsPage() {
               </button>
             </div>
           ) : (
-            agents.map((agent) => (
-              <div
-                key={agent.id}
-                onClick={() => setSelectedAgentId(agent.id)}
-                className={`p-4 rounded-xl border cursor-pointer transition-all ${
-                  selectedAgentId === agent.id
-                    ? "border-primary bg-primary/5"
-                    : "border-border hover:border-primary/50"
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                    <span className="text-lg">{(agent as any).icon || "🤖"}</span>
+            <>
+              {agents.filter(a => !a.isArchived).map((agent) => (
+                <div
+                  key={agent.id}
+                  onClick={() => setSelectedAgentId(agent.id)}
+                  className={`p-4 rounded-xl border cursor-pointer transition-all ${
+                    selectedAgentId === agent.id
+                      ? "border-primary bg-primary/5"
+                      : "border-border hover:border-primary/50"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                      <span className="text-lg">{(agent as any).icon || "🤖"}</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">{agent.name}</p>
+                      <p className="text-xs text-muted-foreground truncate">{agent.description || "Sin descripción"}</p>
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground truncate">{agent.name}</p>
-                    <p className="text-xs text-muted-foreground truncate">{agent.description || "Sin descripción"}</p>
-                  </div>
+                  {selectedAgentId === agent.id && (
+                    <div className="flex gap-2 mt-3">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleEditAgent(agent);
+                        }}
+                        className="flex-1 py-1.5 rounded-lg bg-background border border-border text-xs font-medium text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors"
+                      >
+                        Editar
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteAgent(agent.id);
+                        }}
+                        className="py-1.5 px-3 rounded-lg bg-background border border-border text-xs font-medium text-muted-foreground hover:text-destructive hover:border-destructive/50 transition-colors"
+                      >
+                        <span className="material-symbols-outlined text-sm">delete</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
-                {selectedAgentId === agent.id && (
-                  <div className="flex gap-2 mt-3">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleEditAgent(agent);
-                      }}
-                      className="flex-1 py-1.5 rounded-lg bg-background border border-border text-xs font-medium text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors"
+              ))}
+
+              {agents.some(a => a.isArchived) && (
+                <div className="pt-2 mt-2 border-t border-border">
+                  <p className="text-xs font-semibold text-muted-foreground tracking-wider mb-2 px-1">ARCHIVADOS</p>
+                  {agents.filter(a => a.isArchived).map((agent) => (
+                    <div
+                      key={agent.id}
+                      className="p-3 rounded-xl border border-border/50 bg-muted/30 opacity-60 mb-2"
                     >
-                      Editar
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteAgent(agent.id);
-                      }}
-                      className="py-1.5 px-3 rounded-lg bg-background border border-border text-xs font-medium text-muted-foreground hover:text-destructive hover:border-destructive/50 transition-colors"
-                    >
-                      <span className="material-symbols-outlined text-sm">delete</span>
-                    </button>
-                  </div>
-                )}
-              </div>
-            ))
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                          <span className="text-sm">{(agent as any).icon || "🤖"}</span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-muted-foreground truncate">{agent.name}</p>
+                        </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            restoreAgent(agent.id);
+                          }}
+                          className="py-1 px-2 rounded-lg bg-primary/10 text-xs font-medium text-primary hover:bg-primary/20 transition-colors"
+                        >
+                          Restaurar
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -188,6 +221,7 @@ export function AgentsPage() {
           agent={selectedAgent}
           onEdit={handleEditAgent}
           onLinkMemory={() => setShowMemoryLinker(true)}
+          onUnlinkMemory={unlinkMemory}
           onStartChat={handleCreateConversation}
         />
       )}

@@ -67,7 +67,7 @@ export function ChatInput({
           value={noProviders ? "" : selectedModel}
           onChange={(e) => onModelChange(e.target.value)}
           disabled={interactionDisabled}
-          className="px-2 py-1.5 rounded-lg border border-input bg-transparent text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring max-w-[170px]"
+          className="px-2 py-1.5 rounded-lg border border-input bg-background text-xs text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring max-w-[170px]"
         >
           {loading ? (
             <option value="">Cargando proveedores…</option>

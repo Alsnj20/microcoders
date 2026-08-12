@@ -9,8 +9,13 @@ export const AgentSchema = z.object({
   instructions: z.string().optional(),
   model: z.string().optional(),
   tools: z.array(z.string()).optional(),
-  connectedMemories: z.array(z.string()).default([]),
+  connectedMemories: z.array(
+    z.object({ memoryId: z.string(), name: z.string() }),
+  ).default([]),
   persistentMemory: z.boolean().default(true),
+  cid: z.string().optional(),
+  hash: z.string().optional(),
+  isArchived: z.boolean().default(false),
   createdAt: z.string(),
   updatedAt: z.string(),
 });

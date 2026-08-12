@@ -47,7 +47,7 @@ export function AgentSelectorModal({
                 }`}
               >
                 <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                  <span className="text-lg">{agent.icon || "🤖"}</span>
+                  <span className="text-lg">{"🤖"}</span>
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
@@ -56,7 +56,7 @@ export function AgentSelectorModal({
                       <span className="material-symbols-outlined text-sm text-primary">check_circle</span>
                     )}
                   </div>
-                  <p className="text-xs text-muted-foreground truncate">{agent.description || "Sin descripción"}</p>
+                  {/*<p className="text-xs text-muted-foreground truncate">{agent.description || "Sin descripción"}</p>*/}
                 </div>
               </button>
             ))

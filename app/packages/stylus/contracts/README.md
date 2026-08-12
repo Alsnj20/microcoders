@@ -11,24 +11,22 @@ The blockchain only stores verifiable references (owners, hashes, CIDs, versions
 ## Architecture
 
 ```
-                     Wallet
+                      Wallet
                          │
                   UserRegistry
                          │
-          ┌──────────────┴──────────────┐
-          ▼                             ▼
-   MemoryRegistry               AgentRegistry
-          │                             │
-          └──────────────┬──────────────┘
-                         ▼
-                 ContextRegistry
-                         │
-          ┌──────────────┴──────────────┐
-          ▼                             ▼
-   CreditManager                 AuditRegistry
-          │
-          ▼
-    ETH Treasury
+        ┌───────────────┼───────────────┐
+        ▼               ▼               ▼
+ MemoryRegistry    AgentRegistry    ChatRegistry
+        │               │               │
+        └───────┬───────┴───────┬───────┘
+                ▼               ▼
+         ContextRegistry  (relaciones N:M)
+                │
+                ▼
+         CreditManager ──► ETH Treasury
+
+   AuditRegistry — historial verificable (independiente)
 ```
 
 ### Cross-Contract Interactions
@@ -64,15 +62,20 @@ contracts/
 ├── user-registry/                # User management + username uniqueness
 ├── memory-registry/              # Memory lifecycle + user stats update
 ├── agent-registry/               # Agent lifecycle + user stats update
+├── chat-registry/                # Chat lifecycle (conversations, name + CID + hash)
 ├── context-registry/             # Agent ↔ Memory relationships + credit charging
 ├── audit-registry/               # Verifiable history
 │
 ├── deploy/
-│   ├── sepolia.json              # Arbitrum Sepolia config + addresses
-│   └── one.json                  # Arbitrum One config
+│   ├── sepolia.json              # Arbitrum Sepolia config + addresses (legacy)
+│   └── one.json                  # Arbitrum One config (legacy)
+│
+├── aa/                           # ERC-4337 v0.6 (Foundry): EntryPoint + SimpleAccountFactory
+│   ├── script/DeployAA.s.sol
+│   └── script/deploy.sh          # ./deploy.sh nitro|sepolia|one
 │
 └── scripts/
-    └── deploy.sh                 # Automated deployment (dual wallet)
+    └── deploy.sh                 # Legacy deploy (dual wallet) → deploy/<net>.json
 ```
 
 ## Security Features
@@ -158,6 +161,8 @@ pub const OP_CREATE_AGENT: u8 = 3;
 pub const OP_UPDATE_AGENT: u8 = 4;
 pub const OP_EXECUTE_AGENT: u8 = 5;  // Reserved
 pub const OP_LINK_MEMORY: u8 = 6;
+pub const OP_CREATE_CHAT: u8 = 7;
+pub const OP_UPDATE_CHAT: u8 = 8;
 ```
 
 ### Macros
@@ -249,6 +254,8 @@ Manages Memory Credits (MC) — the internal consumption unit that funds AI proc
 | Update agent | 2 MC |
 | Execute agent | 2 MC (reserved) |
 | Link memory | 1 MC |
+| Create chat | 1 MC |
+| Update chat | 1 MC |
 
 #### Treasury Management
 
@@ -276,7 +283,7 @@ Manages the lifecycle of user memories (knowledge units).
 
 | Function | Access | Description |
 |----------|--------|-------------|
-| `create_memory(cid, hash, memory_type, vis)` | Public | Create new memory (charges credits) |
+| `create_memory(name, cid, hash, memory_type, vis)` | Public | Create new memory (charges credits) |
 | `update_memory(id, new_cid, new_hash)` | Owner | Update existing memory (charges credits) |
 | `archive_memory(id)` | Owner | Archive memory (soft delete) |
 | `restore_memory(id)` | Owner | Restore archived memory (error: `NotArchived` if not archived) |
@@ -300,7 +307,7 @@ Manages personal AI agents created by users.
 
 | Function | Access | Description |
 |----------|--------|-------------|
-| `create_agent(cid, hash)` | Public | Create new agent (charges credits) |
+| `create_agent(name, cid, hash)` | Public | Create new agent (charges credits) |
 | `update_agent(id, new_cid, new_hash)` | Owner | Update agent blueprint (charges credits) |
 | `archive_agent(id)` | Owner | Archive agent (soft delete) |
 | `restore_agent(id)` | Owner | Restore archived agent (error: `NotArchived` if not archived) |
@@ -313,6 +320,26 @@ Manages personal AI agents created by users.
 | `get_agent_count_by_owner(owner)` | View | Get number of agents by owner |
 | `get_agent_by_owner_index(owner, index)` | View | Get agent ID by owner and index (bounds checked) |
 | `total_agents()` | View | Get total agents |
+
+### ChatRegistry
+
+Manages user chat conversations. Metadata (messages) lives encrypted in IPFS; only `name`, `cid` and `hash` are stored on-chain.
+
+**Cross-contract:**
+- Consumes credits via `consumeCreditsForOp()` (single call) before create/update
+- Updates user stats via `UserRegistry.incrementChats` after create
+
+| Function | Access | Description |
+|----------|--------|-------------|
+| `create_chat(name, cid, hash)` | Public | Create new chat (charges credits) |
+| `update_chat(chat_id, new_cid, new_hash, new_name)` | Owner | Update chat (charges credits) |
+| `archive_chat(chat_id)` | Owner | Archive chat (soft delete) |
+| `restore_chat(chat_id)` | Owner | Restore archived chat |
+| `set_credit_manager(addr)` / `set_user_registry(addr)` | Admin | Update registry addresses |
+| `get_chat(chat_id)` | View | Get chat data (owner, version, cid, hash, name, status, timestamps) |
+| `get_chat_count_by_owner(owner)` | View | Get number of chats by owner |
+| `get_chat_by_owner_index(owner, index)` | View | Get chat ID by owner and index (bounds checked) |
+| `total_chats()` | View | Get total chats |
 
 ### ContextRegistry
 
@@ -368,6 +395,7 @@ Maintains verifiable history of the protocol.
 | **MemoryRegistry** | `MemoryCreated`, `MemoryUpdated`, `MemoryArchived`, `MemoryRestored`, `ContractPaused`, `ContractUnpaused`, `AdminTransferProposed`, `AdminTransferCompleted` |
 | **AgentRegistry** | `AgentCreated`, `AgentUpdated`, `AgentArchived`, `AgentRestored`, `ContractPaused`, `ContractUnpaused`, `AdminTransferProposed`, `AdminTransferCompleted` |
 | **ContextRegistry** | `ContextLinked`, `ContextUnlinked`, `PriorityChanged`, `LinkDisabled`, `LinkEnabled`, `ContractPaused`, `ContractUnpaused`, `AdminTransferProposed`, `AdminTransferCompleted` |
+| **ChatRegistry** | `ChatCreated`, `ChatUpdated`, `ChatArchived`, `ChatRestored`, `ContractPaused`, `ContractUnpaused`, `AdminTransferProposed`, `AdminTransferCompleted` |
 | **AuditRegistry** | `AuditRecorded`, `RecorderAuthorized`, `RecorderRevoked`, `ContractPaused`, `ContractUnpaused`, `AdminTransferProposed`, `AdminTransferCompleted` |
 
 ## Error Handling
@@ -531,26 +559,43 @@ Using enums instead of raw strings saves ~200 gas per revert (no string allocati
 
 ## Dual Network Support
 
-MemoryChain supports both **testnet** (Arbitrum Sepolia) and **mainnet** (Arbitrum One) with separate wallet configurations.
+MemoryChain supports **Nitro (local dev)**, **testnet** (Arbitrum Sepolia) and **mainnet** (Arbitrum One).
 
-### Wallet Configuration
+### Wallet Configuration (standardized env vars)
+
+Las credenciales viven en `packages/stylus/.env` (ver `.env.example`):
 
 ```bash
-# .env file
-TESTNET_PRIVATE_KEY=0x...    # Private key for testnet deployments
-TESTNET_TREASURY=0x...       # Treasury address for testnet ETH
-MAINNET_PRIVATE_KEY=0x...    # Private key for mainnet deployments
-MAINNET_TREASURY=0x...       # Treasury address for mainnet ETH
+# devnet (nitro)
+RPC_URL_NITRO=
+PRIVATE_KEY_NITRO=
+
+## sepolia (arbitrum sepolia)
+RPC_URL_SEPOLIA=https://sepolia-rollup.arbitrum.io/rpc
+PRIVATE_KEY_SEPOLIA=
+
+## mainnet (arbitrum one)
+RPC_URL_MAINNET=https://arb1.arbitrum.io/rpc
+PRIVATE_KEY_MAINNET=
+
+# Optional CreditManager network config
+TREASURY_SEPOLIA=
+TREASURY_MAINNET=
+PRICE_PER_CREDIT_SEPOLIA=
+PRICE_PER_CREDIT_MAINNET=
 ```
+
+> El **script legacy** (`scripts/deploy.sh`) usa el mismo set de variables estándar
+> (`PRIVATE_KEY_SEPOLIA`, `ACCOUNT_ADDRESS_SEPOLIA`, etc.).
 
 ### Network Comparison
 
-| Feature | Testnet (Sepolia) | Mainnet (Arbitrum One) |
-|---------|-------------------|------------------------|
-| ETH Type | Sepolia ETH (free from faucets) | Real ETH |
-| Price per MC | 0.00001 ETH | 0.00001 ETH |
-| Wallet | `TESTNET_*` | `MAINNET_*` |
-| Explorer | sepolia.arbiscan.io | arbiscan.io |
+| Feature | Nitro (dev) | Testnet (Sepolia) | Mainnet (Arbitrum One) |
+|---------|-------------|-------------------|------------------------|
+| Chain ID | 412346 | 421614 | 42161 |
+| ETH | gratis (dev node) | Sepolia ETH (faucets) | Real ETH |
+| Price per MC | 0.00001 ETH | 0.00001 ETH | 0.00001 ETH |
+| Explorer | — | sepolia.arbiscan.io | arbiscan.io |
 
 ## Deployment
 
@@ -572,18 +617,40 @@ curl -L https://foundry.paradigm.xyz | bash
 foundryup
 ```
 
-4. Configure `.env` with your wallets:
+4. Configure `.env` (see `.env.example`):
 ```bash
-TESTNET_PRIVATE_KEY=0x...
-TESTNET_TREASURY=0x...
-MAINNET_PRIVATE_KEY=0x...
-MAINNET_TREASURY=0x...
+PRIVATE_KEY_SEPOLIA=0x...
+PRIVATE_KEY_MAINNET=0x...
+RPC_URL_SEPOLIA=https://sepolia-rollup.arbitrum.io/rpc
+RPC_URL_MAINNET=https://arb1.arbitrum.io/rpc
 ```
 
-### Deploy to Arbitrum Sepolia (testnet)
+### Deploy (modern, recommended) — red-aware
+
+El pipeline moderno (`pnpm run deploy:contracts --network <red>`) despliega los 7
+contratos, los inicializa y autoriza los cross-contract calls automáticamente:
+
+```bash
+# desde app/
+pnpm run deploy:contracts --network arbitrumNitro     # dev local
+pnpm run deploy:contracts --network arbitrumSepolia    # testnet
+pnpm run deploy:contracts --network arbitrumOne        # mainnet
+```
+
+- Predeploy compila los WASM (Docker si existe la imagen `nitro-node-stylus-dev`, si no build nativo).
+- Inicializa (`initialize()` + `CreditManager.initializeNetwork()`) y autoriza consumers/updaters.
+- Guarda artefactos en `packages/stylus/deployments/<red>_<chainId>_latest.json`
+  (ej. `arbitrumSepolia_421614_latest.json`) y genera `packages/nextjs/contracts/deployedContracts.ts`
+  **fusionando redes** (no borra las anteriores).
+- Init manual: `pnpm init-contracts --network <red>`.
+
+### Deploy (legacy) — `scripts/deploy.sh`
+
+Usa `deploy/<network>.json` y variables estándar (`PRIVATE_KEY_SEPOLIA`, etc.):
 
 ```bash
 ./scripts/deploy.sh sepolia
+./scripts/deploy.sh one
 ```
 
 Use `--force` to redeploy even if addresses already exist:
@@ -591,15 +658,17 @@ Use `--force` to redeploy even if addresses already exist:
 ./scripts/deploy.sh sepolia --force
 ```
 
-### Deploy to Arbitrum One (mainnet)
+### Deploy AA (ERC-4337) — solo para producción con session keys
 
 ```bash
-./scripts/deploy.sh one
+# desde contracts/aa
+./script/deploy.sh sepolia    # EntryPoint canónico v0.6 + SimpleAccountFactory en Sepolia
+./script/deploy.sh nitro      # despliega EntryPoint + factory en el nodo local
 ```
 
 ### What the Deploy Script Does
 
-1. Selects wallet based on network (`TESTNET_*` or `MAINNET_*`)
+1. Selects wallet based on network (`PRIVATE_KEY_SEPOLIA` / `PRIVATE_KEY_MAINNET`)
 2. Verifies workspace compiles (`cargo check`)
 3. Runs `cargo stylus check` for each contract
 4. Deploys contracts in correct dependency order:
@@ -607,17 +676,19 @@ Use `--force` to redeploy even if addresses already exist:
    - UserRegistry (no dependencies)
    - MemoryRegistry (needs CreditManager + UserRegistry)
    - AgentRegistry (needs CreditManager + UserRegistry)
+   - ChatRegistry (needs CreditManager + UserRegistry)
    - ContextRegistry (needs MemoryRegistry + AgentRegistry + CreditManager)
    - AuditRegistry (no dependencies)
 5. Initializes all contracts with correct addresses:
    - `MemoryRegistry.initialize(credit_manager, user_registry)`
    - `AgentRegistry.initialize(credit_manager, user_registry)`
+   - `ChatRegistry.initialize(credit_manager, user_registry)`
    - `ContextRegistry.initialize(memory_registry, agent_registry, credit_manager)`
    - `AuditRegistry.initialize()`
-6. Authorizes credit consumers: MemoryRegistry, AgentRegistry, ContextRegistry
-7. Authorizes stat updaters: MemoryRegistry, AgentRegistry (on UserRegistry)
+6. Authorizes credit consumers: MemoryRegistry, AgentRegistry, ChatRegistry, ContextRegistry
+7. Authorizes stat updaters: MemoryRegistry, AgentRegistry, ChatRegistry (on UserRegistry)
 8. Configures CreditManager network (treasury, price, testnet mode)
-9. Saves addresses to `deploy/<network>.json`
+9. Saves addresses to `deploy/<network>.json` (legacy) — el pipeline moderno los guarda en `packages/stylus/deployments/<red>_<chainId>_latest.json`
 
 ### Post-Deployment Verification
 
@@ -730,6 +801,8 @@ Operation codes:
 - 4: Update agent
 - 5: Execute agent (reserved)
 - 6: Link memory
+- 7: Create chat
+- 8: Update chat
 
 ## License
 

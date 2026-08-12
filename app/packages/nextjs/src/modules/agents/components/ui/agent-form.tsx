@@ -7,6 +7,8 @@ import { z } from "zod";
 import { Button } from "~~/components/ui/button";
 import { Input } from "~~/components/ui/input";
 import { api } from "~~/services/api/client";
+import { useGlobalState } from "~~/services/store/store";
+import { resolveMemoryTitleSafe } from "~~/src/modules/memories/services/memory-title";
 import type { Agent } from "../../types/agent";
 
 const AGENT_ICONS = ["🤖", "🧠", "📈", "💻", "🎯", "🔬", "📚", "✍️", "🎨", "🔧"];
@@ -26,7 +28,7 @@ interface AgentFormProps {
   agent?: Agent | null;
   onSubmit: (data: AgentFormData) => void;
   onClose: () => void;
-  linkedMemories?: string[];
+  linkedMemories?: { memoryId: string; name: string }[];
   onLinkMemory?: (memoryId: string) => void;
   onUnlinkMemory?: (memoryId: string) => void;
 }
@@ -41,6 +43,7 @@ interface MemoryItem {
 export function AgentForm({ agent, onSubmit, onClose, linkedMemories = [], onLinkMemory, onUnlinkMemory }: AgentFormProps) {
   const [showMemorySelector, setShowMemorySelector] = useState(false);
   const [availableMemories, setAvailableMemories] = useState<MemoryItem[]>([]);
+  const { session } = useGlobalState();
 
   const {
     register,
@@ -65,11 +68,22 @@ export function AgentForm({ agent, onSubmit, onClose, linkedMemories = [], onLin
 
   useEffect(() => {
     if (showMemorySelector) {
-      api.memories.$get().then((res: any) => {
-        if (res.ok) res.json().then((data: any) => setAvailableMemories(data.memories || []));
+      api.memories.$get().then(async (res: any) => {
+        if (!res.ok) return;
+        const data = await res.json();
+        const items = data.memories || [];
+        const resolved = await Promise.all(
+          items.map(async (m: any) => ({
+            memoryId: m.memoryId,
+            name: await resolveMemoryTitleSafe(m.cid, session.kWallet, m.name),
+            cid: m.cid,
+            memoryType: m.memoryType,
+          })),
+        );
+        setAvailableMemories(resolved);
       }).catch(() => {});
     }
-  }, [showMemorySelector]);
+  }, [showMemorySelector, session.kWallet]);
 
   useEffect(() => {
     if (agent) {
@@ -138,7 +152,7 @@ export function AgentForm({ agent, onSubmit, onClose, linkedMemories = [], onLin
             <select
               id="personality"
               {...register("personality")}
-              className="w-full px-3 py-2 rounded-lg border border-input bg-transparent text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+              className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
             >
               <option value="">Seleccionar...</option>
               <option value="profesional">Profesional y analítico</option>
@@ -181,7 +195,7 @@ export function AgentForm({ agent, onSubmit, onClose, linkedMemories = [], onLin
               <p className="text-xs text-muted-foreground text-center py-2">No hay memorias creadas</p>
             ) : (
               availableMemories.map(mem => {
-                const isLinked = linkedMemories.includes(mem.memoryId);
+                const isLinked = linkedMemories.some(m => m.memoryId === mem.memoryId);
                 return (
                   <button
                     key={mem.memoryId}

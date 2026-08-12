@@ -2,7 +2,9 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { generateText, type ModelMessage } from "ai";
 import { Hono } from "hono";
 import { z } from "zod";
+import type { SessionKeyStore } from "../types/session.js";
 import type { AppEnv } from "../index.js";
+import { resolveAccountFor } from "../lib/resolve-account.js";
 
 const FOUNDRY_OPENAI_URL = process.env.FOUNDRY_OPENAI_URL || "";
 const FOUNDRY_KEY = process.env.FOUNDRY_KEY || "";
@@ -32,7 +34,7 @@ function generateId(): string {
   return "0x" + Array.from({ length: 32 }, () => Math.floor(Math.random() * 256).toString(16).padStart(2, "0")).join("");
 }
 
-export function createChatRoutes(chatRegistry: any): Hono<AppEnv> {
+export function createChatRoutes(chatRegistry: any, sessionKeyStore?: SessionKeyStore): Hono<AppEnv> {
   const routes = new Hono<AppEnv>();
 
   const CreateChatSchema = z.object({
@@ -137,7 +139,8 @@ export function createChatRoutes(chatRegistry: any): Hono<AppEnv> {
       return c.json({ code: "AUTH_REQUIRED", message: "No valid session" }, 401);
     }
 
-    const result = await chatRegistry.getChatsByOwner(session.address, 0, 100);
+    const account = await resolveAccountFor(sessionKeyStore, session.address);
+    const result = await chatRegistry.getChatsByOwner(account, 0, 100);
     if (!result.success) {
       return c.json({ code: "LIST_FAILED", message: result.error || "Failed to list chats" }, 500);
     }
@@ -153,7 +156,7 @@ export function createChatRoutes(chatRegistry: any): Hono<AppEnv> {
       updatedAt: chat.updatedAt,
     }));
 
-    return c.json({ chats });
+    return c.json({ chats, account });
   });
 
   // ── WELCOME MESSAGE ─────────────────────────────────────────────────
@@ -178,6 +181,66 @@ Puedo ayudarte a:
 ¿En qué te puedo ayudar hoy?`;
 
     return c.json({ message: welcomeMessage, address: shortAddress, username });
+  });
+
+  // ── EXTRACT MEMORY ────────────────────────────────────────────────
+  routes.post("/extract-memory", async (c) => {
+    const session = requireSession(c);
+    if (!session) {
+      return c.json({ code: "AUTH_REQUIRED", message: "No valid session" }, 401);
+    }
+
+    const body = await c.req.json();
+    if (!body.content || typeof body.content !== "string") {
+      return c.json({ code: "VALIDATION_ERROR", message: "content (string) is required" }, 400);
+    }
+
+    if (!FOUNDRY_OPENAI_URL || !FOUNDRY_KEY || !foundry) {
+      return c.json({ code: "CONFIG_ERROR", message: "AI provider not configured" }, 500);
+    }
+
+    try {
+      const extractionPrompt = `Eres un extractor de memoria. Dado un fragmento de conversación, extrae un TÍTULO, una DESCRIPCIÓN y un CONTENIDO estructurado para guardarlo como memoria persistente en una base de conocimiento.
+
+REGLAS:
+- TÍTULO: máximo 80 caracteres, descriptivo, resume la idea central.
+- DESCRIPCIÓN: máximo 150 caracteres, un resumen conciso del contenido.
+- CONTENIDO: el contenido expandido y bien formateado en Markdown. Preserva los detalles técnicos, amplía contexto si es necesario, ordena con títulos/listas. Este es el campo que puede crecer.
+
+Responde EXCLUSIVAMENTE con un JSON válido (sin texto adicional):
+{"title": "...", "description": "...", "content": "..."}
+
+Fragmento de conversación:
+---
+${body.content}
+---`;
+
+      const result = await generateText({
+        model: foundry("gpt-5-nano"),
+        system: "Eres un extractor de memoria. Responde EXCLUSIVAMENTE con un JSON válido: {\"title\": \"...\", \"description\": \"...\", \"content\": \"...\"}. Sin explicaciones, sin texto adicional.",
+        messages: [{ role: "user", content: extractionPrompt }],
+        maxOutputTokens: 1500,
+      });
+
+      const reply = result.text?.trim() || "";
+      let extracted = { title: body.content.slice(0, 80), description: body.content.slice(0, 150), content: body.content };
+      try {
+        const jsonMatch = reply.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0]);
+          if (parsed.title && parsed.description && parsed.content) {
+            extracted = { title: parsed.title.slice(0, 200), description: parsed.description.slice(0, 300), content: parsed.content };
+          }
+        }
+      } catch {
+        // If parsing fails, use the full content as fallback
+      }
+
+      return c.json(extracted);
+    } catch (err: any) {
+      console.error("[Chat] extract-memory error:", err.message);
+      return c.json({ code: "AI_ERROR", message: "Error extracting memory" }, 500);
+    }
   });
 
   // ── GET CHAT ───────────────────────────────────────────────────────────
@@ -233,7 +296,9 @@ Puedo ayudarte a:
       }
 
       const modelId = model || "gpt-5-nano";
-      const system = systemPrompt?.trim() || "Eres un asistente útil. Responde en español.";
+      const system =
+        systemPrompt?.trim() ||
+        "Eres un asistente útil. Responde en español. Formatea en Markdown (GFM): usa bloques de código con ``` (con lenguaje) para cualquier código y tablas con | para datos.";
 
       // Linked memories are injected as a leading context message so the model
       // sees them as persistent info about the user, without touching the system prompt.

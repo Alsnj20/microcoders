@@ -3,6 +3,7 @@
 import { User } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { SharedBotAvatar } from "../shared/SharedBotAvatar";
+import { Markdown } from "../markdown";
 
 // ============================================================
 // ChatContainer - Contenedor principal del chat
@@ -68,7 +69,11 @@ export function ChatBubble({ role, content, timestamp, className = "" }: ChatBub
             : "bg-muted text-foreground border border-border rounded-bl-md"
         }`}
       >
-        <p className="text-sm whitespace-pre-wrap font-sans">{content}</p>
+        {isUser ? (
+          <p className="text-sm whitespace-pre-wrap font-sans">{content}</p>
+        ) : (
+          <Markdown>{content}</Markdown>
+        )}
         {timestamp && (
           <p className={`text-xs mt-1 ${isUser ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
             {timestamp}

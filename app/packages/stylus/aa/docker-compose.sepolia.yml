@@ -11,12 +11,14 @@ services:
       - ALTO_ENTRYPOINTS=${ENTRY_POINT_ADDRESS:-0x5FF137D4b0FDCD49DcA30c7CF57C578A026d2789}
       - ALTO_NETWORK_NAME=arbitrum-sepolia
       - ALTO_LOG_LEVEL=info
-      - ALTO_SAFE_MODE=true
+      # safe-mode=false → uses UnsafeValidator (no debug_traceCall dependency), so
+      # it works with the public Sepolia RPC. Only for testnet testing.
+      - ALTO_SAFE_MODE=false
       - ALTO_EXECUTOR_PRIVATE_KEYS=${ALTO_EXECUTOR_PRIVATE_KEYS:?Set ALTO_EXECUTOR_PRIVATE_KEYS (a funded Sepolia key) in .env}
       - ALTO_UTILITY_PRIVATE_KEY=${ALTO_UTILITY_PRIVATE_KEY:?Set ALTO_UTILITY_PRIVATE_KEY (a funded Sepolia key) in .env}
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:4337"]
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:3000/health"]
       interval: 10s
       timeout: 5s
       retries: 5

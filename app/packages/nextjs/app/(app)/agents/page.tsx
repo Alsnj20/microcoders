@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "~~/components/ui/button";
 import { SlideOver } from "~~/components/ui/slide-over";
 import { LateralBar, LateralBarContent, LateralBarSection, LateralBarSectionButton, LateralBarFooter } from "~~/components/ui/lateral-bar";
@@ -8,17 +8,13 @@ import { SlidePanel } from "~~/components/shared/SlidePanel";
 import { AgentForm } from "~~/src/modules/agents/components/ui/agent-form";
 import { AgentMemoryLinker } from "~~/src/modules/agents/components/ui/agent-memory-linker";
 import { useAgent } from "~~/src/modules/agents/hooks/use-agent";
+import { resolveMemoryTitleSafe } from "~~/src/modules/memories/services/memory-title";
+import { useGlobalState } from "~~/services/store/store";
 import { api } from "~~/services/api/client";
-import type { Agent, AgentModel } from "~~/src/modules/agents/types/agent";
-
-interface AgentChatMsg {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-  timestamp: string;
-}
+import type { Agent } from "~~/src/modules/agents/types/agent";
 
 export default function AgentsPage() {
+  const { session } = useGlobalState();
   const {
     agents,
     selectedAgent,
@@ -36,8 +32,6 @@ export default function AgentsPage() {
   const [showPanel, setShowPanel] = useState<"create" | "edit" | null>(null);
   const [editingAgent, setEditingAgent] = useState<Agent | null>(null);
   const [showMemoryLinker, setShowMemoryLinker] = useState(false);
-  const [chatMessages, setChatMessages] = useState<AgentChatMsg[]>([]);
-  const [chatInput, setChatInput] = useState("");
   const [linkedMemories, setLinkedMemories] = useState<{ memoryId: string; title: string; cid: string }[]>([]);
   const [showLeftPanel, setShowLeftPanel] = useState(false);
   const [showRightPanel, setShowRightPanel] = useState(false);
@@ -66,7 +60,8 @@ export default function AgentsPage() {
           const memRes = await api.memories[":id"].$get({ param: { id: link.memoryId } });
           if (memRes.ok) {
             const memData = await memRes.json();
-            memories.push({ memoryId: link.memoryId, title: memData.name || link.memoryId, cid: memData.cid });
+            const title = await resolveMemoryTitleSafe(memData.cid, session.kWallet, memData.name || link.memoryId);
+            memories.push({ memoryId: link.memoryId, title, cid: memData.cid });
           }
         }
         setLinkedMemories(memories);
@@ -75,12 +70,6 @@ export default function AgentsPage() {
       console.error("Failed to load linked memories:", err);
     }
   };
-  const chatEndRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [chatMessages]);
-
   const handleCreate = () => {
     setEditingAgent(null);
     setShowPanel("create");
@@ -108,39 +97,18 @@ export default function AgentsPage() {
       if (editingAgent) {
         await updateAgent(editingAgent.id, data);
       } else {
-        await createAgent({ ...data, connectedMemories: [] });
+        await createAgent({ ...data, connectedMemories: [], isArchived: false });
       }
       setShowPanel(null);
       setEditingAgent(null);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Form error:", err);
+      alert(`Error al guardar el agente: ${err.message || "Inténtalo de nuevo"}`);
     }
-  };
-
-  const handleSendMessage = () => {
-    if (!chatInput.trim() || !selectedAgent) return;
-
-    const userMsg: AgentChatMsg = {
-      id: `u-${Date.now()}`,
-      role: "user",
-      content: chatInput,
-      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-    };
-
-    const botMsg: AgentChatMsg = {
-      id: `a-${Date.now()}`,
-      role: "assistant",
-      content: `[${selectedAgent.name}] Procesando: "${chatInput}". Consultando memorias vinculadas...`,
-      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-    };
-
-    setChatMessages(prev => [...prev, userMsg, botMsg]);
-    setChatInput("");
   };
 
   const handleSelectAgent = (id: string) => {
     setSelectedAgentId(id);
-    setChatMessages([]);
     setShowLeftPanel(false);
   };
 
@@ -264,52 +232,76 @@ export default function AgentsPage() {
               {/* Chat Messages */}
               <div className="flex-1 overflow-y-auto p-6">
                 <div className="max-w-3xl mx-auto space-y-4">
-                  {chatMessages.length === 0 ? (
-                    <div className="text-center py-12 text-muted-foreground">
-                      <span className="material-symbols-outlined text-4xl mb-2 block">chat</span>
-                      <p className="text-sm">Envía un mensaje para iniciar la conversación.</p>
+                  {/* Agent header */}
+                  <div className="flex flex-col items-center mb-6 pt-4">
+                    <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-3">
+                      <span className="text-3xl">{selectedAgent.icon || "🤖"}</span>
                     </div>
-                  ) : (
-                    chatMessages.map(msg => (
-                      <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                        <div className={`max-w-[70%] px-4 py-3 rounded-2xl ${
-                          msg.role === "user"
-                            ? "bg-primary text-primary-foreground rounded-br-md"
-                            : "bg-muted text-foreground border border-border rounded-bl-md"
-                        }`}>
-                          <p className="text-sm whitespace-pre-wrap break-words overflow-hidden">{msg.content}</p>
-                          <p className={`text-xs mt-1 ${msg.role === "user" ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
-                            {msg.timestamp}
-                          </p>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                  <div ref={chatEndRef} />
+                    <h2 className="text-xl font-semibold text-foreground">{selectedAgent.name}</h2>
+                    {selectedAgent.description && (
+                      <p className="text-sm text-muted-foreground mt-1 text-center max-w-md">{selectedAgent.description}</p>
+                    )}
+                  </div>
+
+                  {/* Preview message from agent */}
+                  <div className="flex gap-3 justify-start">
+                    <div className="w-8 h-8 rounded-full bg-primary/10 border border-border flex items-center justify-center shrink-0">
+                      <span className="material-symbols-outlined text-sm text-primary">smart_toy</span>
+                    </div>
+                    <div className="max-w-[70%] px-4 py-3 rounded-2xl bg-muted text-foreground border border-border rounded-bl-md">
+                      <p className="text-sm font-medium mb-1">Vista previa del agente</p>
+                      <p className="text-sm text-muted-foreground">
+                        Soy <span className="font-medium text-foreground">{selectedAgent.name}</span>.
+                        {selectedAgent.description || " Estoy listo para ayudarte con tus consultas."}
+                        Para chatear conmigo, inicia una conversación desde el chat principal.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Sample interaction preview */}
+                  <div className="flex gap-3 justify-end mt-4">
+                    <div className="max-w-[70%] px-4 py-3 rounded-2xl bg-primary text-primary-foreground rounded-br-md">
+                      <p className="text-sm">Ejemplo: ¿Qué puedes hacer?</p>
+                    </div>
+                    <div className="w-8 h-8 rounded-full bg-muted border border-border flex items-center justify-center shrink-0">
+                      <span className="material-symbols-outlined text-sm text-muted-foreground">person</span>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3 justify-start mt-4">
+                    <div className="w-8 h-8 rounded-full bg-primary/10 border border-border flex items-center justify-center shrink-0">
+                      <span className="material-symbols-outlined text-sm text-primary">smart_toy</span>
+                    </div>
+                    <div className="max-w-[70%] px-4 py-3 rounded-2xl bg-muted text-foreground border border-border rounded-bl-md">
+                      <p className="text-sm">
+                        Puedo ayudarte con análisis de datos, responder preguntas sobre tus memorias,
+                        generar contenido y más. ¡Inicia una conversación para probarlo!
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              {/* Chat Input */}
+              {/* Disabled Input */}
               <div className="border-t border-border bg-background p-4 shrink-0">
-                <form
-                  onSubmit={(e) => { e.preventDefault(); handleSendMessage(); }}
-                  className="flex items-center gap-2 max-w-3xl mx-auto bg-card rounded-2xl border border-border p-2 shadow-sm"
-                >
+                <div className="flex items-center gap-2 max-w-3xl mx-auto bg-card rounded-2xl border border-border p-2 shadow-sm opacity-50 pointer-events-none">
                   <input
                     type="text"
-                    value={chatInput}
-                    onChange={(e) => setChatInput(e.target.value)}
-                    placeholder="Escribe tu mensaje..."
-                    className="flex-1 bg-transparent border-none outline-none text-sm text-foreground placeholder:text-muted-foreground px-2"
+                    placeholder="El chat está en el módulo principal..."
+                    disabled
+                    className="flex-1 bg-transparent border-none outline-none text-sm text-muted-foreground placeholder:text-muted-foreground px-2"
                   />
                   <button
-                    type="submit"
-                    disabled={!chatInput.trim()}
-                    className="p-2.5 bg-primary text-primary-foreground rounded-full hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                    type="button"
+                    disabled
+                    className="p-2.5 bg-primary text-primary-foreground rounded-full opacity-40 cursor-not-allowed transition-all"
                   >
                     <span className="material-symbols-outlined text-xl">arrow_upward</span>
                   </button>
-                </form>
+                </div>
+                <p className="text-xs text-muted-foreground text-center mt-2">
+                  El chat con este agente se realiza desde el módulo <span className="font-medium text-foreground">Chat</span>.
+                </p>
               </div>
             </>
           )}
@@ -417,7 +409,7 @@ function AgentDetailsPanel({
 
         <div className="flex items-center gap-3 mb-4">
           <div className="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center">
-            <span className="text-3xl">{agent.icon || "🤖"}</span>
+            <span className="text-3xl">{"🤖"}</span>
           </div>
           <div>
             <p className="text-base font-bold text-foreground">{agent.name}</p>
@@ -462,7 +454,7 @@ function AgentDetailsPanel({
                 <div key={mem.memoryId} className="flex items-center justify-between p-2.5 rounded-lg bg-muted border border-border">
                   <div className="min-w-0 flex-1 pr-2">
                     <p className="text-sm font-medium text-foreground truncate">{mem.title}</p>
-                    <p className="text-xs text-muted-foreground truncate">{mem.cid}</p>
+                    {/*<p className="text-xs text-muted-foreground truncate">{mem.cid}</p>*/}
                   </div>
                   <Button
                     variant="ghost"
