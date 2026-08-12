@@ -60,7 +60,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN mkdir -p .next && chown node:node .next
 
 # Copy public assets
-COPY --from=builder --chown=node:node /app/packages/nextjs/public ./public
+COPY --from=builder --chown=node:node /app/packages/nextjs/public ./packages/nextjs/public
 
 # Copy the standalone bundle — contains server.js + traced node_modules
 COPY --from=builder --chown=node:node /app/packages/nextjs/.next/standalone ./
