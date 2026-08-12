@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+
+metadata:
+  name: microcoders-hono
+  namespace: microcoders
+
+data:
+  REDIS_URL: redis://microcoders-redis:6379
+  IPFS_API_URL: http://microcoders-ipfs:5001
+  CORS_ORIGIN: https://YOUR_DOMAIN

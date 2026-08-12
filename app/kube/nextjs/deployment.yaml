@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: microcoders-nextjs
+  namespace: microcoders
+  labels:
+    app: microcoders-nextjs
+
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: microcoders-nextjs
+  template:
+    metadata:
+      labels:
+        app: microcoders-nextjs
+    spec:
+      containers:
+        - name: nextjs
+          image: "" # TODO: set image after pushing to GHCR (e.g. ghcr.io/org/repo/nextjs:latest)
+          ports:
+            - name: http
+              containerPort: 3000
+          envFrom:
+            - configMapRef:
+                name: microcoders-nextjs
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 10

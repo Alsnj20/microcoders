@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: microcoders-redis
+  namespace: microcoders
+  labels:
+    app: microcoders-redis
+
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: microcoders-redis
+  template:
+    metadata:
+      labels:
+        app: microcoders-redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          ports:
+            - name: redis
+              containerPort: 6379

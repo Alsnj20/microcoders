@@ -22,8 +22,6 @@ services:
   redis:
     image: redis:7-alpine
     container_name: memorychain-redis
-    ports:
-      - "6379:6379"
     volumes:
       - redis-data:/data
     restart: unless-stopped
@@ -32,6 +30,62 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  hono:
+    build:
+      context: .
+      dockerfile: packages/hono/Dockerfile
+    container_name: memorychain-hono
+    env_file:
+      - ./packages/hono/.env
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - IPFS_API_URL=http://ipfs:5001
+      - CORS_ORIGIN=http://localhost
+    depends_on:
+      redis:
+        condition: service_healthy
+      ipfs:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  nextjs:
+    build:
+      context: .
+      dockerfile: packages/nextjs/Dockerfile
+    container_name: memorychain-nextjs
+    env_file:
+      - ./packages/nextjs/.env
+    environment:
+      - NEXT_PUBLIC_API_URL=/api
+    depends_on:
+      hono:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  nginx:
+    image: nginx:alpine
+    container_name: memorychain-nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      hono:
+        condition: service_healthy
+      nextjs:
+        condition: service_healthy
+    restart: unless-stopped
 
 volumes:
   ipfs-data:

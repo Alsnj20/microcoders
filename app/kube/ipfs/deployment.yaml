@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: microcoders-ipfs
+  namespace: microcoders
+  labels:
+    app: microcoders-ipfs
+
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: microcoders-ipfs
+  template:
+    metadata:
+      labels:
+        app: microcoders-ipfs
+    spec:
+      containers:
+        - name: ipfs
+          image: ipfs/kubo:latest
+          env:
+            - name: IPFS_PROFILE
+              value: server
+          ports:
+            - name: api
+              containerPort: 5001
+            - name: gateway
+              containerPort: 8080
+            - name: swarm
+              containerPort: 4001
+          volumeMounts:
+            - name: ipfs-data
+              mountPath: /data/ipfs
+      volumes:
+        - name: ipfs-data
+          persistentVolumeClaim:
+            claimName: microcoders-ipfs
